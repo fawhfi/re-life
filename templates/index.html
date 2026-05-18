@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Re-Life — Green Living Assistant</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<div class="app">
+
+  <!-- ═══ HEADER ═══ -->
+  <header class="app-header">
+    <div class="header-left">
+      <div class="header-avatar" id="hdr-avatar" onclick="toggleLogin()">👤</div>
+      <span class="header-title">Re-Life</span>
+      <span class="header-user" id="hdr-user" onclick="toggleLogin()">Not Logged In</span>
+    </div>
+    <span class="header-time" id="header-time">11:45:14 AM</span>
+  </header>
+
+  <!-- ═══ MAIN ═══ -->
+  <main class="main">
+
+    <!-- TAB: Home -->
+    <section id="tab-home" class="tab active">
+      <div class="card">
+        <h2 class="card-header" id="lbl-scan-title">SCAN YOUR ITEMS</h2>
+        <div class="scan-grid">
+          <button class="scan-btn scan-btn--dispose" onclick="startScanningMode('dispose')">
+            <div class="scan-btn-icon">🗑️</div>
+            <span class="scan-btn-label" id="lbl-dispose-btn">TO DISPOSE</span>
+            <span class="scan-btn-sub" id="lbl-dispose-sub">E-waste, Organics, Bulky</span>
+          </button>
+          <button class="scan-btn scan-btn--purchase" onclick="startScanningMode('purchase')">
+            <div class="scan-btn-icon">🥛</div>
+            <span class="scan-btn-label" id="lbl-purchase-btn">TO PURCHASE</span>
+            <span class="scan-btn-sub" id="lbl-purchase-sub">Groceries, Dairy, Bottles</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="card" style="padding:12px 16px">
+        <div class="ai-row">
+          <span class="ai-row-label" id="lbl-ai-mode">🤖 Gemini AI</span>
+          <span class="ai-row-status" id="ai-status">Live AI</span>
+          <button id="ai-switch" class="ai-switch is-active" onclick="toggleAI()"></button>
+        </div>
+      </div>
+
+      <div id="schema-row" class="schema-row">
+        <div class="rating-item" style="gap:3px">
+          <span class="rating-label" id="lbl-item-type">Item Type</span>
+          <select class="select-field" id="schema-item-type" onchange="updateItemType()">
+            <option value="food">Food Items</option>
+            <option value="general">General Items</option>
+          </select>
+        </div>
+        <div class="rating-item" style="gap:3px">
+          <span class="rating-label" id="lbl-item-state">State</span>
+          <select class="select-field" id="schema-item-state" onchange="updateItemState()">
+            <option value="new">New Purchase</option>
+            <option value="expire">About to Expire</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="upload-zone" id="upload-zone" onclick="triggerUpload()">
+        <div class="upload-icon">📷</div>
+        <div class="upload-text" id="lbl-upload-text">Tap to upload a photo</div>
+        <div class="upload-hint" id="lbl-upload-hint">or drag &amp; drop</div>
+        <input type="file" id="file-input" accept="image/*" onchange="handleFileSelect(event)" class="hidden">
+        <div class="upload-preview" id="upload-preview">
+          <img id="upload-preview-img" src="" alt="Preview">
+          <button class="upload-preview-remove" onclick="event.stopPropagation();clearPreview()">×</button>
+        </div>
+      </div>
+
+      <div class="mode-switcher">
+        <button id="mode-dispose" class="is-active" onclick="setScanModeUI('dispose')">♻️ Disposal Mode</button>
+        <button id="mode-purchase" onclick="setScanModeUI('purchase')">🥛 Purchase Mode</button>
+      </div>
+
+      <button class="btn btn--primary btn--full" id="scan-btn" onclick="doScan()" disabled>
+        <span id="scan-btn-label">🔍 Scan Item</span>
+      </button>
+
+      <div id="scan-status" class="scanning-status">
+        <div class="scanning-spinner"></div>
+        <div class="scanning-text" id="lbl-scanning-text">AI Analyzing...</div>
+        <div class="scanning-hint" id="lbl-scanning-hint">Gemini is evaluating your item</div>
+      </div>
+
+      <!-- Scan Result -->
+      <div id="scan-result" class="result-card hidden">
+        <div class="record-card-image" id="result-img">📦</div>
+        <div class="result-card-name" id="result-name">Scanned Item</div>
+        <div class="result-card-tip" style="font-weight:600;font-style:normal" id="result-brand"></div>
+        <div class="result-card-tip" id="result-desc"></div>
+
+        <div class="record-card-ratings" style="justify-content:center;margin-top:10px">
+          <div class="rating-item">
+            <span class="rating-label">Eco-Rate</span>
+            <div class="star-rating" id="result-eco-stars"></div>
+          </div>
+          <div class="rating-item">
+            <span class="rating-label">Recycle Rate</span>
+            <div class="star-rating" id="result-recycle-stars"></div>
+          </div>
+        </div>
+
+        <div id="result-alt" class="alternative-card hidden">
+          <div class="alternative-card-label">Alternative Product</div>
+          <div class="alternative-card-name" id="alt-name"></div>
+          <div class="alternative-card-ratings">
+            <div class="rating-item"><span class="rating-label">Eco-Rate:</span><div class="star-rating" id="alt-eco-stars"></div></div>
+            <div class="rating-item"><span class="rating-label">Recycle Rate:</span><div class="star-rating" id="alt-recycle-stars"></div></div>
+          </div>
+          <button class="btn btn--outline btn--small btn--full" style="margin-top:8px" id="lbl-swap" onclick="swapAlternative()">SWAP ME</button>
+        </div>
+
+        <!-- Weighted Score -->
+        <div class="weighted-section">
+          <div class="weighted-header">
+            <span class="weighted-title" id="ws-title">Weighted Criteria</span>
+            <button class="weighted-toggle" id="ws-toggle-btn" onclick="toggleWS()">Show Details</button>
+          </div>
+          <div class="overall-row">
+            <span class="overall-label" id="lbl-overall">Overall Score</span>
+            <div><span class="overall-value" id="ov-score">74</span><span class="overall-max">/100</span></div>
+          </div>
+          <div class="grade-row">
+            <span class="rating-label" id="lbl-grade">Grade</span>
+            <span class="grade-tag" id="grade-tag" style="background:#047857">Good (B)</span>
+            <span style="font-weight:600;color:var(--color-gray-500);font-size:10px" id="grade-advice">Acceptable</span>
+          </div>
+          <div class="overall-bar">
+            <div class="overall-bar-fill" id="ov-bar-fill" style="width:74%;background:#047857"></div>
+          </div>
+          <div class="weighted-detail" id="weighted-detail"></div>
+        </div>
+
+        <!-- Disposal Guide -->
+        <div id="disposal-guide" class="disposal-guide hidden">
+          <div class="disposal-guide-title" id="lbl-dg-title">♻️ Disposal Guide</div>
+          <div class="disposal-guide-row"><span class="disposal-guide-label" id="lbl-disp-material">Material:</span><span id="disp-material"></span></div>
+          <div class="disposal-guide-row"><span class="disposal-guide-label" id="lbl-disp-method">Method:</span><span id="disp-method"></span></div>
+          <div class="disposal-guide-row"><span class="disposal-guide-label" id="lbl-disp-location">Location:</span><span id="disp-location"></span></div>
+          <div class="disposal-guide-row" style="margin-top:3px" id="disp-guide"></div>
+          <div class="disposal-guide-precaution" id="disp-prec"></div>
+        </div>
+
+        <div class="result-card-actions">
+          <button class="btn btn--outline" id="lbl-scan-again" onclick="resetScan()">Scan Again</button>
+          <button class="btn btn--primary" id="lbl-add-record" onclick="addScanToRecord()">Add to Record</button>
+        </div>
+      </div>
+
+      <!-- Tips -->
+      <div class="tips-card">
+        <div class="tips-card-header">
+          <span class="tips-pill" id="lbl-green-tips-pill">GREEN TIPS</span>
+          <span class="tips-source" id="tips-source">From HSBC SG</span>
+        </div>
+        <div class="tips-title" id="tips-title">"Energy saving tips"</div>
+        <p class="tips-snippet" id="tips-snippet">More and more people are making a conscious effort...</p>
+        <div class="tips-footer">
+          <div class="tips-dots" id="tips-dots"></div>
+          <button class="tips-more" id="lbl-know-more" onclick="nextTip()">+ KNOW MORE</button>
+        </div>
+      </div>
+
+      <!-- Fact -->
+      <div class="fact-card"><span class="fact-card-icon">🏆</span><div><div class="fact-card-title" id="lbl-fact-title">Did you know?</div><div class="fact-card-text" id="fact-text">Recycling a single aluminum can saves enough energy to power a TV for 3 hours.</div></div></div>
+    </section>
+
+    <!-- TAB: Record -->
+    <section id="tab-record" class="tab">
+      <div class="stats-bar">
+        <div class="stat"><div class="stat-number" id="stat-items">0</div><div class="stat-label" id="lbl-stat-items">Items</div></div>
+        <div class="stat"><div class="stat-number" id="stat-eco">0</div><div class="stat-label" id="lbl-stat-eco">Eco Avg</div></div>
+        <div class="stat"><div class="stat-number" id="stat-recycle">0</div><div class="stat-label" id="lbl-stat-recycle">Recycle Avg</div></div>
+      </div>
+      <button class="btn btn--danger btn--full" id="clear-btn" onclick="clearAllRecords()" style="justify-content:center">Clear All</button>
+      <div id="records-list"></div>
+      <div id="records-empty" class="empty-state">
+        <div class="empty-state-icon">📋</div>
+        <div class="empty-state-text" id="lbl-empty-text">No records yet</div>
+        <div class="rating-label" style="margin-top:4px" id="lbl-empty-hint">Start by scanning an item</div>
+      </div>
+    </section>
+
+    <!-- TAB: Rewards -->
+    <section id="tab-rewards" class="tab">
+      <div class="rewards-wallet">
+        <div class="rewards-label" id="lbl-rew-balance">Eco Points Balance</div>
+        <div class="rewards-points">🪙 <span id="rew-pts">340</span></div>
+        <div class="rewards-sub" id="lbl-rew-sub">Convert your choices into real-world action.</div>
+        <div id="rew-shortcut" class="rewards-shortcut">
+          <span style="font-size:10px;font-weight:600;color:var(--color-emerald-200)" id="lbl-my-coupons">My Coupons</span>
+          <button onclick="document.getElementById('rew-coupons').scrollIntoView({behavior:'smooth'})" style="background:var(--color-amber-400);color:var(--color-primary);font-weight:700;font-size:9px;padding:5px 10px;border-radius:var(--radius-sm);border:none;cursor:pointer;font-family:inherit" id="lbl-view-claimed">🎫 View Claimed</button>
+        </div>
+      </div>
+      <div id="rew-alert" class="rewards-alert">⚠️ Not enough points.</div>
+      <h3 style="font-size:14px;font-weight:700;color:var(--color-gray-800)" id="lbl-marketplace">Eco-Marketplace</h3>
+      <div id="rew-catalogue" style="display:flex;flex-direction:column;gap:10px"></div>
+      <div id="rew-coupons" style="margin-top:8px;padding-top:12px;border-top:1px solid var(--color-gray-200)">
+        <h3 style="font-size:14px;font-weight:700;color:var(--color-gray-800);margin-bottom:8px" id="lbl-claimed-title">My Claimed Coupons</h3>
+        <div id="rew-coupon-grid" class="rewards-coupons"></div>
+      </div>
+    </section>
+
+    <!-- TAB: More -->
+    <section id="tab-more" class="tab">
+      <div class="more-section">
+        <div class="card">
+          <h3 style="font-size:12px;font-weight:700;color:var(--color-gray-800);margin-bottom:10px" id="lbl-settings">Settings</h3>
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <div>
+              <span class="rating-label" id="lbl-api-key">Gemini API Key</span>
+              <input id="api-key-input" class="api-key-input" type="password" placeholder="AI API Key (starts with AIza...)">
+              <button class="btn btn--primary btn--small" style="margin-top:6px;width:100%" onclick="saveApiKey()">Save Key</button>
+            </div>
+            <button class="btn btn--outline btn--full btn--small" id="sound-btn" onclick="toggleSound()">🔊 Sound ON</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3 style="font-size:12px;font-weight:700;color:var(--color-gray-800);margin-bottom:10px" id="lbl-commitments">My Eco Commitments</h3>
+          <label class="eco-check"><input type="checkbox" checked><span id="lbl-commit1">Bring reusable tote bag on grocery trips.</span></label>
+          <label class="eco-check"><input type="checkbox"><span id="lbl-commit2">Separate compost scraps from general trash.</span></label>
+          <label class="eco-check"><input type="checkbox"><span id="lbl-commit3">Consume plant-based milk alternatives weekly.</span></label>
+        </div>
+
+        <div class="policy-card">
+          <div class="policy-card-title" id="lbl-policy-title">🛡️ Privacy & Community Policy</div>
+          <p class="policy-card-text" id="lbl-policy-text">Re-Life is committed to preserving local smart waste databases. Photos are processed locally. No private data is transmitted to external servers.</p>
+          <div class="policy-card-footer"><span>Version 4.2.0 (Hong Kong HQ)</span><span>Full Policy →</span></div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ═══ NAV ═══ -->
+  <nav class="nav">
+    <button id="nav-home" class="nav-btn is-active" onclick="navigateTo('home')"><span class="nav-btn-icon">🏠</span><span id="nav-lbl-home">SCAN YOUR ITEMS</span></button>
+    <button id="nav-record" class="nav-btn" onclick="navigateTo('record')"><span class="nav-btn-icon">📋</span><span id="nav-lbl-record">Record</span></button>
+    <button id="nav-rewards" class="nav-btn" onclick="navigateTo('rewards')"><span class="nav-btn-icon">🎁</span><span id="nav-lbl-rewards">Rewards</span></button>
+    <button id="nav-more" class="nav-btn" onclick="navigateTo('more')"><span class="nav-btn-icon">⚙️</span><span id="nav-lbl-more">More</span></button>
+  </nav>
+
+  <!-- ═══ FOOTER ═══ -->
+  <footer class="footer">
+    <button class="footer-lang" onclick="toggleLang()">🌐 Language <span id="lang-ind">Eng</span></button>
+    <span>Policy</span>
+  </footer>
+
+</div>
+
+<!-- ═══ MODAL ═══ -->
+<div id="modal-overlay" class="modal-overlay">
+  <div class="modal">
+    <div class="modal-icon" id="modal-icon">⚠️</div>
+    <div class="modal-title" id="modal-title">Alert</div>
+    <div class="modal-body" id="modal-body">Message here.</div>
+    <div class="modal-actions" id="modal-actions">
+      <button class="btn btn--primary btn--full" onclick="closeModal()">Close</button>
+    </div>
+  </div>
+</div>
+
+<script src="/static/app.js"></script>
+</body>
+</html>

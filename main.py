@@ -213,8 +213,8 @@ async def _ai_analyze(image_bytes, sid):
     if finish and finish != "stop":
         raise Exception(f"AI call stopped early (finish_reason={finish})")
 
-    print(f"[AI] content[:200]: {content[:200]}")
-    print(f"[AI] reasoning_content[:200]: {reasoning[:200]}")
+    print(f"[AI] content[:200]: {(content or '')[:200]}")
+    print(f"[AI] reasoning_content[:200]: {(reasoning or '')[:200]}")
 
     j = _extract_json(content) or _extract_json(reasoning)
     if not j:

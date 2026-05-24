@@ -1633,6 +1633,11 @@ body:has(.camera-modal.is-shown) .app-header,
 
 .nav-btn-icon {
     font-size: 16px;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     transition: transform 0.2s;
 }
 
@@ -1757,6 +1762,11 @@ body:has(.camera-modal.is-shown) .app-header,
 
 .empty-state-icon {
     font-size: 42px;
+    width: 42px;
+    height: 42px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     margin-bottom: 10px;
     opacity: 0.5;
 }

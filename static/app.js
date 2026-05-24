@@ -26,7 +26,7 @@ const CRITERIA_LABELS = {
 // -- i18n strings (English / 中文) -------------------------------------
 const STRINGS = {
     en: {
-        appTitle: 'Re-Life', scanItems: 'SCAN YOUR ITEMS',
+        appTitle: 'Re-Life', scanItems: 'Home',
         toDispose: 'TO DISPOSE', toPurchase: 'TO PURCHASE',
         disposeSub: 'E-waste, Organics, Bulky', purchaseSub: 'Groceries, Dairy, Bottles',
         recordHome: 'Record', greenTips: 'GREEN TIPS', knowMore: '+ KNOW MORE',
@@ -69,7 +69,7 @@ const STRINGS = {
         closeBtn: 'Close', cancelBtn: 'Cancel', confirmBtn: 'Confirm',
     },
     zh: {
-        appTitle: 'Re-Life', scanItems: '掃描你的物品',
+        appTitle: 'Re-Life', scanItems: '主頁',
         toDispose: '要丟棄', toPurchase: '要購買',
         disposeSub: '電子廢物、有機物、大型物品', purchaseSub: '雜貨、乳製品、瓶裝',
         recordHome: '記錄', greenTips: '綠色提示', knowMore: '+ 了解更多',

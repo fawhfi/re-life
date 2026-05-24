@@ -143,6 +143,7 @@ async def _ai_analyze(image_bytes, sid):
         "max_tokens": 4096,
         "temperature": 0.2,
         "response_format": {"type": "json_object"},
+        "stream": False,
     }
     headers = {
         "Authorization": f"Bearer {NVIDIA_API_KEY}",

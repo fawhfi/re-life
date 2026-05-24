@@ -102,11 +102,11 @@ body {
     align-items: center;
     justify-content: space-between;
     padding: 12px 18px;
-    background: rgba(255, 255, 255, 0.45) !important;
+    background: rgba(255, 255, 255, 0.2) !important;
     backdrop-filter: blur(25px) saturate(200%) !important;
     -webkit-backdrop-filter: blur(25px) saturate(200%) !important;
-    border: 1px solid rgba(255, 255, 255, 0.4) !important;
-    box-shadow: 0 10px 30px rgba(31, 38, 135, 0.08), 0 1px 0 rgba(255, 255, 255, 0.2) inset !important;
+    border: 1px solid rgba(255, 255, 255, 0.25) !important;
+    box-shadow: 0 10px 30px rgba(31, 38, 135, 0.06), 0 1px 0 rgba(255, 255, 255, 0.15) inset !important;
     border-radius: 16px !important;
     cursor: grab !important;
     touch-action: none !important;
@@ -117,7 +117,7 @@ body {
 
 .app-header:active {
     cursor: grabbing !important;
-    box-shadow: 0 15px 45px rgba(31, 38, 135, 0.18) !important;
+    box-shadow: 0 15px 45px rgba(31, 38, 135, 0.15) !important;
 }
 
 .header-left {
@@ -1607,19 +1607,22 @@ nav.nav, .app-nav {
     position: absolute !important;
     bottom: 20px !important;
     top: auto !important;
-    left: 15px !important;
-    width: calc(100% - 30px) !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    width: auto !important;
+    max-width: calc(100% - 30px) !important;
     height: auto !important;
     display: flex !important;
     justify-content: space-around !important;
     align-items: center !important;
-    background: rgba(255, 255, 255, 0.45) !important;
+    gap: 2px !important;
+    background: rgba(255, 255, 255, 0.2) !important;
     backdrop-filter: blur(25px) saturate(200%) !important;
     -webkit-backdrop-filter: blur(25px) saturate(200%) !important;
-    border: 1px solid rgba(255, 255, 255, 0.4) !important;
-    box-shadow: 0 10px 30px rgba(31, 38, 135, 0.08), 0 1px 0 rgba(255, 255, 255, 0.2) inset !important;
+    border: 1px solid rgba(255, 255, 255, 0.25) !important;
+    box-shadow: 0 10px 30px rgba(31, 38, 135, 0.06), 0 1px 0 rgba(255, 255, 255, 0.15) inset !important;
     border-radius: 20px !important;
-    padding: 12px 15px !important;
+    padding: 8px 10px !important;
     cursor: grab !important;
     touch-action: none !important;
     user-select: none !important;
@@ -1629,7 +1632,7 @@ nav.nav, .app-nav {
 
 nav.nav:active, .app-nav:active {
     cursor: grabbing !important;
-    box-shadow: 0 15px 45px rgba(31, 38, 135, 0.18) !important;
+    box-shadow: 0 15px 45px rgba(31, 38, 135, 0.15) !important;
 }
 
 .nav-btn {
@@ -1858,9 +1861,9 @@ nav.nav:active, .app-nav:active {
 [data-theme="dark"] .app-header,
 [data-theme="dark"] nav.nav,
 [data-theme="dark"] .app-nav {
-    background: rgba(30, 35, 30, 0.6) !important;
-    border: 1px solid rgba(255, 255, 255, 0.08) !important;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3) !important;
+    background: rgba(30, 35, 30, 0.3) !important;
+    border: 1px solid rgba(255, 255, 255, 0.06) !important;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25) !important;
 }
 
 [data-theme="dark"] .header-title {

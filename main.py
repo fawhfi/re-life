@@ -135,20 +135,36 @@ async def scan_item_ai(file: UploadFile = File(...), mode: str = Form("dispose")
 async def _gemini(image_bytes, sid):
     prompt = f"""Evaluate packaging per 2026 HK Environmental Standard. Schema: "{sid}". If irrelevant image flag shouldRate=false. Return ONLY JSON: {{"shouldRate":true,"name":"...","brand":"...","category":"...","standardType":"food|general","description":"...","material":"plastic|pp_plastic|paper|metal|glass|compostable|wood","disposalGuide":"...","precaution":"...","ecoRate":1-5,"recycleRate":1-5,"weightedScores":{{"a":0-100,"b":0-100,"c":0-100,"d":0-100,"e":0-100}}}}"""
     response = await genai_client.aio.models.generate_content(
-        model="gemini-2.5-flash",
+        model="gemini-2.0-flash",
         contents=[
-            types.Part.from_bytes(data=image_bytes, mime_type="image/png"),
             types.Part(text=prompt),
+            types.Part.from_bytes(data=image_bytes, mime_type="image/png"),
         ],
         config=types.GenerateContentConfig(
             response_mime_type="application/json",
             temperature=0.2,
         ),
     )
+
+    # Check for safety blocks / empty response
+    if response.candidates:
+        candidate = response.candidates[0]
+        if candidate.finish_reason and candidate.finish_reason != "STOP":
+            reason = str(candidate.finish_reason)
+            if hasattr(candidate, 'safety_ratings') and candidate.safety_ratings:
+                reason += " | " + ", ".join(
+                    f"{s.category}={s.probability}" for s in candidate.safety_ratings
+                )
+            raise Exception(f"Gemini blocked response (finish_reason={reason})")
+
     t = response.text
-    if not t: return None
+    if not t:
+        raise Exception("Gemini returned empty response (no text in candidates)")
+
     j = json.loads(t)
-    if not j.get("shouldRate", True): return None
+    if not j.get("shouldRate", True):
+        return None  # intentionally irrelevant image — pass to mock
+
     return {"name": j.get("name", "Scanned"), "brand": j.get("brand", ""), "category": j.get("category", ""), "description": j.get("description", ""), "eco_rate": j.get("ecoRate", 3), "recycle_rate": j.get("recycleRate", 4), "standard_type": j.get("standardType", "food"), "material": j.get("material", "plastic"), "disposal_guide": j.get("disposalGuide", ""), "precaution": j.get("precaution", ""), "weighted_scores": j.get("weightedScores", {"a": 50, "b": 50, "c": 50, "d": 50, "e": 50})}
 
 def _mock(mode):

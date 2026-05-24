@@ -19,10 +19,10 @@ NVIDIA_MODEL = "moonshotai/kimi-k2.6"
 app = FastAPI(title="Re-Life API")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
-UPLOAD_DIR = Path("uploads")
+UPLOAD_DIR = root_dir / "uploads"
 UPLOAD_DIR.mkdir(exist_ok=True)
-app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
-app.mount("/static", StaticFiles(directory="static"), name="static")
+app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
+app.mount("/static", StaticFiles(directory=root_dir / "static"), name="static")
 
 # Scoring Engine
 SCHEMA_WEIGHTS = {
@@ -86,7 +86,7 @@ def get_grade(score):
 # Routes
 @app.get("/", response_class=HTMLResponse)
 async def root():
-    return Path("templates/index.html").read_text(encoding="utf-8")
+    return (root_dir / "templates/index.html").read_text(encoding="utf-8")
 
 @app.post("/api/scan")
 async def scan_item(file: UploadFile = File(...), mode: str = Form("dispose")):

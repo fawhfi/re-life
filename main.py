@@ -162,6 +162,7 @@ async def _ai_analyze(image_bytes, sid):
         raise Exception(f"AI call stopped early (finish_reason={finish})")
 
     if not content:
+        print(content)
         raise Exception("AI returned empty response")
 
     j = json.loads(content)

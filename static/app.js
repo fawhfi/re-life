@@ -249,57 +249,76 @@ function playBeep(type) {
 // ═══════════════════════════════════════════════════════════════════════
 
 // ═══════════════════════════════════════════════════════════════════════
-// LIQUID GLASS ELEMENT DRAG ENGINE
+// LIQUID GLASS ELEMENT DRAG ENGINE (PointerEvent)
 // ═══════════════════════════════════════════════════════════════════════
 
-function makeElementDraggable(el) {
-    if (!el) return;
-    
-    let offsetX = 0, offsetY = 0, initialX = 0, initialY = 0;
-    
-    el.addEventListener('pointerdown', dragStart);
+function setupFluidDraggable(element) {
+    if (!element) return;
 
-    function dragStart(e) {
-        if (e.target.closest('button') || e.target.closest('select') || e.target.closest('input')) {
+    let isDragging = false;
+    let startX, startY;
+    let translateX = 0;
+    let translateY = 0;
+
+    element.addEventListener('pointerdown', (e) => {
+        if (e.target.closest('button') || e.target.closest('input') || e.target.closest('select') || e.target.id === 'hdr-avatar') {
             return;
         }
-        
-        e.preventDefault();
-        initialX = e.clientX - offsetX;
-        initialY = e.clientY - offsetY;
-        
-        el.setPointerCapture(e.pointerId);
-        
-        el.addEventListener('pointermove', dragging);
-        el.addEventListener('pointerup', dragEnd);
-        el.addEventListener('pointercancel', dragEnd);
-    }
 
-    function dragging(e) {
-        offsetX = e.clientX - initialX;
-        offsetY = e.clientY - initialY;
-        
-        const appShell = el.closest('.app') || document.body;
-        const shellRect = appShell.getBoundingClientRect();
-        const elRect = el.getBoundingClientRect();
-        
-        const minX = -el.offsetLeft;
-        const maxX = shellRect.width - el.offsetLeft - elRect.width;
-        const minY = -el.offsetTop;
-        const maxY = shellRect.height - el.offsetTop - elRect.height;
-        
-        offsetX = Math.max(minX, Math.min(offsetX, maxX));
-        offsetY = Math.max(minY, Math.min(offsetY, maxY));
-        
-        el.style.transform = `translate3d(${offsetX}px, ${offsetY}px, 0)`;
-    }
+        isDragging = true;
+        startX = e.clientX - translateX;
+        startY = e.clientY - translateY;
 
-    function dragEnd(e) {
-        el.releasePointerCapture(e.pointerId);
-        el.removeEventListener('pointermove', dragging);
-        el.removeEventListener('pointerup', dragEnd);
-        el.removeEventListener('pointercancel', dragEnd);
-    }
+        element.setPointerCapture(e.pointerId);
+        element.style.transition = 'none';
+    });
+
+    element.addEventListener('pointermove', (e) => {
+        if (!isDragging) return;
+
+        let nextX = e.clientX - startX;
+        let nextY = e.clientY - startY;
+
+        const rect = element.getBoundingClientRect();
+        const appContainer = element.closest('.app') || document.body;
+        const containerRect = appContainer.getBoundingClientRect();
+
+        const originalLeft = element.offsetLeft;
+        const originalTop = element.offsetTop;
+
+        const minX = -originalLeft;
+        const maxX = containerRect.width - originalLeft - rect.width;
+        const minY = -originalTop;
+        const maxY = containerRect.height - originalTop - rect.height;
+
+        translateX = Math.max(minX, Math.min(nextX, maxX));
+        translateY = Math.max(minY, Math.min(nextY, maxY));
+
+        element.style.transform = `translate3d(${translateX}px, ${translateY}px, 0)`;
+    });
+
+    const stopDrag = (e) => {
+        if (!isDragging) return;
+        isDragging = false;
+        element.releasePointerCapture(e.pointerId);
+    };
+
+    element.addEventListener('pointerup', stopDrag);
+    element.addEventListener('pointercancel', stopDrag);
+}
+
+function initDraggableBars() {
+    const headerEl = document.querySelector('.app-header');
+    if (headerEl) setupFluidDraggable(headerEl);
+
+    const navEl = document.querySelector('.app-nav') || document.querySelector('nav.nav') || document.querySelector('nav');
+    if (navEl) setupFluidDraggable(navEl);
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initDraggableBars);
+} else {
+    initDraggableBars();
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -314,12 +333,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     initTheme();
     updateAllLabels();
     updateHeaderUI();
-
-    // Bind draggable glass elements
-    const header = document.querySelector('.app-header');
-    makeElementDraggable(header);
-    const navBar = document.querySelector('nav.nav');
-    if (navBar) makeElementDraggable(navBar);
 });
 
 let cameraAvailable = false;

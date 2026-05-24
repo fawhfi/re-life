@@ -259,6 +259,15 @@ function setupFluidDraggable(element) {
     let startX, startY;
     let translateX = 0;
     let translateY = 0;
+    const isNav = element.matches('nav.nav, .app-nav');
+
+    // For centered nav, offset the drag origin so translate3d preserves centering
+    function getDragTransform(x, y) {
+        if (isNav) {
+            return `translateX(-50%) translate3d(${x}px, ${y}px, 0)`;
+        }
+        return `translate3d(${x}px, ${y}px, 0)`;
+    }
 
     element.addEventListener('pointerdown', (e) => {
         if (e.target.closest('button') || e.target.closest('input') || e.target.closest('select') || e.target.id === 'hdr-avatar') {
@@ -294,7 +303,7 @@ function setupFluidDraggable(element) {
         translateX = Math.max(minX, Math.min(nextX, maxX));
         translateY = Math.max(minY, Math.min(nextY, maxY));
 
-        element.style.transform = `translate3d(${translateX}px, ${translateY}px, 0)`;
+        element.style.transform = getDragTransform(translateX, translateY);
     });
 
     const stopDrag = (e) => {

@@ -86,7 +86,6 @@ body {
     min-height: 100vh;
     display: flex;
     flex-direction: column;
-    overflow: hidden;
     position: relative;
     background: radial-gradient(circle at top left, var(--color-primary-light) 0%, var(--color-bg) 60%);
 }
@@ -1604,11 +1603,13 @@ body {
 
 /* ── Bottom Nav ────────────────────────────────────────────────────── */
 nav.nav, .app-nav {
-    position: absolute !important;
-    bottom: 20px !important;
+    position: fixed !important;
+    bottom: max(20px, env(safe-area-inset-bottom, 20px)) !important;
     top: auto !important;
-    left: 15px !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
     width: calc(100% - 30px) !important;
+    max-width: 400px !important;
     height: auto !important;
     display: flex !important;
     justify-content: space-around !important;

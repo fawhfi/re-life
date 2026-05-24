@@ -223,9 +223,6 @@ async def _ai_analyze(image_bytes, sid):
         preview = (content or reasoning or "")[:300]
         raise Exception(f"AI returned non-JSON response: {preview}")
 
-    if not j.get("shouldRate", True):
-        raise Exception("AI determined image is not a recognizable product/package — try a clearer photo")
-
     return {"name": j.get("name", "Scanned"), "brand": j.get("brand", ""), "category": j.get("category", ""), "description": j.get("description", ""), "eco_rate": j.get("ecoRate", 3), "recycle_rate": j.get("recycleRate", 4), "standard_type": j.get("standardType", "food"), "material": j.get("material", "plastic"), "disposal_guide": j.get("disposalGuide", ""), "precaution": j.get("precaution", ""), "weighted_scores": j.get("weightedScores", {"a": 50, "b": 50, "c": 50, "d": 50, "e": 50})}
 
 def _mock(mode):

@@ -420,11 +420,7 @@ let cameraFacing = 'environment'; // 'environment' (rear) or 'user' (front)
 
 function zoneTap() {
     if (state.selectedFile) return; // preview is showing, ignore tap
-    if (cameraAvailable) {
-        openCamera();
-    } else {
-        triggerUpload();
-    }
+    openCamera(); // always try camera first; falls back silently if unavailable
 }
 
 async function openCamera() {
@@ -449,8 +445,8 @@ async function openCamera() {
             video.srcObject = cameraStream;
             modal.classList.add('is-shown');
             document.body.style.overflow = 'hidden';
-        } catch (err2) {
-            alert('Camera not available. Please use the Upload button to select a photo.');
+        } catch (_) {
+            // camera unavailable — silently fall back to file picker
             triggerUpload();
         }
     }

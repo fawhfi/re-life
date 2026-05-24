@@ -361,16 +361,8 @@ body {
     justify-content: center;
     font-size: 22px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-.scan-btn--dispose .scan-btn-icon {
-    background: var(--color-primary);
-    color: var(--color-white);
-}
-
-.scan-btn--purchase .scan-btn-icon {
-    background: var(--color-emerald-800);
-    color: var(--color-white);
+    overflow: hidden;
+    background: transparent;
 }
 
 .scan-btn-label {
@@ -2005,11 +1997,6 @@ body:has(.camera-modal.is-shown) .app-header,
 }
 
 /* Fix --color-white used as text on dark backgrounds */
-[data-theme="dark"] .scan-btn--dispose .scan-btn-icon,
-[data-theme="dark"] .scan-btn--purchase .scan-btn-icon {
-    color: #e5e7e5;
-}
-
 [data-theme="dark"] .tips-card {
     color: #e5e7e5;
 }

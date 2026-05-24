@@ -123,6 +123,9 @@ async def scan_item_ai(file: UploadFile = File(...), mode: str = Form("dispose")
     with open(UPLOAD_DIR / fn, "wb") as f: f.write(contents)
     ai["image_url"] = f"/uploads/{fn}"
     ai["mode"] = mode; ai["id"] = str(uuid.uuid4()); ai["timestamp"] = datetime.now().isoformat(); ai["schema_id"] = sid
+    # Alternative only relevant in purchase mode
+    if mode != "purchase":
+        ai["alternative"] = None
     scores = ai.get("weighted_scores", {"a": 50, "b": 50, "c": 50, "d": 50, "e": 50})
     ov = calc_weighted(scores, sid); g = get_grade(ov)
     ai["overall_score"] = ov; ai["grade"] = g["grade"]; ai["grade_advice"] = g["advice"]; ai["grade_color"] = g["color"]
@@ -189,10 +192,16 @@ Respond with ONLY a JSON object (no markdown, no explanation, no text outside):
   "precaution": "Safety note",
   "ecoRate": 1-5,
   "recycleRate": 1-5,
-  "weightedScores": {{"a":0-100,"b":0-100,"c":0-100,"d":0-100,"e":0-100}}
+  "weightedScores": {{"a":0-100,"b":0-100,"c":0-100,"d":0-100,"e":0-100}},
+  "alternative": {{
+    "name": "A more eco-friendly alternative product name",
+    "ecoRate": 5,
+    "recycleRate": 5
+  }}
 }}
 
-Rate honestly based on what you see. Give varied, realistic scores — not all zeros or middle values."""
+Rate honestly based on what you see. Give varied, realistic scores — not all zeros or middle values.
+For "alternative", suggest a more sustainable replacement product that achieves the same purpose."""
     # Compress image to keep base64 under ~500KB (NVIDIA has request size limits)
     try:
         from PIL import Image
@@ -256,7 +265,16 @@ Rate honestly based on what you see. Give varied, realistic scores — not all z
 
     print(f"[AI] Extracted JSON: {json.dumps(j, ensure_ascii=False)}")
 
-    return {"name": j.get("name", "Scanned"), "raw_json": j, "brand": j.get("brand", ""), "category": j.get("category", ""), "description": j.get("description", ""), "eco_rate": j.get("ecoRate", 3), "recycle_rate": j.get("recycleRate", 4), "standard_type": j.get("standardType", "food"), "material": j.get("material", "plastic"), "disposal_guide": j.get("disposalGuide", ""), "precaution": j.get("precaution", ""), "weighted_scores": j.get("weightedScores", {"a": 50, "b": 50, "c": 50, "d": 50, "e": 50})}
+    alt = j.get("alternative")
+    alternative = None
+    if alt and isinstance(alt, dict) and alt.get("name"):
+        alternative = {
+            "name": alt.get("name", "Eco-Friendly Alternative"),
+            "eco_rate": alt.get("ecoRate", 5),
+            "recycle_rate": alt.get("recycleRate", 5),
+        }
+
+    return {"name": j.get("name", "Scanned"), "raw_json": j, "brand": j.get("brand", ""), "category": j.get("category", ""), "description": j.get("description", ""), "eco_rate": j.get("ecoRate", 3), "recycle_rate": j.get("recycleRate", 4), "standard_type": j.get("standardType", "food"), "material": j.get("material", "plastic"), "disposal_guide": j.get("disposalGuide", ""), "precaution": j.get("precaution", ""), "weighted_scores": j.get("weightedScores", {"a": 50, "b": 50, "c": 50, "d": 50, "e": 50}), "alternative": alternative}
 
 def _mock(mode):
     r = lambda: random.randint(1, 5)

@@ -3,7 +3,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
-import uuid, shutil, os, json, base64, random, httpx
+import uuid, shutil, os, json, base64, random, httpx, re
 from pathlib import Path
 from datetime import datetime
 
@@ -131,15 +131,60 @@ async def scan_item_ai(file: UploadFile = File(...), mode: str = Form("dispose")
     if sid in CRITERIA_LABELS: ai["criteria_labels"] = CRITERIA_LABELS[sid]
     return JSONResponse(ai)
 
+def _extract_json(text):
+    """Try to extract a JSON object from text that may contain markdown fences or surrounding prose."""
+    if not text or not text.strip():
+        return None
+    text = text.strip()
+    # 1. Strip markdown code fences
+    if text.startswith("```"):
+        parts = text.split("```")
+        for p in parts:
+            p = p.strip()
+            if p.lower().startswith("json"):
+                p = p[4:].strip()
+            try:
+                return json.loads(p)
+            except json.JSONDecodeError:
+                continue
+        return None
+    # 2. Direct JSON parse
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        pass
+    # 3. Find first JSON object by tracking brace depth
+    start = text.find("{")
+    if start != -1:
+        depth = 0
+        end = start
+        for i in range(start, len(text)):
+            if text[i] == "{":
+                depth += 1
+            elif text[i] == "}":
+                depth -= 1
+                if depth == 0:
+                    end = i + 1
+                    break
+        if end > start:
+            try:
+                return json.loads(text[start:end])
+            except json.JSONDecodeError:
+                pass
+    return None
+
 async def _ai_analyze(image_bytes, sid):
     prompt = f"""Evaluate packaging per 2026 HK Environmental Standard. Schema: "{sid}". If irrelevant image flag shouldRate=false. Return ONLY JSON: {{"shouldRate":true,"name":"...","brand":"...","category":"...","standardType":"food|general","description":"...","material":"plastic|pp_plastic|paper|metal|glass|compostable|wood","disposalGuide":"...","precaution":"...","ecoRate":1-5,"recycleRate":1-5,"weightedScores":{{"a":0-100,"b":0-100,"c":0-100,"d":0-100,"e":0-100}}}}"""
     b64 = base64.b64encode(image_bytes).decode()
     payload = {
         "model": NVIDIA_MODEL,
-        "messages": [{"role": "user", "content": [
-            {"type": "text", "text": prompt},
-            {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{b64}"}},
-        ]}],
+        "messages": [
+            {"role": "system", "content": "You are an environmental packaging evaluator. You MUST respond with ONLY a single JSON object. No markdown, no explanation, no reasoning in the output — just the JSON object."},
+            {"role": "user", "content": [
+                {"type": "text", "text": prompt},
+                {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{b64}"}},
+            ]},
+        ],
         "max_tokens": 4096,
         "temperature": 0.2,
         "response_format": {"type": "json_object"},
@@ -157,16 +202,17 @@ async def _ai_analyze(image_bytes, sid):
     choice = (d.get("choices") or [{}])[0]
     msg = choice.get("message", {})
     content = msg.get("content", "")
+    reasoning = msg.get("reasoning_content", "")
     finish = choice.get("finish_reason", "")
 
     if finish and finish != "stop":
         raise Exception(f"AI call stopped early (finish_reason={finish})")
 
-    if not content:
-        print(content)
-        raise Exception("AI returned empty response")
+    j = _extract_json(content) or _extract_json(reasoning)
+    if not j:
+        preview = (content or reasoning or "")[:300]
+        raise Exception(f"AI returned non-JSON response: {preview}")
 
-    j = json.loads(content)
     if not j.get("shouldRate", True):
         return None  # irrelevant image — pass to mock
 

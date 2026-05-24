@@ -1655,8 +1655,8 @@ body {
     --color-gray-50:        #1f221f;
     --color-gray-100:       #2a2d2a;
     --color-gray-200:       #3a3d3a;
-    --color-gray-400:       #7a7d7a;
-    --color-gray-500:       #9a9d9a;
+    --color-gray-400:       #a0a3a0;
+    --color-gray-500:       #888b88;
     --color-gray-700:       #cacdca;
     --color-gray-800:       #e5e7e5;
     --color-amber-200:      #3d3520;
@@ -1784,4 +1784,40 @@ body {
 [data-theme="dark"] .disposal-guide {
     background: var(--color-gray-50);
     border-color: var(--color-gray-200);
+}
+
+[data-theme="dark"] .ai-switch::after {
+    background: #e5e7e5;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+[data-theme="dark"] .result-card-name,
+[data-theme="dark"] .record-card-name {
+    color: var(--color-gray-800);
+}
+
+[data-theme="dark"] .result-card-tip,
+[data-theme="dark"] .record-card-meta {
+    color: var(--color-gray-500);
+}
+
+[data-theme="dark"] .tips-title {
+    color: var(--color-gray-800);
+}
+
+[data-theme="dark"] .tips-snippet {
+    color: var(--color-gray-500);
+}
+
+[data-theme="dark"] .fact-card-title {
+    color: var(--color-gray-800);
+}
+
+[data-theme="dark"] .fact-card-text {
+    color: var(--color-gray-500);
+}
+
+[data-theme="dark"] .rewards-label,
+[data-theme="dark"] .rewards-sub {
+    color: var(--color-emerald-200);
 }

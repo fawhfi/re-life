@@ -1634,9 +1634,9 @@ nav.nav:active, .app-nav:active {
 }
 
 /* Hide floating bars when camera is active */
-body:has(.camera-modal:not(.hidden)) .app-nav,
-body:has(.camera-modal:not(.hidden)) nav.nav,
-body:has(.camera-modal:not(.hidden)) .app-header,
+body:has(.camera-modal.is-shown) .app-nav,
+body:has(.camera-modal.is-shown) nav.nav,
+body:has(.camera-modal.is-shown) .app-header,
 .camera-active .app-nav,
 .camera-active nav.nav,
 .camera-active .app-header {

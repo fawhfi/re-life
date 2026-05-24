@@ -534,9 +534,11 @@ async function doScan() {
             fd.append('item_state', state.itemState);
             const res = await fetch('/api/scan/ai', { method: 'POST', body: fd });
             data = await res.json();
+            data.mode = data.mode || state.scanMode;
         } else {
             const res = await fetch('/api/scan', { method: 'POST', body: fd });
             data = await res.json();
+            data.mode = state.scanMode; // ensure mode is always set
             // Enrich mock result with scoring
             data.weighted_scores = data.weighted_scores || { a: 50, b: 50, c: 50, d: 50, e: 50 };
             data.schema_id = `${state.itemType}_${state.itemState}`;

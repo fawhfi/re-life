@@ -93,6 +93,7 @@ async def scan_item(file: UploadFile = File(...), mode: str = Form("dispose")):
     filename = f"{uuid.uuid4()}{ext}"
     with open(UPLOAD_DIR / filename, "wb") as f: shutil.copyfileobj(file.file, f)
     result = _mock(mode)
+    result["mode"] = mode
     result["image_url"] = f"/uploads/{filename}"
     result["id"] = str(uuid.uuid4())
     result["timestamp"] = datetime.now().isoformat()

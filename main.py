@@ -128,7 +128,7 @@ async def scan_item_ai(file: UploadFile = File(...), mode: str = Form("dispose")
 async def _gemini(image_bytes, sid):
     prompt = f"""Evaluate packaging per 2026 HK Environmental Standard. Schema: "{sid}". If irrelevant image flag shouldRate=false. Return ONLY JSON: {{"shouldRate":true,"name":"...","brand":"...","category":"...","standardType":"food|general","description":"...","material":"plastic|pp_plastic|paper|metal|glass|compostable|wood","disposalGuide":"...","precaution":"...","ecoRate":1-5,"recycleRate":1-5,"weightedScores":{{"a":0-100,"b":0-100,"c":0-100,"d":0-100,"e":0-100}}}}"""
     response = await genai_client.aio.models.generate_content(
-        model="gemini-2.5-flash",
+        model="gemini-3.0-flash",
         contents=[
             types.Part.from_bytes(data=image_bytes, mime_type="image/png"),
             types.Part(text=prompt),

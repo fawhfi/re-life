@@ -13,8 +13,8 @@ if os.path.exists(root_dir / ".env"):
     load_dotenv()
 
 NVIDIA_API_KEY = os.getenv("NVIDIA_API")
-NVIDIA_URL = "https://integrate.api.nvidia.com/v1/chat/completions"
-NVIDIA_MODEL = "moonshotai/kimi-k2.6"
+NVIDIA_BASE_URL = "https://integrate.api.nvidia.com/v1/chat/completions"
+NVIDIA_MODEL = "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning"
 
 app = FastAPI(title="Re-Life API")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
@@ -185,9 +185,11 @@ async def _ai_analyze(image_bytes, sid):
                 {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{b64}"}},
             ]},
         ],
-        "max_tokens": 4096,
-        "temperature": 0.2,
-        "response_format": {"type": "json_object"},
+        "max_tokens": 65536,
+        "temperature": 0.6,
+        "top_p": 0.95,
+        "chat_template_kwargs": {"enable_thinking": True},
+        "reasoning_budget": 16384,
         "stream": False,
     }
     headers = {
@@ -196,7 +198,7 @@ async def _ai_analyze(image_bytes, sid):
     }
     async with httpx.AsyncClient(timeout=60) as client:
         try:
-            r = await client.post(NVIDIA_URL, json=payload, headers=headers)
+            r = await client.post(NVIDIA_BASE_URL, json=payload, headers=headers)
             r.raise_for_status()
         except httpx.HTTPStatusError as e:
             body = e.response.text[:500] if e.response else ""

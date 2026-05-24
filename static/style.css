@@ -1609,8 +1609,8 @@ nav.nav, .app-nav {
     left: 0 !important;
     right: 0 !important;
     margin: 0 auto !important;
-    width: fit-content !important;
-    max-width: calc(100% - 30px) !important;
+    width: calc(100% - 30px) !important;
+    max-width: 400px !important;
     height: auto !important;
     display: flex !important;
     justify-content: space-around !important;

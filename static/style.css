@@ -1857,3 +1857,33 @@ body {
 [data-theme="dark"] .rewards-sub {
     color: var(--color-emerald-200);
 }
+
+/* Fix --color-white used as text on dark backgrounds */
+[data-theme="dark"] .app-header {
+    color: #e5e7e5;
+}
+
+[data-theme="dark"] .scan-btn--dispose .scan-btn-icon,
+[data-theme="dark"] .scan-btn--purchase .scan-btn-icon {
+    color: #e5e7e5;
+}
+
+[data-theme="dark"] .tips-card {
+    color: #e5e7e5;
+}
+
+[data-theme="dark"] .rewards-wallet {
+    color: #e5e7e5;
+}
+
+[data-theme="dark"] .policy-card {
+    color: #e5e7e5;
+}
+
+[data-theme="dark"] .rewards-item-btn--can-buy {
+    color: #e5e7e5;
+}
+
+[data-theme="dark"] .grade-tag {
+    color: #e5e7e5;
+}

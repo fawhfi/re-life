@@ -1607,22 +1607,20 @@ nav.nav, .app-nav {
     position: absolute !important;
     bottom: 20px !important;
     top: auto !important;
-    left: 50% !important;
-    transform: translateX(-50%) !important;
-    width: auto !important;
-    max-width: calc(100% - 30px) !important;
+    left: 15px !important;
+    width: calc(100% - 30px) !important;
     height: auto !important;
     display: flex !important;
     justify-content: space-around !important;
     align-items: center !important;
-    gap: 2px !important;
+    gap: 0 !important;
     background: rgba(255, 255, 255, 0.2) !important;
     backdrop-filter: blur(25px) saturate(200%) !important;
     -webkit-backdrop-filter: blur(25px) saturate(200%) !important;
     border: 1px solid rgba(255, 255, 255, 0.25) !important;
     box-shadow: 0 10px 30px rgba(31, 38, 135, 0.06), 0 1px 0 rgba(255, 255, 255, 0.15) inset !important;
     border-radius: 20px !important;
-    padding: 8px 10px !important;
+    padding: 6px 14px !important;
     cursor: grab !important;
     touch-action: none !important;
     user-select: none !important;
@@ -1640,9 +1638,9 @@ nav.nav:active, .app-nav:active {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 3px;
-    padding: 8px 12px;
-    font-size: 9px;
+    gap: 1px;
+    padding: 4px 6px;
+    font-size: 8px;
     font-weight: 600;
     color: var(--color-gray-500);
     border: none;
@@ -1661,12 +1659,11 @@ nav.nav:active, .app-nav:active {
 .nav-btn.is-active, .nav-btn:hover {
     background: rgba(61, 106, 75, 0.12);
     color: var(--color-primary);
-    transform: translateY(-2px);
     font-weight: 700;
 }
 
 .nav-btn-icon {
-    font-size: 18px;
+    font-size: 16px;
     transition: transform 0.2s;
 }
 

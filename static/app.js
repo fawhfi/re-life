@@ -426,30 +426,34 @@ function zoneTap() {
 async function openCamera() {
     const modal = document.getElementById('camera-modal');
     const video = document.getElementById('camera-video');
+    if (!modal || !video) { triggerUpload(); return; }
 
-    try {
-        cameraStream = await navigator.mediaDevices.getUserMedia({
-            video: { facingMode: cameraFacing, width: { ideal: 1920 }, height: { ideal: 1080 } },
-            audio: false,
-        });
-        video.srcObject = cameraStream;
-        modal.classList.add('is-shown');
-        document.body.style.overflow = 'hidden';
-    } catch (err) {
-        // Fallback: try without specific constraints
+    // Show modal first so the video element is in the visible DOM
+    // (required by iOS Safari before attaching a stream)
+    modal.classList.add('is-shown');
+    document.body.style.overflow = 'hidden';
+
+    // iOS-friendly constraints: avoid width/height which some iOS versions reject
+    const constraints = [
+        { video: { facingMode: cameraFacing }, audio: false },
+        { video: { facingMode: { ideal: cameraFacing } }, audio: false },
+        { video: true, audio: false },
+    ];
+
+    for (const c of constraints) {
         try {
-            cameraStream = await navigator.mediaDevices.getUserMedia({
-                video: true,
-                audio: false,
-            });
+            cameraStream = await navigator.mediaDevices.getUserMedia(c);
             video.srcObject = cameraStream;
-            modal.classList.add('is-shown');
-            document.body.style.overflow = 'hidden';
+            video.play().catch(() => {}); // ensure playback on iOS
+            return; // success
         } catch (_) {
-            // camera unavailable — silently fall back to file picker
-            triggerUpload();
+            // try next constraint set
         }
     }
+
+    // All attempts failed — close modal, fall back to file picker
+    closeCamera();
+    triggerUpload();
 }
 
 function closeCamera() {
@@ -468,21 +472,25 @@ function flipCamera() {
         cameraStream.getTracks().forEach(t => t.stop());
         cameraStream = null;
     }
-    // Reopen with new facing mode
     const video = document.getElementById('camera-video');
-    navigator.mediaDevices.getUserMedia({
-        video: { facingMode: cameraFacing, width: { ideal: 1920 }, height: { ideal: 1080 } },
-        audio: false,
-    }).then(stream => {
-        cameraStream = stream;
-        video.srcObject = stream;
-    }).catch(() => {
-        // Fallback
-        navigator.mediaDevices.getUserMedia({ video: true, audio: false }).then(stream => {
-            cameraStream = stream;
-            video.srcObject = stream;
-        });
-    });
+    if (!video) return;
+
+    const constraints = [
+        { video: { facingMode: cameraFacing }, audio: false },
+        { video: { facingMode: { ideal: cameraFacing } }, audio: false },
+        { video: true, audio: false },
+    ];
+
+    (async () => {
+        for (const c of constraints) {
+            try {
+                cameraStream = await navigator.mediaDevices.getUserMedia(c);
+                video.srcObject = cameraStream;
+                video.play().catch(() => {});
+                return;
+            } catch (_) {}
+        }
+    })();
 }
 
 function capturePhoto() {

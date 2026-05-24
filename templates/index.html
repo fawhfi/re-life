@@ -260,6 +260,19 @@
 
 </div>
 
+<!-- ═══ CAMERA MODAL ═══ -->
+<div id="camera-modal" class="camera-modal">
+  <video id="camera-video" autoplay playsinline muted></video>
+  <canvas id="camera-canvas" class="hidden"></canvas>
+  <div class="camera-controls">
+    <button class="camera-btn camera-btn--close" onclick="closeCamera()">✕</button>
+    <button class="camera-btn camera-btn--capture" onclick="capturePhoto()">
+      <span class="camera-capture-ring"></span>
+    </button>
+    <button class="camera-btn camera-btn--flip" onclick="flipCamera()">🔄</button>
+  </div>
+</div>
+
 <!-- ═══ MODAL ═══ -->
 <div id="modal-overlay" class="modal-overlay">
   <div class="modal">

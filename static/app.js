@@ -249,7 +249,7 @@ function playBeep(type) {
 // ═══════════════════════════════════════════════════════════════════════
 
 // ═══════════════════════════════════════════════════════════════════════
-// LIQUID GLASS ELEMENT DRAG ENGINE (PointerEvent)
+// HEADER DRAG + NAV SWIPE
 // ═══════════════════════════════════════════════════════════════════════
 
 function setupFluidDraggable(element) {
@@ -307,12 +307,40 @@ function setupFluidDraggable(element) {
     element.addEventListener('pointercancel', stopDrag);
 }
 
+const TAB_ORDER = ['home', 'record', 'rewards', 'more'];
+
+function setupNavSwipe() {
+    const nav = document.querySelector('nav.nav');
+    if (!nav) return;
+
+    let startX = 0;
+    let startY = 0;
+
+    nav.addEventListener('touchstart', (e) => {
+        startX = e.touches[0].clientX;
+        startY = e.touches[0].clientY;
+    }, { passive: true });
+
+    nav.addEventListener('touchend', (e) => {
+        const dx = e.changedTouches[0].clientX - startX;
+        const dy = e.changedTouches[0].clientY - startY;
+
+        if (Math.abs(dx) < 30 || Math.abs(dx) < Math.abs(dy)) return;
+
+        const currentIdx = TAB_ORDER.indexOf(state.activeTab);
+        if (dx < 0 && currentIdx < TAB_ORDER.length - 1) {
+            navigateTo(TAB_ORDER[currentIdx + 1]);
+        } else if (dx > 0 && currentIdx > 0) {
+            navigateTo(TAB_ORDER[currentIdx - 1]);
+        }
+    });
+}
+
 function initDraggableBars() {
     const headerEl = document.querySelector('.app-header');
     if (headerEl) setupFluidDraggable(headerEl);
 
-    const navEl = document.querySelector('.app-nav') || document.querySelector('nav.nav') || document.querySelector('nav');
-    if (navEl) setupFluidDraggable(navEl);
+    setupNavSwipe();
 }
 
 if (document.readyState === 'loading') {

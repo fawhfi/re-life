@@ -107,16 +107,8 @@ body {
     border: 1px solid rgba(255, 255, 255, 0.25) !important;
     box-shadow: 0 10px 30px rgba(31, 38, 135, 0.06), 0 1px 0 rgba(255, 255, 255, 0.15) inset !important;
     border-radius: 16px !important;
-    cursor: grab !important;
-    touch-action: none !important;
-    user-select: none !important;
     z-index: 9999 !important;
-    transition: transform 0s, box-shadow 0.2s ease !important;
-}
-
-.app-header:active {
-    cursor: grabbing !important;
-    box-shadow: 0 15px 45px rgba(31, 38, 135, 0.15) !important;
+    transition: box-shadow 0.2s ease !important;
 }
 
 .header-left {
@@ -344,6 +336,20 @@ body {
     border-color: rgba(6, 95, 70, 0.18);
     transform: translateY(-2px);
     box-shadow: var(--shadow-md);
+}
+
+.scan-btn--active {
+    transform: scale(1.05);
+    box-shadow: var(--shadow-lg);
+    border-color: var(--color-primary) !important;
+}
+
+.scan-btn--active.scan-btn--dispose {
+    background: #b8d4c0;
+}
+
+.scan-btn--active.scan-btn--purchase {
+    background: #c6f0d4;
 }
 
 .scan-btn-icon {

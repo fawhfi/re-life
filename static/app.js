@@ -337,9 +337,6 @@ function setupNavSwipe() {
 }
 
 function initDraggableBars() {
-    const headerEl = document.querySelector('.app-header');
-    if (headerEl) setupFluidDraggable(headerEl);
-
     setupNavSwipe();
 }
 
@@ -359,6 +356,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     setupDragDrop();
     await detectCamera();
     initTheme();
+    setScanModeUI('dispose'); // default active scan button
     updateAllLabels();
     updateHeaderUI();
 });
@@ -432,6 +430,9 @@ function startScanningMode(mode) {
 
 function setScanModeUI(mode) {
     state.scanMode = mode;
+    document.querySelectorAll('.scan-btn').forEach(b => b.classList.remove('scan-btn--active'));
+    const active = document.querySelector(`.scan-btn--${mode}`);
+    if (active) active.classList.add('scan-btn--active');
 }
 
 // ═══════════════════════════════════════════════════════════════════════

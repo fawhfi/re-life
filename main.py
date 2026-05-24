@@ -3,7 +3,9 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
-import uuid, shutil, os, json, httpx, base64, random
+from google import genai
+from google.genai import types
+import uuid, shutil, os, json, random
 from pathlib import Path
 from datetime import datetime
 
@@ -13,7 +15,7 @@ if os.path.exists(root_dir / ".env"):
     load_dotenv()
 
 GEMINI_API_KEY = os.getenv("GEMINI_API")
-GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.0-flash:generateContent"
+genai_client = genai.Client(api_key=GEMINI_API_KEY) if GEMINI_API_KEY else None
 
 app = FastAPI(title="Re-Life API")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
@@ -102,11 +104,10 @@ async def scan_item(file: UploadFile = File(...), mode: str = Form("dispose")):
 @app.post("/api/scan/ai")
 async def scan_item_ai(file: UploadFile = File(...), mode: str = Form("dispose"), item_type: str = Form("food"), item_state: str = Form("new")):
     contents = await file.read()
-    b64 = base64.b64encode(contents).decode()
     sid = f"{item_type}_{item_state}"
     ai = None
-    if GEMINI_API_KEY:
-        try: ai = await _gemini(b64, sid)
+    if genai_client:
+        try: ai = await _gemini(contents, sid)
         except Exception as e: print(f"Gemini err: {e}")
     if ai is None:
         ai = _mock(mode)
@@ -124,12 +125,20 @@ async def scan_item_ai(file: UploadFile = File(...), mode: str = Form("dispose")
     if sid in CRITERIA_LABELS: ai["criteria_labels"] = CRITERIA_LABELS[sid]
     return JSONResponse(ai)
 
-async def _gemini(b64, sid):
+async def _gemini(image_bytes, sid):
     prompt = f"""Evaluate packaging per 2026 HK Environmental Standard. Schema: "{sid}". If irrelevant image flag shouldRate=false. Return ONLY JSON: {{"shouldRate":true,"name":"...","brand":"...","category":"...","standardType":"food|general","description":"...","material":"plastic|pp_plastic|paper|metal|glass|compostable|wood","disposalGuide":"...","precaution":"...","ecoRate":1-5,"recycleRate":1-5,"weightedScores":{{"a":0-100,"b":0-100,"c":0-100,"d":0-100,"e":0-100}}}}"""
-    payload = {"contents": [{"role": "user", "parts": [{"text": prompt}, {"inlineData": {"mimeType": "image/png", "data": b64}}]}], "generationConfig": {"responseMimeType": "application/json"}}
-    async with httpx.AsyncClient(timeout=30) as c:
-        r = await c.post(f"{GEMINI_URL}?key={GEMINI_API_KEY}", json=payload); r.raise_for_status(); d = r.json()
-    t = d.get("candidates", [{}])[0].get("content", {}).get("parts", [{}])[0].get("text", "")
+    response = await genai_client.aio.models.generate_content(
+        model="gemini-2.5-flash",
+        contents=[
+            types.Part.from_bytes(data=image_bytes, mime_type="image/png"),
+            types.Part(text=prompt),
+        ],
+        config=types.GenerateContentConfig(
+            response_mime_type="application/json",
+            temperature=0.2,
+        ),
+    )
+    t = response.text
     if not t: return None
     j = json.loads(t)
     if not j.get("shouldRate", True): return None

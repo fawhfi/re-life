@@ -1625,7 +1625,7 @@ nav.nav, .app-nav {
     touch-action: none !important;
     user-select: none !important;
     z-index: 9999 !important;
-    transition: transform 0s, box-shadow 0.2s ease !important;
+    transition: transform 0s, box-shadow 0.2s ease, opacity 0.2s ease, visibility 0.2s !important;
 }
 
 nav.nav:active, .app-nav:active {
@@ -1633,8 +1633,16 @@ nav.nav:active, .app-nav:active {
     box-shadow: 0 15px 45px rgba(31, 38, 135, 0.15) !important;
 }
 
-.nav--hidden, .app-header--hidden {
-    display: none !important;
+/* Hide floating bars when camera is active */
+body:has(.camera-modal:not(.hidden)) .app-nav,
+body:has(.camera-modal:not(.hidden)) nav.nav,
+body:has(.camera-modal:not(.hidden)) .app-header,
+.camera-active .app-nav,
+.camera-active nav.nav,
+.camera-active .app-header {
+    opacity: 0 !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
 }
 
 .nav-btn {

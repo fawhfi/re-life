@@ -492,10 +492,7 @@ async function openCamera() {
     modal.classList.add('is-shown');
     document.body.style.overflow = 'hidden';
     // Hide floating nav and header during camera
-    const nav = document.querySelector('nav.nav');
-    const header = document.querySelector('.app-header');
-    if (nav) nav.classList.add('nav--hidden');
-    if (header) header.classList.add('app-header--hidden');
+    document.body.classList.add('camera-active');
 
     // iOS-friendly constraints: avoid width/height which some iOS versions reject
     const constraints = [
@@ -529,10 +526,7 @@ function closeCamera() {
     document.getElementById('camera-video').srcObject = null;
     document.body.style.overflow = '';
     // Restore floating nav and header
-    const nav = document.querySelector('nav.nav');
-    const header = document.querySelector('.app-header');
-    if (nav) nav.classList.remove('nav--hidden');
-    if (header) header.classList.remove('app-header--hidden');
+    document.body.classList.remove('camera-active');
 }
 
 function flipCamera() {

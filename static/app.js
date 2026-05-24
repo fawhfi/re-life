@@ -248,6 +248,60 @@ function playBeep(type) {
 // 5. INITIALIZATION
 // ═══════════════════════════════════════════════════════════════════════
 
+// ═══════════════════════════════════════════════════════════════════════
+// LIQUID GLASS ELEMENT DRAG ENGINE
+// ═══════════════════════════════════════════════════════════════════════
+
+function makeElementDraggable(el) {
+    if (!el) return;
+    
+    let offsetX = 0, offsetY = 0, initialX = 0, initialY = 0;
+    
+    el.addEventListener('pointerdown', dragStart);
+
+    function dragStart(e) {
+        if (e.target.closest('button') || e.target.closest('select') || e.target.closest('input')) {
+            return;
+        }
+        
+        e.preventDefault();
+        initialX = e.clientX - offsetX;
+        initialY = e.clientY - offsetY;
+        
+        el.setPointerCapture(e.pointerId);
+        
+        el.addEventListener('pointermove', dragging);
+        el.addEventListener('pointerup', dragEnd);
+        el.addEventListener('pointercancel', dragEnd);
+    }
+
+    function dragging(e) {
+        offsetX = e.clientX - initialX;
+        offsetY = e.clientY - initialY;
+        
+        const appShell = el.closest('.app') || document.body;
+        const shellRect = appShell.getBoundingClientRect();
+        const elRect = el.getBoundingClientRect();
+        
+        const minX = -el.offsetLeft;
+        const maxX = shellRect.width - el.offsetLeft - elRect.width;
+        const minY = -el.offsetTop;
+        const maxY = shellRect.height - el.offsetTop - elRect.height;
+        
+        offsetX = Math.max(minX, Math.min(offsetX, maxX));
+        offsetY = Math.max(minY, Math.min(offsetY, maxY));
+        
+        el.style.transform = `translate3d(${offsetX}px, ${offsetY}px, 0)`;
+    }
+
+    function dragEnd(e) {
+        el.releasePointerCapture(e.pointerId);
+        el.removeEventListener('pointermove', dragging);
+        el.removeEventListener('pointerup', dragEnd);
+        el.removeEventListener('pointercancel', dragEnd);
+    }
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
     startClock();
     await initAccounts();
@@ -260,6 +314,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     initTheme();
     updateAllLabels();
     updateHeaderUI();
+
+    // Bind draggable glass elements
+    const header = document.querySelector('.app-header');
+    makeElementDraggable(header);
+    const navBar = document.querySelector('nav.nav');
+    if (navBar) makeElementDraggable(navBar);
 });
 
 let cameraAvailable = false;

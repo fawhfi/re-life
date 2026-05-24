@@ -69,6 +69,11 @@
         </div>
       </div>
 
+      <div class="mode-switcher">
+        <button id="mode-dispose" class="is-active" onclick="setScanModeUI('dispose')">♻️ Disposal Mode</button>
+        <button id="mode-purchase" onclick="setScanModeUI('purchase')">🥛 Purchase Mode</button>
+      </div>
+
       <div id="scan-status" class="scanning-status">
         <div class="scanning-spinner"></div>
         <div class="scanning-text" id="lbl-scanning-text">AI Analyzing...</div>
@@ -141,6 +146,22 @@
         </div>
       </div>
 
+      <!-- Tips -->
+      <div class="tips-card">
+        <div class="tips-card-header">
+          <span class="tips-pill" id="lbl-green-tips-pill">GREEN TIPS</span>
+          <span class="tips-source" id="tips-source">From HSBC SG</span>
+        </div>
+        <div class="tips-title" id="tips-title">"Energy saving tips"</div>
+        <p class="tips-snippet" id="tips-snippet">More and more people are making a conscious effort...</p>
+        <div class="tips-footer">
+          <div class="tips-dots" id="tips-dots"></div>
+          <button class="tips-more" id="lbl-know-more" onclick="nextTip()">+ KNOW MORE</button>
+        </div>
+      </div>
+
+      <!-- Fact -->
+      <div class="fact-card"><span class="fact-card-icon">🏆</span><div><div class="fact-card-title" id="lbl-fact-title">Did you know?</div><div class="fact-card-text" id="fact-text">Recycling a single aluminum can saves enough energy to power a TV for 3 hours.</div></div></div>
     </section>
 
     <!-- TAB: Record -->

@@ -107,17 +107,18 @@ async def scan_item_ai(file: UploadFile = File(...), mode: str = Form("dispose")
     sid = f"{item_type}_{item_state}"
     ai = None
     gemini_error = None
-    if genai_client:
+    if not genai_client:
+        gemini_error = "No API key configured. Set GEMINI_API in .env or enter it in Settings."
+    else:
         try: ai = await _gemini(contents, sid)
         except Exception as e:
             gemini_error = str(e)
             print(f"Gemini err: {e}")
     if ai is None:
         ai = _mock(mode)
-        ai["description"] = f"Simulated. Enable Gemini AI for live analysis."
+        ai["description"] = f"⚠️ {gemini_error or 'Gemini returned no result.'}"
         if gemini_error:
             ai["gemini_error"] = gemini_error
-            ai["description"] = f"GEMINI ERROR: {gemini_error}"
     ext = Path(str(file.filename)).suffix or ".png"
     fn = f"{uuid.uuid4()}{ext}"
     with open(UPLOAD_DIR / fn, "wb") as f: f.write(contents)

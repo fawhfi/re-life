@@ -254,7 +254,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     startClock();
     await initAccounts();
     await loadRecords();
+    loadTips();
     loadRewards();
+    loadFact();
     setupDragDrop();
     await detectCamera();
     initTheme();
@@ -324,6 +326,14 @@ function navigateTo(name) {
 function startScanningMode(mode) {
     state.scanMode = mode;
     navigateTo('home');
+    setScanModeUI(mode);
+}
+
+function setScanModeUI(mode) {
+    state.scanMode = mode;
+    document.querySelectorAll('.mode-switcher button').forEach(b => b.classList.remove('is-active'));
+    const btn = document.getElementById(`mode-${mode}`);
+    if (btn) btn.classList.add('is-active');
 }
 
 function updateItemType() {
@@ -1160,6 +1170,8 @@ function updateAllLabels() {
         'lbl-add-record': 'addToRecord',
         'lbl-empty-text': 'noRecords',
         'lbl-empty-hint': 'noRecordsHint',
+        'lbl-green-tips-pill': 'greenTips',
+        'lbl-know-more': 'knowMore',
         'lbl-item-type': 'itemType',
         'lbl-item-state': 'itemState',
         'lbl-scanning-text': 'scanning',
@@ -1173,6 +1185,7 @@ function updateAllLabels() {
         'lbl-disp-material': 'material',
         'lbl-disp-method': 'method',
         'lbl-disp-location': 'location',
+        'lbl-fact-title': 'didYouKnow',
         'lbl-rew-balance': 'pointsBalance',
         'lbl-rew-sub': 'rewardsSub',
         'lbl-my-coupons': 'myCoupons',
@@ -1192,6 +1205,12 @@ function updateAllLabels() {
         const el = document.getElementById(id);
         if (el) el.textContent = tr(key);
     });
+
+    // Dynamic labels
+    const mp = document.getElementById('mode-purchase');
+    const md = document.getElementById('mode-dispose');
+    if (mp) mp.textContent = tr('purchaseMode');
+    if (md) md.textContent = tr('disposalMode');
 
     // Schema dropdowns
     const typeSel = document.getElementById('schema-item-type');

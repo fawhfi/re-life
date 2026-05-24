@@ -174,7 +174,25 @@ def _extract_json(text):
     return None
 
 async def _ai_analyze(image_bytes, sid):
-    prompt = f"""Evaluate packaging per 2026 HK Environmental Standard. Schema: "{sid}". If irrelevant image flag shouldRate=false. Return ONLY JSON: {{"shouldRate":true,"name":"...","brand":"...","category":"...","standardType":"food|general","description":"...","material":"plastic|pp_plastic|paper|metal|glass|compostable|wood","disposalGuide":"...","precaution":"...","ecoRate":1-5,"recycleRate":1-5,"weightedScores":{{"a":0-100,"b":0-100,"c":0-100,"d":0-100,"e":0-100}}}}"""
+    prompt = f"""Look at this image carefully. Identify the product shown, its packaging material, and rate its environmental impact for Hong Kong.
+
+Respond with ONLY a JSON object (no markdown, no explanation, no text outside):
+
+{{
+  "name": "Product name you see",
+  "brand": "Brand name or empty",
+  "category": "Category like beverage/snack/dairy/electronics/household",
+  "standardType": "food" or "general",
+  "description": "One sentence about product and packaging",
+  "material": "plastic" or "pp_plastic" or "paper" or "metal" or "glass" or "compostable" or "wood",
+  "disposalGuide": "HK disposal instruction",
+  "precaution": "Safety note",
+  "ecoRate": 1-5,
+  "recycleRate": 1-5,
+  "weightedScores": {{"a":0-100,"b":0-100,"c":0-100,"d":0-100,"e":0-100}}
+}}
+
+Rate honestly based on what you see. Give varied, realistic scores — not all zeros or middle values."""
     b64 = base64.b64encode(image_bytes).decode()
     payload = {
         "model": NVIDIA_MODEL,
@@ -188,15 +206,13 @@ async def _ai_analyze(image_bytes, sid):
         "max_tokens": 65536,
         "temperature": 0.6,
         "top_p": 0.95,
-        "chat_template_kwargs": {"enable_thinking": True},
-        "reasoning_budget": 16384,
         "stream": False,
     }
     headers = {
         "Authorization": f"Bearer {NVIDIA_API_KEY}",
         "Content-Type": "application/json",
     }
-    async with httpx.AsyncClient(timeout=60) as client:
+    async with httpx.AsyncClient(timeout=120) as client:
         try:
             r = await client.post(NVIDIA_BASE_URL, json=payload, headers=headers)
             r.raise_for_status()

@@ -491,6 +491,11 @@ async function openCamera() {
     // (required by iOS Safari before attaching a stream)
     modal.classList.add('is-shown');
     document.body.style.overflow = 'hidden';
+    // Hide floating nav and header during camera
+    const nav = document.querySelector('nav.nav');
+    const header = document.querySelector('.app-header');
+    if (nav) nav.style.display = 'none';
+    if (header) header.style.display = 'none';
 
     // iOS-friendly constraints: avoid width/height which some iOS versions reject
     const constraints = [
@@ -523,6 +528,11 @@ function closeCamera() {
     document.getElementById('camera-modal').classList.remove('is-shown');
     document.getElementById('camera-video').srcObject = null;
     document.body.style.overflow = '';
+    // Restore floating nav and header
+    const nav = document.querySelector('nav.nav');
+    const header = document.querySelector('.app-header');
+    if (nav) nav.style.display = '';
+    if (header) header.style.display = '';
 }
 
 function flipCamera() {

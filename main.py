@@ -193,14 +193,29 @@ Respond with ONLY a JSON object (no markdown, no explanation, no text outside):
 }}
 
 Rate honestly based on what you see. Give varied, realistic scores — not all zeros or middle values."""
-    b64 = base64.b64encode(image_bytes).decode()
+    # Compress image to keep base64 under ~500KB (NVIDIA has request size limits)
+    try:
+        from PIL import Image
+        import io
+        img = Image.open(io.BytesIO(image_bytes))
+        img.thumbnail((1024, 1024))
+        buf = io.BytesIO()
+        img.save(buf, format="JPEG", quality=75)
+        compressed = buf.getvalue()
+        print(f"[AI] Image: {len(image_bytes)} -> {len(compressed)} bytes (compressed)")
+    except Exception:
+        compressed = image_bytes
+        print(f"[AI] Image: {len(image_bytes)} bytes (no PIL, sent raw)")
+
+    b64 = base64.b64encode(compressed).decode()
+    mime = "image/jpeg" if compressed != image_bytes else "image/png"
     payload = {
         "model": NVIDIA_MODEL,
         "messages": [
             {"role": "system", "content": "You are an environmental packaging evaluator. You MUST respond with ONLY a single JSON object. No markdown, no explanation, no reasoning in the output — just the JSON object."},
             {"role": "user", "content": [
                 {"type": "text", "text": prompt},
-                {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{b64}"}},
+                {"type": "image_url", "image_url": {"url": f"data:{mime};base64,{b64}"}},
             ]},
         ],
         "max_tokens": 65536,

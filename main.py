@@ -195,8 +195,12 @@ async def _ai_analyze(image_bytes, sid):
         "Content-Type": "application/json",
     }
     async with httpx.AsyncClient(timeout=60) as client:
-        r = await client.post(NVIDIA_URL, json=payload, headers=headers)
-        r.raise_for_status()
+        try:
+            r = await client.post(NVIDIA_URL, json=payload, headers=headers)
+            r.raise_for_status()
+        except httpx.HTTPStatusError as e:
+            body = e.response.text[:500] if e.response else ""
+            raise Exception(f"API error {e.response.status_code}: {body}") from e
         d = r.json()
 
     choice = (d.get("choices") or [{}])[0]
@@ -214,7 +218,7 @@ async def _ai_analyze(image_bytes, sid):
         raise Exception(f"AI returned non-JSON response: {preview}")
 
     if not j.get("shouldRate", True):
-        return None  # irrelevant image — pass to mock
+        raise Exception("AI determined image is not a recognizable product/package — try a clearer photo")
 
     return {"name": j.get("name", "Scanned"), "brand": j.get("brand", ""), "category": j.get("category", ""), "description": j.get("description", ""), "eco_rate": j.get("ecoRate", 3), "recycle_rate": j.get("recycleRate", 4), "standard_type": j.get("standardType", "food"), "material": j.get("material", "plastic"), "disposal_guide": j.get("disposalGuide", ""), "precaution": j.get("precaution", ""), "weighted_scores": j.get("weightedScores", {"a": 50, "b": 50, "c": 50, "d": 50, "e": 50})}
 

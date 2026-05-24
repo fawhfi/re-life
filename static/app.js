@@ -572,11 +572,17 @@ function showScanResult(item) {
     document.getElementById('result-desc').textContent = item.description || '';
     document.getElementById('result-brand').textContent = item.brand || item.category || '';
 
-    // AI error
+    // AI error / raw JSON debug
     const errEl = document.getElementById('gemini-error');
     if (item.ai_error || item.gemini_error) {
         errEl.textContent = '⚠️ ' + (item.ai_error || item.gemini_error);
         errEl.style.display = 'block';
+    } else if (item.raw_json) {
+        errEl.textContent = '📋 Raw JSON: ' + JSON.stringify(item.raw_json, null, 2);
+        errEl.style.display = 'block';
+        errEl.style.whiteSpace = 'pre-wrap';
+        errEl.style.maxHeight = '200px';
+        errEl.style.overflowY = 'auto';
     } else {
         errEl.style.display = 'none';
     }

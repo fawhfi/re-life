@@ -56,7 +56,6 @@ const STRINGS = {
         recycleAvg: 'Recycle Avg', notLoggedIn: 'Not Logged In', logout: 'Logout',
         loginAs: 'Login as', confirmLogout: 'Logout and clear local data?',
         confirmClear: 'Clear all records?', settings: 'Settings',
-        apiKeyLabel: 'Gemini API Key', apiKeyPlaceholder: 'AI API Key (starts with AIza...)',
         soundOn: '🔊 Sound ON', soundOff: '🔇 Sound OFF',
         ecoCommitments: 'My Eco Commitments',
         commitment1: 'Bring reusable tote bag on grocery trips.',
@@ -100,7 +99,6 @@ const STRINGS = {
         recycleAvg: '回收均分', notLoggedIn: '尚未登入', logout: '登出',
         loginAs: '登入為', confirmLogout: '確定登出並清除本地數據？',
         confirmClear: '確定清除所有記錄？', settings: '設置',
-        apiKeyLabel: 'Gemini API 密鑰', apiKeyPlaceholder: 'AI API 密鑰 (以 AIza 開頭...)',
         soundOn: '🔊 聲音開', soundOff: '🔇 靜音',
         ecoCommitments: '我的環保承諾',
         commitment1: '購物時攜帶可重複使用的帆布袋。',
@@ -314,7 +312,6 @@ function navigateTo(name) {
     if (name === 'record') loadRecords();
     if (name === 'rewards') renderRewards();
     if (name === 'more') {
-        document.getElementById('api-key-input').value = safeStorage.get('RE_LIFE_GEMINI_KEY') || '';
     }
 }
 
@@ -572,17 +569,11 @@ function showScanResult(item) {
     document.getElementById('result-desc').textContent = item.description || '';
     document.getElementById('result-brand').textContent = item.brand || item.category || '';
 
-    // AI error / raw JSON debug
+    // AI error
     const errEl = document.getElementById('gemini-error');
     if (item.ai_error || item.gemini_error) {
         errEl.textContent = '⚠️ ' + (item.ai_error || item.gemini_error);
         errEl.style.display = 'block';
-    } else if (item.raw_json) {
-        errEl.textContent = '📋 Raw JSON: ' + JSON.stringify(item.raw_json, null, 2);
-        errEl.style.display = 'block';
-        errEl.style.whiteSpace = 'pre-wrap';
-        errEl.style.maxHeight = '200px';
-        errEl.style.overflowY = 'auto';
     } else {
         errEl.style.display = 'none';
     }
@@ -1207,7 +1198,6 @@ function updateAllLabels() {
         'lbl-marketplace': 'ecoMarketplace',
         'lbl-claimed-title': 'claimedCoupons',
         'lbl-settings': 'settings',
-        'lbl-api-key': 'apiKeyLabel',
         'nav-lbl-home': 'scanItems',
         'nav-lbl-record': 'recordHome',
         'nav-lbl-rewards': 'rewards',
@@ -1274,8 +1264,6 @@ function toggleTheme() {
     applyTheme(current === 'dark' ? 'light' : 'dark');
 }
 
-function saveApiKey() {
-    const key = document.getElementById('api-key-input').value.trim();
-    safeStorage.set('RE_LIFE_GEMINI_KEY', key);
-    showAlert(tr('settings'), 'API Key saved.');
+function openPolicy() {
+    showAlert(tr('policy'), tr('policyText'));
 }

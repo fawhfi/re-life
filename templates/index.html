@@ -206,13 +206,10 @@
         <div class="card">
           <h3 style="font-size:12px;font-weight:700;color:var(--color-gray-800);margin-bottom:10px" id="lbl-settings">Settings</h3>
           <div style="display:flex;flex-direction:column;gap:8px">
-            <div>
-              <span class="rating-label" id="lbl-api-key">Gemini API Key</span>
-              <input id="api-key-input" class="api-key-input" type="password" placeholder="AI API Key (starts with AIza...)">
-              <button class="btn btn--primary btn--small" style="margin-top:6px;width:100%" onclick="saveApiKey()">Save Key</button>
-            </div>
             <button class="btn btn--outline btn--full btn--small" id="sound-btn" onclick="toggleSound()">🔊 Sound ON</button>
             <button class="btn btn--outline btn--full btn--small" id="theme-btn" onclick="toggleTheme()">🌙 Dark Mode</button>
+            <button class="btn btn--outline btn--full btn--small" onclick="toggleLang()">🌐 Language <span id="lang-ind">Eng</span></button>
+            <button class="btn btn--outline btn--full btn--small" onclick="openPolicy()">📄 Policy</button>
           </div>
         </div>
 
@@ -228,12 +225,6 @@
     <button id="nav-rewards" class="nav-btn" onclick="navigateTo('rewards')"><span class="nav-btn-icon">🎁</span><span id="nav-lbl-rewards">Rewards</span></button>
     <button id="nav-more" class="nav-btn" onclick="navigateTo('more')"><span class="nav-btn-icon">⚙️</span><span id="nav-lbl-more">More</span></button>
   </nav>
-
-  <!-- ═══ FOOTER ═══ -->
-  <footer class="footer">
-    <button class="footer-lang" onclick="toggleLang()">🌐 Language <span id="lang-ind">Eng</span></button>
-    <span>Policy</span>
-  </footer>
 
 </div>
 

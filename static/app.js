@@ -254,14 +254,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     startClock();
     await initAccounts();
     await loadRecords();
-    loadTips();
     loadRewards();
-    loadFact();
     setupDragDrop();
     await detectCamera();
     initTheme();
     updateAllLabels();
-    updateSchemaUI();
     updateHeaderUI();
 });
 
@@ -321,31 +318,12 @@ function navigateTo(name) {
 
 
 // ═══════════════════════════════════════════════════════════════════════
-// 7. SCAN MODE & AI TOGGLE
+// 7. SCAN MODE
 // ═══════════════════════════════════════════════════════════════════════
 
 function startScanningMode(mode) {
     state.scanMode = mode;
     navigateTo('home');
-    setScanModeUI(mode);
-}
-
-function setScanModeUI(mode) {
-    state.scanMode = mode;
-    document.querySelectorAll('.mode-switcher button').forEach(b => b.classList.remove('is-active'));
-    const btn = document.getElementById(`mode-${mode}`);
-    if (btn) btn.classList.add('is-active');
-}
-
-function toggleAI() {
-    state.aiMode = !state.aiMode;
-    document.getElementById('ai-switch').classList.toggle('is-active', state.aiMode);
-    document.getElementById('ai-status').textContent = state.aiMode ? tr('aiModeOn') : tr('aiModeOff');
-    updateSchemaUI();
-}
-
-function updateSchemaUI() {
-    document.getElementById('schema-row').classList.toggle('hidden', !state.aiMode);
 }
 
 function updateItemType() {
@@ -393,21 +371,22 @@ function processFile(file) {
     }
     state.selectedFile = file;
     const reader = new FileReader();
-    reader.onload = () => showPreview(reader.result);
+    reader.onload = () => {
+        showPreview(reader.result);
+        doScan(); // auto-scan after file selection
+    };
     reader.readAsDataURL(file);
 }
 
 function showPreview(dataUrl) {
     document.getElementById('upload-preview-img').src = dataUrl;
     document.getElementById('upload-preview').classList.add('is-shown');
-    document.getElementById('scan-btn').disabled = false;
 }
 
 function clearPreview() {
     state.selectedFile = null;
     document.getElementById('upload-preview').classList.remove('is-shown');
     document.getElementById('file-input').value = '';
-    document.getElementById('scan-btn').disabled = true;
 }
 
 
@@ -521,25 +500,20 @@ async function doScan() {
 
     document.getElementById('scan-status').classList.add('is-shown');
     document.getElementById('scan-result').classList.add('hidden');
-    document.getElementById('scan-btn').disabled = true;
 
     try {
         const fd = new FormData();
         fd.append('file', state.selectedFile);
         fd.append('mode', state.scanMode);
+        fd.append('item_type', state.itemType);
+        fd.append('item_state', state.itemState);
 
-        let data;
-        if (state.aiMode) {
-            fd.append('item_type', state.itemType);
-            fd.append('item_state', state.itemState);
-            const res = await fetch('/api/scan/ai', { method: 'POST', body: fd });
-            data = await res.json();
-            data.mode = data.mode || state.scanMode;
-        } else {
-            const res = await fetch('/api/scan', { method: 'POST', body: fd });
-            data = await res.json();
-            data.mode = state.scanMode; // ensure mode is always set
-            // Enrich mock result with scoring
+        const res = await fetch('/api/scan/ai', { method: 'POST', body: fd });
+        const data = await res.json();
+        data.mode = data.mode || state.scanMode;
+
+        // Enrich if backend didn't fully score
+        if (data.overall_score === undefined) {
             data.weighted_scores = data.weighted_scores || { a: 50, b: 50, c: 50, d: 50, e: 50 };
             data.schema_id = `${state.itemType}_${state.itemState}`;
             data.overall_score = calcWeighted(data.weighted_scores, data.schema_id);
@@ -557,7 +531,6 @@ async function doScan() {
         playBeep('error');
     } finally {
         document.getElementById('scan-status').classList.remove('is-shown');
-        document.getElementById('scan-btn').disabled = false;
     }
 }
 
@@ -580,6 +553,15 @@ function showScanResult(item) {
     document.getElementById('result-name').textContent = item.name;
     document.getElementById('result-desc').textContent = item.description || '';
     document.getElementById('result-brand').textContent = item.brand || item.category || '';
+
+    // Gemini error
+    const errEl = document.getElementById('gemini-error');
+    if (item.gemini_error) {
+        errEl.textContent = '⚠️ ' + item.gemini_error;
+        errEl.style.display = 'block';
+    } else {
+        errEl.style.display = 'none';
+    }
 
     // Star ratings
     renderStars('result-eco-stars', item.eco_rate);
@@ -1178,10 +1160,8 @@ function updateAllLabels() {
         'lbl-add-record': 'addToRecord',
         'lbl-empty-text': 'noRecords',
         'lbl-empty-hint': 'noRecordsHint',
-        'lbl-ai-mode': 'aiModeLabel',
         'lbl-item-type': 'itemType',
         'lbl-item-state': 'itemState',
-        'scan-btn-label': 'scanBtn',
         'lbl-scanning-text': 'scanning',
         'lbl-scanning-hint': 'scanningHint',
         'ws-title': 'criteria',
@@ -1193,7 +1173,6 @@ function updateAllLabels() {
         'lbl-disp-material': 'material',
         'lbl-disp-method': 'method',
         'lbl-disp-location': 'location',
-        'lbl-fact-title': 'didYouKnow',
         'lbl-rew-balance': 'pointsBalance',
         'lbl-rew-sub': 'rewardsSub',
         'lbl-my-coupons': 'myCoupons',
@@ -1202,12 +1181,6 @@ function updateAllLabels() {
         'lbl-claimed-title': 'claimedCoupons',
         'lbl-settings': 'settings',
         'lbl-api-key': 'apiKeyLabel',
-        'lbl-commitments': 'ecoCommitments',
-        'lbl-commit1': 'commitment1',
-        'lbl-commit2': 'commitment2',
-        'lbl-commit3': 'commitment3',
-        'lbl-policy-title': 'privacyPolicy',
-        'lbl-policy-text': 'policyText',
         'nav-lbl-home': 'scanItems',
         'nav-lbl-record': 'recordHome',
         'nav-lbl-rewards': 'rewards',
@@ -1219,11 +1192,6 @@ function updateAllLabels() {
         const el = document.getElementById(id);
         if (el) el.textContent = tr(key);
     });
-
-    // Dynamic labels
-    document.getElementById('ai-status').textContent = state.aiMode ? tr('aiModeOn') : tr('aiModeOff');
-    document.getElementById('mode-purchase').textContent = tr('purchaseMode');
-    document.getElementById('mode-dispose').textContent = tr('disposalMode');
 
     // Schema dropdowns
     const typeSel = document.getElementById('schema-item-type');

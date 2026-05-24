@@ -40,14 +40,6 @@
         </div>
       </div>
 
-      <div class="card" style="padding:12px 16px">
-        <div class="ai-row">
-          <span class="ai-row-label" id="lbl-ai-mode">🤖 Gemini AI</span>
-          <span class="ai-row-status" id="ai-status">Live AI</span>
-          <button id="ai-switch" class="ai-switch is-active" onclick="toggleAI()"></button>
-        </div>
-      </div>
-
       <div id="schema-row" class="schema-row">
         <div class="rating-item" style="gap:3px">
           <span class="rating-label" id="lbl-item-type">Item Type</span>
@@ -77,15 +69,6 @@
         </div>
       </div>
 
-      <div class="mode-switcher">
-        <button id="mode-dispose" class="is-active" onclick="setScanModeUI('dispose')">♻️ Disposal Mode</button>
-        <button id="mode-purchase" onclick="setScanModeUI('purchase')">🥛 Purchase Mode</button>
-      </div>
-
-      <button class="btn btn--primary btn--full" id="scan-btn" onclick="doScan()" disabled>
-        <span id="scan-btn-label">🔍 Scan Item</span>
-      </button>
-
       <div id="scan-status" class="scanning-status">
         <div class="scanning-spinner"></div>
         <div class="scanning-text" id="lbl-scanning-text">AI Analyzing...</div>
@@ -98,6 +81,7 @@
         <div class="result-card-name" id="result-name">Scanned Item</div>
         <div class="result-card-tip" style="font-weight:600;font-style:normal" id="result-brand"></div>
         <div class="result-card-tip" id="result-desc"></div>
+        <div class="gemini-error" id="gemini-error" style="display:none"></div>
 
         <div class="record-card-ratings" style="justify-content:center;margin-top:10px">
           <div class="rating-item">
@@ -157,22 +141,6 @@
         </div>
       </div>
 
-      <!-- Tips -->
-      <div class="tips-card">
-        <div class="tips-card-header">
-          <span class="tips-pill" id="lbl-green-tips-pill">GREEN TIPS</span>
-          <span class="tips-source" id="tips-source">From HSBC SG</span>
-        </div>
-        <div class="tips-title" id="tips-title">"Energy saving tips"</div>
-        <p class="tips-snippet" id="tips-snippet">More and more people are making a conscious effort...</p>
-        <div class="tips-footer">
-          <div class="tips-dots" id="tips-dots"></div>
-          <button class="tips-more" id="lbl-know-more" onclick="nextTip()">+ KNOW MORE</button>
-        </div>
-      </div>
-
-      <!-- Fact -->
-      <div class="fact-card"><span class="fact-card-icon">🏆</span><div><div class="fact-card-title" id="lbl-fact-title">Did you know?</div><div class="fact-card-text" id="fact-text">Recycling a single aluminum can saves enough energy to power a TV for 3 hours.</div></div></div>
     </section>
 
     <!-- TAB: Record -->
@@ -227,18 +195,6 @@
           </div>
         </div>
 
-        <div class="card">
-          <h3 style="font-size:12px;font-weight:700;color:var(--color-gray-800);margin-bottom:10px" id="lbl-commitments">My Eco Commitments</h3>
-          <label class="eco-check"><input type="checkbox" checked><span id="lbl-commit1">Bring reusable tote bag on grocery trips.</span></label>
-          <label class="eco-check"><input type="checkbox"><span id="lbl-commit2">Separate compost scraps from general trash.</span></label>
-          <label class="eco-check"><input type="checkbox"><span id="lbl-commit3">Consume plant-based milk alternatives weekly.</span></label>
-        </div>
-
-        <div class="policy-card">
-          <div class="policy-card-title" id="lbl-policy-title">🛡️ Privacy & Community Policy</div>
-          <p class="policy-card-text" id="lbl-policy-text">Re-Life is committed to preserving local smart waste databases. Photos are processed locally. No private data is transmitted to external servers.</p>
-          <div class="policy-card-footer"><span>Version 4.2.0 (Hong Kong HQ)</span><span>Full Policy →</span></div>
-        </div>
       </div>
     </section>
 

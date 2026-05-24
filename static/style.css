@@ -877,6 +877,24 @@ body {
     margin-top: 4px;
 }
 
+.gemini-error {
+    font-size: 10px;
+    color: var(--color-red-500);
+    background: rgba(239, 68, 68, 0.08);
+    border: 1px solid rgba(239, 68, 68, 0.25);
+    border-radius: var(--radius-sm);
+    padding: 8px 10px;
+    margin-top: 6px;
+    text-align: left;
+    word-break: break-word;
+    font-family: monospace;
+}
+
+[data-theme="dark"] .gemini-error {
+    background: rgba(239, 68, 68, 0.12);
+    border-color: rgba(239, 68, 68, 0.3);
+}
+
 .result-card-actions {
     display: flex;
     gap: 6px;

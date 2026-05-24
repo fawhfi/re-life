@@ -694,16 +694,6 @@ function showScanResult(item) {
             </div>`;
     }
 
-    // Make bars draggable
-    setTimeout(() => {
-        detail.querySelectorAll('.criterion-bar').forEach(bar => {
-            const fill = bar.querySelector('.criterion-bar-fill');
-            fill.classList.remove('is-animated');
-            bar.addEventListener('mousedown', startBarDrag);
-            bar.addEventListener('touchstart', startBarDrag, { passive: false });
-        });
-    }, 800);
-
     // Disposal guide
     const guide = document.getElementById('disposal-guide');
     const dispInfo = item.disposal_info;
@@ -728,6 +718,17 @@ function toggleWS() {
     const btn = document.getElementById('ws-toggle-btn');
     const isOpen = detail.classList.toggle('is-open');
     btn.textContent = isOpen ? tr('hideDetails') : tr('showDetails');
+    if (isOpen) {
+        // Attach drag handlers after display becomes flex
+        requestAnimationFrame(() => {
+            detail.querySelectorAll('.criterion-bar').forEach(bar => {
+                const fill = bar.querySelector('.criterion-bar-fill');
+                if (fill) fill.classList.remove('is-animated');
+                bar.addEventListener('mousedown', startBarDrag);
+                bar.addEventListener('touchstart', startBarDrag, { passive: false });
+            });
+        });
+    }
 }
 
 function addScanToRecord() {

@@ -142,7 +142,7 @@ body {
 /* ── Main Content ───────────────────────────────────────────────────── */
 .main {
     flex: 1;
-    padding: 14px;
+    padding: 14px 14px 80px;
     display: flex;
     flex-direction: column;
     gap: 12px;
@@ -1571,13 +1571,13 @@ body {
 /* ── Bottom Nav ────────────────────────────────────────────────────── */
 .nav {
     display: flex;
-    background: rgba(255, 255, 255, 0.82);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    border: 1px solid rgba(255, 255, 255, 0.5);
+    background: rgba(255, 255, 255, 0.55);
+    backdrop-filter: blur(24px) saturate(180%);
+    -webkit-backdrop-filter: blur(24px) saturate(180%);
+    border: 1px solid rgba(255, 255, 255, 0.3);
     border-radius: var(--radius-lg);
     margin: 0 12px 10px;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08), 0 1px 0 rgba(255, 255, 255, 0.5) inset;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.06), 0 1px 0 rgba(255, 255, 255, 0.3) inset;
     padding: 0;
     position: relative;
     z-index: 30;
@@ -1954,11 +1954,11 @@ body {
 }
 
 [data-theme="dark"] .nav {
-    background: rgba(30, 36, 30, 0.85);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), 0 1px 0 rgba(255, 255, 255, 0.05) inset;
+    background: rgba(20, 26, 20, 0.55);
+    backdrop-filter: blur(24px) saturate(180%);
+    -webkit-backdrop-filter: blur(24px) saturate(180%);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35), 0 1px 0 rgba(255, 255, 255, 0.03) inset;
 }
 
 [data-theme="dark"] .ai-switch::after {

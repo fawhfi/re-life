@@ -549,6 +549,72 @@ async function doScan() {
     }
 }
 
+// ── Bar drag handlers ──────────────────────────────────────────────
+let barDragState = null;
+
+function startBarDrag(e) {
+    e.preventDefault();
+    const bar = e.currentTarget;
+    const fill = bar.querySelector('.criterion-bar-fill');
+    const key = bar.dataset.key;
+    const rect = bar.getBoundingClientRect();
+    barDragState = { bar, fill, key, rect };
+    updateBarFromEvent(e);
+    window.addEventListener('mousemove', onBarDrag);
+    window.addEventListener('mouseup', stopBarDrag);
+    window.addEventListener('touchmove', onBarDrag, { passive: false });
+    window.addEventListener('touchend', stopBarDrag);
+}
+
+function onBarDrag(e) {
+    e.preventDefault();
+    updateBarFromEvent(e);
+}
+
+function updateBarFromEvent(e) {
+    if (!barDragState) return;
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const { bar, fill, key, rect } = barDragState;
+    let pct = Math.round(((clientX - rect.left) / rect.width) * 100);
+    pct = Math.max(0, Math.min(100, pct));
+    fill.style.width = pct + '%';
+    const barColor = pct >= 70 ? '#065f46' : pct >= 50 ? '#ca8a04' : '#dc2626';
+    fill.style.background = barColor;
+    const scoreEl = bar.parentElement.querySelector('.criterion-score');
+    if (scoreEl) scoreEl.textContent = pct + '/100';
+    // Update state
+    if (state.lastScanResult && state.lastScanResult.weighted_scores) {
+        state.lastScanResult.weighted_scores[key] = pct;
+    }
+    // Recalc overall
+    recalcOverall();
+}
+
+function stopBarDrag() {
+    barDragState = null;
+    window.removeEventListener('mousemove', onBarDrag);
+    window.removeEventListener('mouseup', stopBarDrag);
+    window.removeEventListener('touchmove', onBarDrag);
+    window.removeEventListener('touchend', stopBarDrag);
+}
+
+function recalcOverall() {
+    if (!state.lastScanResult) return;
+    const scores = state.lastScanResult.weighted_scores || { a: 50, b: 50, c: 50, d: 50, e: 50 };
+    const schemaId = state.lastScanResult.schema_id || 'food_new';
+    const ov = calcWeighted(scores, schemaId);
+    const g = getGrade(ov);
+    state.lastScanResult.overall_score = ov;
+    state.lastScanResult.grade = g.grade;
+    state.lastScanResult.grade_advice = g.advice;
+    state.lastScanResult.grade_color = g.color;
+    document.getElementById('ov-score').textContent = ov;
+    document.getElementById('ov-bar-fill').style.cssText = `width:${ov}%;background:${g.color}`;
+    document.getElementById('grade-tag').textContent = g.grade;
+    document.getElementById('grade-tag').style.background = g.color;
+    document.getElementById('grade-advice').textContent = g.advice;
+}
+
 function showScanResult(item) {
     const result = document.getElementById('scan-result');
     result.classList.remove('hidden');
@@ -617,16 +683,26 @@ function showScanResult(item) {
         const w = Math.round(weights[k] * 100);
         const barColor = v >= 70 ? '#065f46' : v >= 50 ? '#ca8a04' : '#dc2626';
         detail.innerHTML += `
-            <div class="criterion-row">
+            <div class="criterion-row" data-key="${k}">
                 <div class="criterion-header">
                     <span class="criterion-name">${labels[k]} (${w}%)</span>
                     <span class="criterion-score">${v}/100</span>
                 </div>
-                <div class="criterion-bar">
-                    <div class="criterion-bar-fill" style="width:${v}%;background:${barColor}"></div>
+                <div class="criterion-bar" data-key="${k}">
+                    <div class="criterion-bar-fill is-animated" style="width:${v}%;background:${barColor}" data-key="${k}"></div>
                 </div>
             </div>`;
     }
+
+    // Make bars draggable
+    setTimeout(() => {
+        detail.querySelectorAll('.criterion-bar').forEach(bar => {
+            const fill = bar.querySelector('.criterion-bar-fill');
+            fill.classList.remove('is-animated');
+            bar.addEventListener('mousedown', startBarDrag);
+            bar.addEventListener('touchstart', startBarDrag, { passive: false });
+        });
+    }, 800);
 
     // Disposal guide
     const guide = document.getElementById('disposal-guide');

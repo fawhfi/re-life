@@ -775,7 +775,7 @@ body {
 
 .overall-bar {
     width: 100%;
-    height: 5px;
+    height: 10px;
     background: var(--color-gray-100);
     border-radius: 99px;
     overflow: hidden;
@@ -788,6 +788,7 @@ body {
     transition: width 0.8s cubic-bezier(0.25, 0.8, 0.25, 1.2);
     position: relative;
     overflow: hidden;
+    animation: barSlideIn 0.9s cubic-bezier(0.25, 0.8, 0.25, 1.2);
 }
 
 .overall-bar-fill::after {
@@ -838,18 +839,29 @@ body {
 
 .criterion-bar {
     width: 100%;
-    height: 3px;
+    height: 24px;
     background: var(--color-gray-100);
     border-radius: 99px;
     overflow: hidden;
+    cursor: pointer;
+    position: relative;
+    touch-action: none;
+    -webkit-user-select: none;
+    user-select: none;
+}
+
+.criterion-bar:active {
+    cursor: grabbing;
 }
 
 .criterion-bar-fill {
     height: 100%;
     border-radius: 99px;
-    transition: width 0.6s cubic-bezier(0.25, 0.8, 0.25, 1.2);
+    transition: width 0.4s ease;
     position: relative;
     overflow: hidden;
+    pointer-events: none;
+    min-width: 0;
 }
 
 .criterion-bar-fill::after {
@@ -859,6 +871,15 @@ body {
     width: 100%; height: 100%;
     background: linear-gradient(90deg, transparent, rgba(255,255,255,0.25), transparent);
     animation: shimmer 2.5s ease-in-out infinite;
+}
+
+/* Slide-in from zero */
+.criterion-bar-fill.is-animated {
+    animation: barSlideIn 0.7s cubic-bezier(0.25, 0.8, 0.25, 1.2);
+}
+
+@keyframes barSlideIn {
+    from { width: 0 !important; }
 }
 
 /* ── Disposal Guide ────────────────────────────────────────────────── */

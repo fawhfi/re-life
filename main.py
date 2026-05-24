@@ -7,9 +7,13 @@ import uuid, shutil, os, json, httpx, base64, random
 from pathlib import Path
 from datetime import datetime
 
-load_dotenv()
-GEMINI_API_KEY = os.getenv("GRM", "")
-GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
+root_dir = Path(__file__).parent
+
+if os.path.exists(root_dir / ".env"):
+    load_dotenv()
+
+GEMINI_API_KEY = os.getenv("GEMINI_API")
+GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.0-flash:generateContent"
 
 app = FastAPI(title="Re-Life API")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])

@@ -32,7 +32,7 @@ const STRINGS = {
         recordHome: 'Record', greenTips: 'GREEN TIPS', knowMore: '+ KNOW MORE',
         ecoRate: 'Eco-Rate', recycleRate: 'Recycle Rate',
         alternativeProduct: 'Alternative Product', addToRecord: 'Add to Record',
-        scanAgain: 'Scan Again', uploadPhoto: 'Tap to upload a photo', orDrag: 'or drag & drop',
+        scanAgain: 'Scan Again', uploadPhoto: 'Tap to scan', orDrag: 'or drag & drop anywhere',
         scanning: 'AI Analyzing...', scanningHint: 'Gemini is evaluating your item',
         purchaseMode: '🥛 Purchase Mode', disposalMode: '♻️ Disposal Mode',
         noRecords: 'No records yet', noRecordsHint: 'Start by scanning an item',
@@ -76,7 +76,7 @@ const STRINGS = {
         recordHome: '記錄', greenTips: '綠色提示', knowMore: '+ 了解更多',
         ecoRate: '環保評分', recycleRate: '回收率',
         alternativeProduct: '替代產品', addToRecord: '加入記錄',
-        scanAgain: '再次掃描', uploadPhoto: '點擊上傳照片', orDrag: '或拖放檔案',
+        scanAgain: '再次掃描', uploadPhoto: '點擊掃描', orDrag: '或拖放檔案到此處',
         scanning: 'AI 分析中...', scanningHint: 'Gemini 正在評估你的物品',
         purchaseMode: '🥛 購買模式', disposalMode: '♻️ 棄置模式',
         noRecords: '尚無記錄', noRecordsHint: '在上方掃描物品開始使用',
@@ -258,10 +258,33 @@ document.addEventListener('DOMContentLoaded', async () => {
     loadRewards();
     loadFact();
     setupDragDrop();
+    await detectCamera();
+    initTheme();
     updateAllLabels();
     updateSchemaUI();
     updateHeaderUI();
 });
+
+let cameraAvailable = false;
+
+async function detectCamera() {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) {
+        cameraAvailable = false;
+        return;
+    }
+    try {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        cameraAvailable = devices.some(d => d.kind === 'videoinput');
+    } catch (_) {
+        cameraAvailable = false;
+    }
+
+    // Show gallery link only when camera is NOT available
+    const galleryLink = document.getElementById('upload-gallery-link');
+    if (galleryLink) {
+        galleryLink.style.display = cameraAvailable ? 'none' : 'inline-block';
+    }
+}
 
 function startClock() {
     const tick = () => {
@@ -385,6 +408,103 @@ function clearPreview() {
     document.getElementById('upload-preview').classList.remove('is-shown');
     document.getElementById('file-input').value = '';
     document.getElementById('scan-btn').disabled = true;
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════
+// 8b. CAMERA CAPTURE
+// ═══════════════════════════════════════════════════════════════════════
+
+let cameraStream = null;
+let cameraFacing = 'environment'; // 'environment' (rear) or 'user' (front)
+
+function zoneTap() {
+    if (state.selectedFile) return; // preview is showing, ignore tap
+    if (cameraAvailable) {
+        openCamera();
+    } else {
+        triggerUpload();
+    }
+}
+
+async function openCamera() {
+    const modal = document.getElementById('camera-modal');
+    const video = document.getElementById('camera-video');
+
+    try {
+        cameraStream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: cameraFacing, width: { ideal: 1920 }, height: { ideal: 1080 } },
+            audio: false,
+        });
+        video.srcObject = cameraStream;
+        modal.classList.add('is-shown');
+        document.body.style.overflow = 'hidden';
+    } catch (err) {
+        // Fallback: try without specific constraints
+        try {
+            cameraStream = await navigator.mediaDevices.getUserMedia({
+                video: true,
+                audio: false,
+            });
+            video.srcObject = cameraStream;
+            modal.classList.add('is-shown');
+            document.body.style.overflow = 'hidden';
+        } catch (err2) {
+            alert('Camera not available. Please use the Upload button to select a photo.');
+            triggerUpload();
+        }
+    }
+}
+
+function closeCamera() {
+    if (cameraStream) {
+        cameraStream.getTracks().forEach(t => t.stop());
+        cameraStream = null;
+    }
+    document.getElementById('camera-modal').classList.remove('is-shown');
+    document.getElementById('camera-video').srcObject = null;
+    document.body.style.overflow = '';
+}
+
+function flipCamera() {
+    cameraFacing = cameraFacing === 'environment' ? 'user' : 'environment';
+    if (cameraStream) {
+        cameraStream.getTracks().forEach(t => t.stop());
+        cameraStream = null;
+    }
+    // Reopen with new facing mode
+    const video = document.getElementById('camera-video');
+    navigator.mediaDevices.getUserMedia({
+        video: { facingMode: cameraFacing, width: { ideal: 1920 }, height: { ideal: 1080 } },
+        audio: false,
+    }).then(stream => {
+        cameraStream = stream;
+        video.srcObject = stream;
+    }).catch(() => {
+        // Fallback
+        navigator.mediaDevices.getUserMedia({ video: true, audio: false }).then(stream => {
+            cameraStream = stream;
+            video.srcObject = stream;
+        });
+    });
+}
+
+function capturePhoto() {
+    const video = document.getElementById('camera-video');
+    const canvas = document.getElementById('camera-canvas');
+
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+    canvas.toBlob(blob => {
+        if (!blob) { closeCamera(); return; }
+        const file = new File([blob], 'camera-photo.jpg', { type: 'image/jpeg' });
+        closeCamera();
+        processFile(file);
+    }, 'image/jpeg', 0.92);
+    playBeep('beep');
 }
 
 
@@ -781,13 +901,15 @@ async function loadRewards() {
 }
 
 function renderRewards() {
-    // Calculate points balance
-    const earned = state.records.reduce((s, r) =>
-        s + (r.overall_score ||
-            calcWeighted(r.weighted_scores || { a: 50, b: 50, c: 50, d: 50, e: 50 },
-                r.schema_id || 'food_new')),
-        0
-    );
+    // Calculate points balance (purchase mode only)
+    const earned = state.records
+        .filter(r => r.mode === 'purchase')
+        .reduce((s, r) =>
+            s + (r.overall_score ||
+                calcWeighted(r.weighted_scores || { a: 50, b: 50, c: 50, d: 50, e: 50 },
+                    r.schema_id || 'food_new')),
+            0
+        );
     const balance = Math.max(0, earned - state.spentPoints);
     document.getElementById('rew-pts').textContent = balance;
 
@@ -830,12 +952,14 @@ function renderRewards() {
 }
 
 function redeemReward(rewardId) {
-    const earned = state.records.reduce((s, r) =>
-        s + (r.overall_score ||
-            calcWeighted(r.weighted_scores || { a: 50, b: 50, c: 50, d: 50, e: 50 },
-                r.schema_id || 'food_new')),
-        0
-    );
+    const earned = state.records
+        .filter(r => r.mode === 'purchase')
+        .reduce((s, r) =>
+            s + (r.overall_score ||
+                calcWeighted(r.weighted_scores || { a: 50, b: 50, c: 50, d: 50, e: 50 },
+                    r.schema_id || 'food_new')),
+            0
+        );
     const balance = Math.max(0, earned - state.spentPoints);
     const reward = state.rewards.find(r => r.id === rewardId);
 
@@ -1043,7 +1167,6 @@ function updateAllLabels() {
         'lbl-green-tips-pill': 'greenTips',
         'lbl-know-more': 'knowMore',
         'lbl-scan-title': 'scanItems',
-        'lbl-upload-text': 'uploadPhoto',
         'lbl-upload-hint': 'orDrag',
         'lbl-scan-again': 'scanAgain',
         'lbl-add-record': 'addToRecord',
@@ -1121,6 +1244,27 @@ function updateAllLabels() {
 function toggleSound() {
     soundOn = !soundOn;
     document.getElementById('sound-btn').textContent = soundOn ? tr('soundOn') : tr('soundOff');
+}
+
+// ── Theme Toggle ────────────────────────────────────────────────────
+
+function initTheme() {
+    const saved = safeStorage.get('RE_LIFE_THEME') || 'light';
+    applyTheme(saved);
+}
+
+function applyTheme(theme) {
+    document.documentElement.setAttribute('data-theme', theme);
+    const btn = document.getElementById('theme-btn');
+    if (btn) {
+        btn.textContent = theme === 'dark' ? '☀️ Light Mode' : '🌙 Dark Mode';
+    }
+    safeStorage.set('RE_LIFE_THEME', theme);
+}
+
+function toggleTheme() {
+    const current = document.documentElement.getAttribute('data-theme') || 'light';
+    applyTheme(current === 'dark' ? 'light' : 'dark');
 }
 
 function saveApiKey() {

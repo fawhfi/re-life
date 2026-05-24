@@ -64,11 +64,12 @@ body {
 .app {
     width: 100%;
     max-width: 430px;
-    min-height: 100dvh;
+    height: 100dvh;
     display: flex;
     flex-direction: column;
     background: var(--color-bg);
     position: relative;
+    overflow: hidden;
 }
 
 /* ── Header ────────────────────────────────────────────────────────── */
@@ -415,26 +416,51 @@ body {
     text-align: center;
     cursor: pointer;
     transition: all 0.2s;
+    background: var(--color-white);
+    padding: 28px 14px 18px;
+    border-radius: var(--radius-lg);
+    border: 2px dashed var(--color-gray-200);
+    position: relative;
+}
+
+.upload-zone:active {
+    border-color: var(--color-primary-mid);
     background: var(--color-gray-50);
-    padding: 14px;
-    border-radius: var(--radius-md);
 }
 
-.upload-icon {
-    font-size: 26px;
-    margin-bottom: 6px;
+.upload-zone-icon {
+    font-size: 36px;
+    margin-bottom: 8px;
+    line-height: 1;
 }
 
-.upload-text {
-    font-size: 12px;
-    font-weight: 600;
-    color: var(--color-gray-700);
+.upload-zone-text {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--color-gray-800);
+    margin-bottom: 2px;
 }
 
-.upload-hint {
-    font-size: 9px;
+.upload-zone-sub {
+    font-size: 10px;
     color: var(--color-gray-400);
-    margin-top: 3px;
+    margin-top: 2px;
+}
+
+.upload-gallery-link {
+    display: inline-block;
+    margin-top: 10px;
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--color-primary-mid);
+    cursor: pointer;
+    padding: 4px 12px;
+    border-radius: var(--radius-sm);
+    transition: background 0.15s;
+}
+
+.upload-gallery-link:hover {
+    background: var(--color-primary-light);
 }
 
 .upload-preview {
@@ -1332,6 +1358,85 @@ body {
     flex: 1;
 }
 
+/* ── Camera Modal ───────────────────────────────────────────────────── */
+.camera-modal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 200;
+    background: #000;
+    flex-direction: column;
+}
+
+.camera-modal.is-shown {
+    display: flex;
+}
+
+.camera-modal video {
+    flex: 1;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    background: #000;
+}
+
+.camera-controls {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 24px 28px;
+    background: rgba(0, 0, 0, 0.35);
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+}
+
+.camera-btn {
+    width: 48px;
+    height: 48px;
+    border: none;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 18px;
+    transition: transform 0.15s;
+    font-family: inherit;
+}
+
+.camera-btn:active {
+    transform: scale(0.92);
+}
+
+.camera-btn--close {
+    background: rgba(255, 255, 255, 0.15);
+    color: #fff;
+}
+
+.camera-btn--flip {
+    background: rgba(255, 255, 255, 0.15);
+    color: #fff;
+}
+
+.camera-btn--capture {
+    width: 72px;
+    height: 72px;
+    background: none;
+    padding: 0;
+}
+
+.camera-capture-ring {
+    display: block;
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    border: 4px solid #fff;
+    background: rgba(255, 255, 255, 0.25);
+    box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.2);
+}
+
 /* ── Coupon Code ───────────────────────────────────────────────────── */
 .coupon-code {
     font-size: 18px;
@@ -1537,4 +1642,146 @@ body {
         border-left: 1px solid var(--color-gray-200);
         border-right: 1px solid var(--color-gray-200);
     }
+}
+
+/* ── Dark Theme ────────────────────────────────────────────────────── */
+[data-theme="dark"] {
+    --color-primary:        #2d392f;
+    --color-primary-hover:  #3d4f41;
+    --color-primary-light:  #1e2a20;
+    --color-primary-mid:    #4a6b4f;
+    --color-bg:             #1a1d1a;
+    --color-white:          #252925;
+    --color-gray-50:        #1f221f;
+    --color-gray-100:       #2a2d2a;
+    --color-gray-200:       #3a3d3a;
+    --color-gray-400:       #7a7d7a;
+    --color-gray-500:       #9a9d9a;
+    --color-gray-700:       #cacdca;
+    --color-gray-800:       #e5e7e5;
+    --color-amber-200:      #3d3520;
+    --color-amber-400:      #7a6a20;
+    --color-emerald-50:     #1a2a1e;
+    --color-emerald-100:    #1e3a24;
+    --color-emerald-200:    #2a4a30;
+    --color-emerald-700:    #4ade80;
+    --color-emerald-800:    #6ee7a0;
+    --color-red-400:        #dc2626;
+    --color-red-500:        #ef4444;
+}
+
+[data-theme="dark"] body {
+    color: var(--color-gray-800);
+}
+
+[data-theme="dark"] .app-header {
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+}
+
+[data-theme="dark"] .card,
+[data-theme="dark"] .record-card,
+[data-theme="dark"] .result-card {
+    border-color: var(--color-gray-200);
+}
+
+[data-theme="dark"] .upload-zone {
+    border-color: var(--color-gray-200);
+    background: var(--color-gray-50);
+}
+
+[data-theme="dark"] .upload-zone:active {
+    background: var(--color-gray-100);
+}
+
+[data-theme="dark"] .mode-switcher {
+    background: rgba(255, 255, 255, 0.04);
+}
+
+[data-theme="dark"] .mode-switcher button {
+    color: var(--color-gray-400);
+}
+
+[data-theme="dark"] .mode-switcher button.is-active {
+    background: var(--color-gray-200);
+    color: var(--color-gray-800);
+    box-shadow: none;
+}
+
+[data-theme="dark"] .nav {
+    border-color: var(--color-gray-200);
+}
+
+[data-theme="dark"] .footer {
+    border-color: var(--color-gray-200);
+}
+
+[data-theme="dark"] .modal {
+    background: var(--color-gray-100);
+    border: 1px solid var(--color-gray-200);
+}
+
+[data-theme="dark"] .modal-title {
+    color: var(--color-gray-800);
+}
+
+[data-theme="dark"] .modal-body {
+    color: var(--color-gray-500);
+}
+
+[data-theme="dark"] .select-field {
+    background: var(--color-gray-100);
+    color: var(--color-gray-800);
+    border-color: var(--color-gray-200);
+}
+
+[data-theme="dark"] input,
+[data-theme="dark"] textarea {
+    background: var(--color-gray-100);
+    color: var(--color-gray-800);
+    border-color: var(--color-gray-200);
+}
+
+[data-theme="dark"] .api-key-input {
+    background: var(--color-gray-100);
+    color: var(--color-gray-800);
+}
+
+[data-theme="dark"] .btn--outline {
+    border-color: var(--color-gray-200);
+    color: var(--color-gray-800);
+}
+
+[data-theme="dark"] .btn--outline:hover {
+    background: var(--color-gray-100);
+}
+
+[data-theme="dark"] .btn--danger {
+    background: var(--color-red-500);
+}
+
+[data-theme="dark"] .upload-gallery-link {
+    color: var(--color-emerald-700);
+}
+
+[data-theme="dark"] .upload-gallery-link:hover {
+    background: var(--color-emerald-50);
+}
+
+[data-theme="dark"] .record-card-badge--dispose {
+    background: var(--color-gray-200);
+    color: var(--color-gray-400);
+}
+
+[data-theme="dark"] .record-card-badge--purchase {
+    background: var(--color-emerald-100);
+    color: var(--color-emerald-700);
+}
+
+[data-theme="dark"] .scanning-status {
+    background: var(--color-gray-50);
+}
+
+[data-theme="dark"] .disposal-guide {
+    background: var(--color-gray-50);
+    border-color: var(--color-gray-200);
 }

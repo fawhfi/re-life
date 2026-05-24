@@ -65,11 +65,12 @@
         </div>
       </div>
 
-      <div class="upload-zone" id="upload-zone" onclick="triggerUpload()">
-        <div class="upload-icon">📷</div>
-        <div class="upload-text" id="lbl-upload-text">Tap to upload a photo</div>
-        <div class="upload-hint" id="lbl-upload-hint">or drag &amp; drop</div>
-        <input type="file" id="file-input" accept="image/*" onchange="handleFileSelect(event)" class="hidden">
+      <div class="upload-zone" id="upload-zone" onclick="zoneTap()">
+        <div class="upload-zone-icon">📸</div>
+        <div class="upload-zone-text" id="lbl-upload-text">Tap to scan</div>
+        <div class="upload-zone-sub" id="lbl-upload-hint">or drag &amp; drop anywhere</div>
+        <input type="file" id="file-input" accept="image/*" capture="environment" onchange="handleFileSelect(event)" class="hidden">
+        <div class="upload-gallery-link" id="upload-gallery-link" onclick="event.stopPropagation();triggerUpload()" style="display:none">📁 Choose from gallery</div>
         <div class="upload-preview" id="upload-preview">
           <img id="upload-preview-img" src="" alt="Preview">
           <button class="upload-preview-remove" onclick="event.stopPropagation();clearPreview()">×</button>
@@ -222,6 +223,7 @@
               <button class="btn btn--primary btn--small" style="margin-top:6px;width:100%" onclick="saveApiKey()">Save Key</button>
             </div>
             <button class="btn btn--outline btn--full btn--small" id="sound-btn" onclick="toggleSound()">🔊 Sound ON</button>
+            <button class="btn btn--outline btn--full btn--small" id="theme-btn" onclick="toggleTheme()">🌙 Dark Mode</button>
           </div>
         </div>
 

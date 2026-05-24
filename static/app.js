@@ -499,19 +499,22 @@ let cameraFacing = 'environment'; // 'environment' (rear) or 'user' (front)
 
 function zoneTap() {
     if (state.selectedFile) return; // preview is showing, ignore tap
-    openCamera(); // always try camera first; falls back silently if unavailable
+    if (cameraAvailable) {
+        openCamera();
+    } else {
+        triggerUpload();
+    }
 }
 
 async function openCamera() {
     const modal = document.getElementById('camera-modal');
     const video = document.getElementById('camera-video');
-    if (!modal || !video) { triggerUpload(); return; }
+    if (!modal || !video) { cameraAvailable = false; triggerUpload(); return; }
 
     // Show modal first so the video element is in the visible DOM
     // (required by iOS Safari before attaching a stream)
     modal.classList.add('is-shown');
     document.body.style.overflow = 'hidden';
-    // Hide floating nav and header during camera
     document.body.classList.add('camera-active');
 
     // iOS-friendly constraints: avoid width/height which some iOS versions reject
@@ -525,14 +528,15 @@ async function openCamera() {
         try {
             cameraStream = await navigator.mediaDevices.getUserMedia(c);
             video.srcObject = cameraStream;
-            video.play().catch(() => {}); // ensure playback on iOS
+            video.play().catch(() => {});
             return; // success
         } catch (_) {
             // try next constraint set
         }
     }
 
-    // All attempts failed — close modal, fall back to file picker
+    // All attempts failed — camera unavailable, fall back to file picker permanently
+    cameraAvailable = false;
     closeCamera();
     triggerUpload();
 }

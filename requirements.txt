@@ -3,4 +3,3 @@ uvicorn[standard]>=0.47.0
 python-multipart>=0.0.28
 python-dotenv>=1.0.0
 httpx>=0.28.0
-google-genai>=1.0.0

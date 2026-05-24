@@ -564,10 +564,10 @@ function showScanResult(item) {
     document.getElementById('result-desc').textContent = item.description || '';
     document.getElementById('result-brand').textContent = item.brand || item.category || '';
 
-    // Gemini error
+    // AI error
     const errEl = document.getElementById('gemini-error');
-    if (item.gemini_error) {
-        errEl.textContent = '⚠️ ' + item.gemini_error;
+    if (item.ai_error || item.gemini_error) {
+        errEl.textContent = '⚠️ ' + (item.ai_error || item.gemini_error);
         errEl.style.display = 'block';
     } else {
         errEl.style.display = 'none';

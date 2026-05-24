@@ -3,9 +3,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
-from google import genai
-from google.genai import types
-import uuid, shutil, os, json, random
+import uuid, shutil, os, json, base64, random, httpx
 from pathlib import Path
 from datetime import datetime
 
@@ -14,8 +12,9 @@ root_dir = Path(__file__).parent
 if os.path.exists(root_dir / ".env"):
     load_dotenv()
 
-GEMINI_API_KEY = os.getenv("GEMINI_API")
-genai_client = genai.Client(api_key=GEMINI_API_KEY) if GEMINI_API_KEY else None
+NVIDIA_API_KEY = os.getenv("NVIDIA_API")
+NVIDIA_URL = "https://integrate.api.nvidia.com/v1/chat/completions"
+NVIDIA_MODEL = "moonshotai/kimi-k2.6"
 
 app = FastAPI(title="Re-Life API")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
@@ -106,19 +105,19 @@ async def scan_item_ai(file: UploadFile = File(...), mode: str = Form("dispose")
     contents = await file.read()
     sid = f"{item_type}_{item_state}"
     ai = None
-    gemini_error = None
-    if not genai_client:
-        gemini_error = "No API key configured. Set GEMINI_API in .env or enter it in Settings."
+    ai_error = None
+    if not NVIDIA_API_KEY:
+        ai_error = "No API key configured. Set NVIDIA_API in .env or enter it in Settings."
     else:
-        try: ai = await _gemini(contents, sid)
+        try: ai = await _ai_analyze(contents, sid)
         except Exception as e:
-            gemini_error = str(e)
-            print(f"Gemini err: {e}")
+            ai_error = str(e)
+            print(f"AI err: {e}")
     if ai is None:
         ai = _mock(mode)
-        ai["description"] = f"⚠️ {gemini_error or 'Gemini returned no result.'}"
-        if gemini_error:
-            ai["gemini_error"] = gemini_error
+        ai["description"] = f"⚠️ {ai_error or 'AI returned no result.'}"
+        if ai_error:
+            ai["ai_error"] = ai_error
     ext = Path(str(file.filename)).suffix or ".png"
     fn = f"{uuid.uuid4()}{ext}"
     with open(UPLOAD_DIR / fn, "wb") as f: f.write(contents)
@@ -132,38 +131,42 @@ async def scan_item_ai(file: UploadFile = File(...), mode: str = Form("dispose")
     if sid in CRITERIA_LABELS: ai["criteria_labels"] = CRITERIA_LABELS[sid]
     return JSONResponse(ai)
 
-async def _gemini(image_bytes, sid):
+async def _ai_analyze(image_bytes, sid):
     prompt = f"""Evaluate packaging per 2026 HK Environmental Standard. Schema: "{sid}". If irrelevant image flag shouldRate=false. Return ONLY JSON: {{"shouldRate":true,"name":"...","brand":"...","category":"...","standardType":"food|general","description":"...","material":"plastic|pp_plastic|paper|metal|glass|compostable|wood","disposalGuide":"...","precaution":"...","ecoRate":1-5,"recycleRate":1-5,"weightedScores":{{"a":0-100,"b":0-100,"c":0-100,"d":0-100,"e":0-100}}}}"""
-    response = await genai_client.aio.models.generate_content(
-        model="gemini-2.0-flash",
-        contents=[
-            types.Part(text=prompt),
-            types.Part.from_bytes(data=image_bytes, mime_type="image/png"),
-        ],
-        config=types.GenerateContentConfig(
-            response_mime_type="application/json",
-            temperature=0.2,
-        ),
-    )
+    b64 = base64.b64encode(image_bytes).decode()
+    payload = {
+        "model": NVIDIA_MODEL,
+        "messages": [{"role": "user", "content": [
+            {"type": "text", "text": prompt},
+            {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{b64}"}},
+        ]}],
+        "max_tokens": 4096,
+        "temperature": 0.2,
+        "response_format": {"type": "json_object"},
+    }
+    headers = {
+        "Authorization": f"Bearer {NVIDIA_API_KEY}",
+        "Content-Type": "application/json",
+    }
+    async with httpx.AsyncClient(timeout=60) as client:
+        r = await client.post(NVIDIA_URL, json=payload, headers=headers)
+        r.raise_for_status()
+        d = r.json()
 
-    # Check for safety blocks / empty response
-    if response.candidates:
-        candidate = response.candidates[0]
-        if candidate.finish_reason and candidate.finish_reason != "STOP":
-            reason = str(candidate.finish_reason)
-            if hasattr(candidate, 'safety_ratings') and candidate.safety_ratings:
-                reason += " | " + ", ".join(
-                    f"{s.category}={s.probability}" for s in candidate.safety_ratings
-                )
-            raise Exception(f"Gemini blocked response (finish_reason={reason})")
+    choice = (d.get("choices") or [{}])[0]
+    msg = choice.get("message", {})
+    content = msg.get("content", "")
+    finish = choice.get("finish_reason", "")
 
-    t = response.text
-    if not t:
-        raise Exception("Gemini returned empty response (no text in candidates)")
+    if finish and finish != "stop":
+        raise Exception(f"AI call stopped early (finish_reason={finish})")
 
-    j = json.loads(t)
+    if not content:
+        raise Exception("AI returned empty response")
+
+    j = json.loads(content)
     if not j.get("shouldRate", True):
-        return None  # intentionally irrelevant image — pass to mock
+        return None  # irrelevant image — pass to mock
 
     return {"name": j.get("name", "Scanned"), "brand": j.get("brand", ""), "category": j.get("category", ""), "description": j.get("description", ""), "eco_rate": j.get("ecoRate", 3), "recycle_rate": j.get("recycleRate", 4), "standard_type": j.get("standardType", "food"), "material": j.get("material", "plastic"), "disposal_guide": j.get("disposalGuide", ""), "precaution": j.get("precaution", ""), "weighted_scores": j.get("weightedScores", {"a": 50, "b": 50, "c": 50, "d": 50, "e": 50})}
 

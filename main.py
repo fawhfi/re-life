@@ -109,10 +109,16 @@ async def scan_item_ai(file: UploadFile = File(...), mode: str = Form("dispose")
     if not NVIDIA_API_KEY:
         ai_error = "No API key configured. Set NVIDIA_API in .env or enter it in Settings."
     else:
-        try: ai = await _ai_analyze(contents, sid)
-        except Exception as e:
-            ai_error = traceback.format_exc()
-            print(f"AI ERROR:\n{ai_error}")
+        for attempt in range(3):
+            try:
+                ai = await _ai_analyze(contents, sid)
+                break
+            except Exception as e:
+                ai_error = traceback.format_exc()
+                print(f"AI ERROR (attempt {attempt + 1}/3):\n{ai_error}")
+                if attempt < 2:
+                    import asyncio
+                    await asyncio.sleep(1)
     if ai is None:
         ai = _mock(mode)
         ai["description"] = f"⚠️ AI FAILED — using mock data"

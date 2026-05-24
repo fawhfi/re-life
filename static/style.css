@@ -1633,6 +1633,10 @@ nav.nav:active, .app-nav:active {
     box-shadow: 0 15px 45px rgba(31, 38, 135, 0.15) !important;
 }
 
+.nav--hidden, .app-header--hidden {
+    display: none !important;
+}
+
 .nav-btn {
     flex: 1;
     display: flex;

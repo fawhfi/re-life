@@ -494,8 +494,8 @@ async function openCamera() {
     // Hide floating nav and header during camera
     const nav = document.querySelector('nav.nav');
     const header = document.querySelector('.app-header');
-    if (nav) nav.style.display = 'none';
-    if (header) header.style.display = 'none';
+    if (nav) nav.classList.add('nav--hidden');
+    if (header) header.classList.add('app-header--hidden');
 
     // iOS-friendly constraints: avoid width/height which some iOS versions reject
     const constraints = [
@@ -531,8 +531,8 @@ function closeCamera() {
     // Restore floating nav and header
     const nav = document.querySelector('nav.nav');
     const header = document.querySelector('.app-header');
-    if (nav) nav.style.display = '';
-    if (header) header.style.display = '';
+    if (nav) nav.classList.remove('nav--hidden');
+    if (header) header.classList.remove('app-header--hidden');
 }
 
 function flipCamera() {

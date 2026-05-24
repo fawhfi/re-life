@@ -40,23 +40,6 @@
         </div>
       </div>
 
-      <div id="schema-row" class="schema-row">
-        <div class="rating-item" style="gap:3px">
-          <span class="rating-label" id="lbl-item-type">Item Type</span>
-          <select class="select-field" id="schema-item-type" onchange="updateItemType()">
-            <option value="food">Food Items</option>
-            <option value="general">General Items</option>
-          </select>
-        </div>
-        <div class="rating-item" style="gap:3px">
-          <span class="rating-label" id="lbl-item-state">State</span>
-          <select class="select-field" id="schema-item-state" onchange="updateItemState()">
-            <option value="new">New Purchase</option>
-            <option value="expire">About to Expire</option>
-          </select>
-        </div>
-      </div>
-
       <div class="upload-zone" id="upload-zone" onclick="zoneTap()">
         <div class="upload-zone-icon">📸</div>
         <div class="upload-zone-text" id="lbl-upload-text">Tap to scan</div>
@@ -67,11 +50,6 @@
           <img id="upload-preview-img" src="" alt="Preview">
           <button class="upload-preview-remove" onclick="event.stopPropagation();clearPreview()">×</button>
         </div>
-      </div>
-
-      <div class="mode-switcher">
-        <button id="mode-dispose" class="is-active" onclick="setScanModeUI('dispose')">♻️ Disposal Mode</button>
-        <button id="mode-purchase" onclick="setScanModeUI('purchase')">🥛 Purchase Mode</button>
       </div>
 
       <div id="scan-status" class="scanning-status">

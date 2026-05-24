@@ -434,13 +434,6 @@ body {
     transform: translateX(20px);
 }
 
-/* ── Schema Selector ───────────────────────────────────────────────── */
-.schema-row {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 8px;
-}
-
 .select-field {
     width: 100%;
     padding: 7px 9px;
@@ -548,34 +541,6 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-}
-
-/* ── Mode Switcher ─────────────────────────────────────────────────── */
-.mode-switcher {
-    display: flex;
-    background: rgba(231, 229, 228, 0.5);
-    padding: 3px;
-    border-radius: var(--radius-md);
-}
-
-.mode-switcher button {
-    flex: 1;
-    padding: 7px;
-    font-size: 11px;
-    font-weight: 700;
-    border: none;
-    border-radius: var(--radius-sm);
-    cursor: pointer;
-    transition: all 0.2s;
-    background: transparent;
-    color: var(--color-gray-500);
-    font-family: inherit;
-}
-
-.mode-switcher button.is-active {
-    background: var(--color-white);
-    color: var(--color-gray-800);
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 }
 
 /* ── Record Card ───────────────────────────────────────────────────── */
@@ -1891,20 +1856,6 @@ body:has(.camera-modal.is-shown) .app-header,
 
 [data-theme="dark"] .upload-zone:active {
     background: var(--color-gray-100);
-}
-
-[data-theme="dark"] .mode-switcher {
-    background: rgba(255, 255, 255, 0.04);
-}
-
-[data-theme="dark"] .mode-switcher button {
-    color: var(--color-gray-400);
-}
-
-[data-theme="dark"] .mode-switcher button.is-active {
-    background: var(--color-gray-200);
-    color: var(--color-gray-800);
-    box-shadow: none;
 }
 
 [data-theme="dark"] .nav {

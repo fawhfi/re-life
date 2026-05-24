@@ -423,25 +423,16 @@ function navigateTo(name) {
 
 function startScanningMode(mode) {
     state.scanMode = mode;
+    // Dispose defaults: food + about to expire; Purchase defaults: food + new
+    state.itemType = mode === 'dispose' ? 'food' : 'food';
+    state.itemState = mode === 'dispose' ? 'expire' : 'new';
     navigateTo('home');
     setScanModeUI(mode);
 }
 
 function setScanModeUI(mode) {
     state.scanMode = mode;
-    document.querySelectorAll('.mode-switcher button').forEach(b => b.classList.remove('is-active'));
-    const btn = document.getElementById(`mode-${mode}`);
-    if (btn) btn.classList.add('is-active');
 }
-
-function updateItemType() {
-    state.itemType = document.getElementById('schema-item-type').value;
-}
-
-function updateItemState() {
-    state.itemState = document.getElementById('schema-item-state').value;
-}
-
 
 // ═══════════════════════════════════════════════════════════════════════
 // 8. FILE UPLOAD

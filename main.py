@@ -3,7 +3,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
-import uuid, shutil, os, json, base64, random, httpx, re
+import uuid, shutil, os, json, base64, random, httpx, re, traceback
 from pathlib import Path
 from datetime import datetime
 
@@ -111,11 +111,11 @@ async def scan_item_ai(file: UploadFile = File(...), mode: str = Form("dispose")
     else:
         try: ai = await _ai_analyze(contents, sid)
         except Exception as e:
-            ai_error = str(e)
-            print(f"AI err: {e}")
+            ai_error = traceback.format_exc()
+            print(f"AI ERROR:\n{ai_error}")
     if ai is None:
         ai = _mock(mode)
-        ai["description"] = f"⚠️ {ai_error or 'AI returned no result.'}"
+        ai["description"] = f"⚠️ AI FAILED — using mock data"
         if ai_error:
             ai["ai_error"] = ai_error
     ext = Path(str(file.filename)).suffix or ".png"
@@ -203,6 +203,7 @@ async def _ai_analyze(image_bytes, sid):
             raise Exception(f"API error {e.response.status_code}: {body}") from e
         d = r.json()
 
+    print(f"[AI] Raw response keys: {list(d.keys())}")
     choice = (d.get("choices") or [{}])[0]
     msg = choice.get("message", {})
     content = msg.get("content", "")
@@ -211,6 +212,9 @@ async def _ai_analyze(image_bytes, sid):
 
     if finish and finish != "stop":
         raise Exception(f"AI call stopped early (finish_reason={finish})")
+
+    print(f"[AI] content[:200]: {content[:200]}")
+    print(f"[AI] reasoning_content[:200]: {reasoning[:200]}")
 
     j = _extract_json(content) or _extract_json(reasoning)
     if not j:

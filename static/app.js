@@ -537,7 +537,15 @@ async function doScan() {
         showScanResult(data);
         playBeep('success');
     } catch (err) {
-        alert('Scan failed: ' + err.message);
+        console.error('Scan error:', err);
+        // Show error inline instead of alert
+        const msg = err.message || String(err);
+        document.getElementById('scan-result').classList.remove('hidden');
+        document.getElementById('result-name').textContent = 'Scan Error';
+        document.getElementById('result-desc').textContent = msg;
+        document.getElementById('result-brand').textContent = '';
+        document.getElementById('gemini-error').textContent = '❌ ' + msg;
+        document.getElementById('gemini-error').style.display = 'block';
         playBeep('error');
     } finally {
         document.getElementById('scan-status').classList.remove('is-shown');

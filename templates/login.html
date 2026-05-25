@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Re-Life — Login</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body class="login-page">
+<div class="login-shell">
+
+  <div class="login-card">
+    <!-- Brand -->
+    <div class="login-brand">
+      <div class="login-logo">🌿</div>
+      <div class="login-title">Re-Life</div>
+      <div class="login-sub" id="login-tagline">Green Living Assistant</div>
+    </div>
+
+    <!-- Form -->
+    <form class="login-form" id="login-form" onsubmit="handleLogin(event)">
+      <div class="login-field">
+        <label class="login-label" for="login-username" id="lbl-username">Username</label>
+        <input
+          class="login-input"
+          type="text"
+          id="login-username"
+          placeholder="EcoWarrior"
+          autocomplete="username"
+          required
+          minlength="2"
+          maxlength="24"
+        >
+      </div>
+      <div class="login-field">
+        <label class="login-label" for="login-password" id="lbl-password">Password</label>
+        <input
+          class="login-input"
+          type="password"
+          id="login-password"
+          placeholder="••••••••"
+          autocomplete="current-password"
+          minlength="4"
+        >
+      </div>
+
+      <div class="login-error" id="login-error"></div>
+
+      <button class="login-btn login-btn--primary" type="submit" id="login-submit-btn">
+        <span id="lbl-login-btn">Log In</span>
+      </button>
+
+      <div class="login-divider">
+        <span id="lbl-or">or</span>
+      </div>
+
+      <button class="login-btn login-btn--ghost" type="button" id="register-btn" onclick="toggleRegister()">
+        <span id="lbl-register-btn">Create Account</span>
+      </button>
+    </form>
+
+    <!-- Register form (hidden by default) -->
+    <form class="login-form hidden" id="register-form" onsubmit="handleRegister(event)">
+      <div class="login-field">
+        <label class="login-label" for="reg-username" id="lbl-reg-username">Choose Username</label>
+        <input
+          class="login-input"
+          type="text"
+          id="reg-username"
+          placeholder="GreenHero2026"
+          autocomplete="off"
+          required
+          minlength="2"
+          maxlength="24"
+        >
+      </div>
+      <div class="login-field">
+        <label class="login-label" for="reg-password" id="lbl-reg-password">Choose Password</label>
+        <input
+          class="login-input"
+          type="password"
+          id="reg-password"
+          placeholder="••••••••"
+          autocomplete="new-password"
+          required
+          minlength="4"
+        >
+      </div>
+
+      <div class="login-error" id="register-error"></div>
+
+      <button class="login-btn login-btn--primary" type="submit" id="register-submit-btn">
+        <span id="lbl-create-account-btn">Create Account</span>
+      </button>
+
+      <button class="login-btn login-btn--ghost" type="button" onclick="toggleRegister()">
+        <span id="lbl-back-login">← Back to Login</span>
+      </button>
+    </form>
+
+    <!-- Footer links -->
+    <div class="login-footer">
+      <button class="login-footer-link" id="lang-btn" onclick="toggleLoginLang()">🌐 EN</button>
+      <span class="login-footer-dot">·</span>
+      <span class="login-footer-text" id="lbl-version">v4.2.0 HK</span>
+    </div>
+  </div>
+
+</div>
+
+<script src="/static/app.js"></script>
+</body>
+</html>

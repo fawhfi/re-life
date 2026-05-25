@@ -67,6 +67,14 @@ const STRINGS = {
         clearAll: 'Clear All', couponClaimed: 'Coupon Claimed!',
         couponCode: 'Your coupon code:', couponExpiry: 'Valid 30 days',
         closeBtn: 'Close', cancelBtn: 'Cancel', confirmBtn: 'Confirm',
+        loginTitle: 'Welcome Back', loginTagline: 'Green Living Assistant',
+        usernameLabel: 'Username', passwordLabel: 'Password',
+        loginBtn: 'Log In', registerBtn: 'Create Account',
+        createAccountBtn: 'Create Account', backToLogin: '← Back to Login',
+        orDivider: 'or', versionLabel: 'v4.2.0 HK',
+        regUsernameLabel: 'Choose Username', regPasswordLabel: 'Choose Password',
+        loginError: 'Login failed. Try again.', registerError: 'Registration failed.',
+        usernameTaken: 'Username already taken.',
     },
     zh: {
         appTitle: 'Re-Life', scanItems: '主頁',
@@ -110,6 +118,14 @@ const STRINGS = {
         clearAll: '清除全部', couponClaimed: '禮券已領取！',
         couponCode: '你的禮券代碼：', couponExpiry: '有效期 30 天',
         closeBtn: '關閉', cancelBtn: '取消', confirmBtn: '確認',
+        loginTitle: '歡迎回來', loginTagline: '綠色生活助手',
+        usernameLabel: '用戶名', passwordLabel: '密碼',
+        loginBtn: '登入', registerBtn: '建立帳戶',
+        createAccountBtn: '建立帳戶', backToLogin: '← 返回登入',
+        orDivider: '或', versionLabel: 'v4.2.0 香港',
+        regUsernameLabel: '選擇用戶名', regPasswordLabel: '選擇密碼',
+        loginError: '登入失敗，請重試。', registerError: '註冊失敗。',
+        usernameTaken: '用戶名已被使用。',
     },
 };
 
@@ -359,6 +375,18 @@ if (document.readyState === 'loading') {
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
+    // Detect login page vs main app
+    if (document.querySelector('.login-page')) {
+        initLoginPage();
+        return;
+    }
+
+    // Main app — redirect to login if no session
+    if (!safeStorage.get('RE_LIFE_CURRENT_USER')) {
+        window.location.replace('/login');
+        return;
+    }
+
     startClock();
     await initAccounts();
     await loadRecords();
@@ -1274,8 +1302,7 @@ function toggleLogin() {
             state.userAvatar = '👤';
             safeStorage.remove('RE_LIFE_CURRENT_USER');
             safeStorage.remove('RE_LIFE_USER_AVATAR');
-            updateHeaderUI();
-            navigateTo('home');
+            window.location.replace('/login');
         });
         return;
     }
@@ -1336,6 +1363,124 @@ window.addEventListener('beforeunload', () => {
     if (state.currentUser) saveUserData();
 });
 
+
+// ═══════════════════════════════════════════════════════════════════════
+// 14b. LOGIN PAGE
+// ═══════════════════════════════════════════════════════════════════════
+
+let loginLang = safeStorage.get('RE_LIFE_LANG') || 'en';
+
+function initLoginPage() {
+    loginLang = safeStorage.get('RE_LIFE_LANG') || 'en';
+    state.lang = loginLang; // sync with main state
+    applyLoginLabels();
+}
+
+function applyLoginLabels() {
+    const map = {
+        'login-tagline': 'loginTagline',
+        'lbl-username': 'usernameLabel',
+        'lbl-password': 'passwordLabel',
+        'lbl-login-btn': 'loginBtn',
+        'lbl-register-btn': 'registerBtn',
+        'lbl-or': 'orDivider',
+        'lbl-version': 'versionLabel',
+        'lbl-reg-username': 'regUsernameLabel',
+        'lbl-reg-password': 'regPasswordLabel',
+        'lbl-create-account-btn': 'createAccountBtn',
+        'lbl-back-login': 'backToLogin',
+    };
+    for (const [id, key] of Object.entries(map)) {
+        const el = document.getElementById(id);
+        if (el) el.textContent = STRINGS[loginLang][key];
+    }
+    const langBtn = document.getElementById('lang-btn');
+    if (langBtn) langBtn.textContent = loginLang === 'en' ? '🌐 EN' : '🌐 中文';
+}
+
+function toggleLoginLang() {
+    loginLang = loginLang === 'en' ? 'zh' : 'en';
+    safeStorage.set('RE_LIFE_LANG', loginLang);
+    state.lang = loginLang;
+    applyLoginLabels();
+}
+
+function toggleRegister() {
+    const loginForm = document.getElementById('login-form');
+    const registerForm = document.getElementById('register-form');
+    const showRegister = loginForm.classList.contains('hidden');
+    if (showRegister) {
+        loginForm.classList.add('hidden');
+        registerForm.classList.remove('hidden');
+    } else {
+        registerForm.classList.add('hidden');
+        loginForm.classList.remove('hidden');
+    }
+    document.getElementById('login-error').textContent = '';
+    document.getElementById('register-error').textContent = '';
+}
+
+async function handleLogin(e) {
+    e.preventDefault();
+    const errorEl = document.getElementById('login-error');
+    const btn = document.getElementById('login-submit-btn');
+    errorEl.textContent = '';
+    const username = document.getElementById('login-username').value.trim();
+    if (!username) {
+        errorEl.textContent = loginLang === 'zh' ? '請輸入用戶名' : 'Please enter a username';
+        return;
+    }
+    btn.textContent = '...';
+    try {
+        const res = await fetch('/api/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username }),
+        });
+        const data = await res.json();
+        if (data.ok) {
+            safeStorage.set('RE_LIFE_CURRENT_USER', data.user.name);
+            safeStorage.set('RE_LIFE_USER_AVATAR', data.user.avatar);
+            window.location.replace('/');
+        } else {
+            errorEl.textContent = data.error || STRINGS[loginLang].loginError;
+        }
+    } catch (_) {
+        errorEl.textContent = STRINGS[loginLang].loginError;
+    }
+    btn.innerHTML = '<span>' + STRINGS[loginLang].loginBtn + '</span>';
+}
+
+async function handleRegister(e) {
+    e.preventDefault();
+    const errorEl = document.getElementById('register-error');
+    const btn = document.getElementById('register-submit-btn');
+    errorEl.textContent = '';
+    const username = document.getElementById('reg-username').value.trim();
+    if (!username || username.length < 2) {
+        errorEl.textContent = loginLang === 'zh' ? '用戶名至少需要2個字符' : 'Username must be at least 2 characters';
+        return;
+    }
+    btn.textContent = '...';
+    try {
+        const res = await fetch('/api/register', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username }),
+        });
+        const data = await res.json();
+        if (data.ok) {
+            safeStorage.set('RE_LIFE_CURRENT_USER', data.user.name);
+            safeStorage.set('RE_LIFE_USER_AVATAR', data.user.avatar);
+            window.location.replace('/');
+        } else {
+            errorEl.textContent = data.error || STRINGS[loginLang].registerError;
+        }
+    } catch (_) {
+        errorEl.textContent = STRINGS[loginLang].registerError;
+    }
+    btn.innerHTML = '<span>' + STRINGS[loginLang].createAccountBtn + '</span>';
+}
 
 // ═══════════════════════════════════════════════════════════════════════
 // 15. LANGUAGE

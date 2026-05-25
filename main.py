@@ -88,6 +88,10 @@ def get_grade(score):
 async def root():
     return (root_dir / "templates/index.html").read_text(encoding="utf-8")
 
+@app.get("/login", response_class=HTMLResponse)
+async def login_page():
+    return (root_dir / "templates/login.html").read_text(encoding="utf-8")
+
 @app.post("/api/scan")
 async def scan_item(file: UploadFile = File(...), mode: str = Form("dispose")):
     ext = Path(str(file.filename)).suffix or ".png"
@@ -321,6 +325,28 @@ async def redeem_reward(data: dict):
     if not reward: return JSONResponse({"error": "Not found"}, 404)
     code = "RL-" + uuid.uuid4().hex[:6].upper() + "-" + str(reward["cost"])
     return {"ok": True, "coupon": {"code": code, "title": reward["title"], "image": reward["image"], "cost": reward["cost"], "claimed_date": "Just now", "expiry": "Valid 30 days"}}
+
+@app.post("/api/login")
+async def login(data: dict):
+    username = data.get("username", "").strip()
+    if not username:
+        return JSONResponse({"error": "Username required"}, 400)
+    # Demo: auto-create user if they don't exist
+    if username not in users:
+        avatars = ["🌿", "♻️", "🌱", "🍃", "🌳", "💚", "🌍", "🪴"]
+        users[username] = {"avatar": avatars[len(users) % len(avatars)], "records": [], "spent_points": 0, "claimed_coupons": []}
+    return {"ok": True, "user": {"name": username, "avatar": users[username]["avatar"]}}
+
+@app.post("/api/register")
+async def register(data: dict):
+    username = data.get("username", "").strip()
+    if not username or len(username) < 2:
+        return JSONResponse({"error": "Username must be at least 2 characters"}, 400)
+    if username in users:
+        return JSONResponse({"error": "Username already taken"}, 409)
+    avatars = ["🌿", "♻️", "🌱", "🍃", "🌳", "💚", "🌍", "🪴"]
+    users[username] = {"avatar": avatars[len(users) % len(avatars)], "records": [], "spent_points": 0, "claimed_coupons": []}
+    return {"ok": True, "user": {"name": username, "avatar": users[username]["avatar"]}}
 
 @app.get("/api/users")
 async def get_users():

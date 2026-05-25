@@ -154,12 +154,24 @@ function calcWeighted(scores, schemaId) {
     );
 }
 
+function isDarkMode() {
+    return document.documentElement.getAttribute('data-theme') === 'dark';
+}
+
 function getGrade(score) {
-    if (score >= 85) return { grade: 'Excellent (A)', advice: 'Highly Recommended', color: '#065f46' };
-    if (score >= 70) return { grade: 'Good (B)', advice: 'Acceptable', color: '#047857' };
-    if (score >= 55) return { grade: 'Fair (C)', advice: 'Consider Alternatives', color: '#ca8a04' };
-    if (score >= 40) return { grade: 'Poor (D)', advice: 'Avoid if Possible', color: '#b45309' };
-    return { grade: 'Very Poor (E)', advice: 'Strongly Discouraged', color: '#dc2626' };
+    const dark = isDarkMode();
+    if (score >= 85) return { grade: 'Excellent (A)', advice: 'Highly Recommended', color: dark ? '#4ade80' : '#065f46' };
+    if (score >= 70) return { grade: 'Good (B)', advice: 'Acceptable', color: dark ? '#34d399' : '#047857' };
+    if (score >= 55) return { grade: 'Fair (C)', advice: 'Consider Alternatives', color: dark ? '#fbbf24' : '#ca8a04' };
+    if (score >= 40) return { grade: 'Poor (D)', advice: 'Avoid if Possible', color: dark ? '#f97316' : '#b45309' };
+    return { grade: 'Very Poor (E)', advice: 'Strongly Discouraged', color: dark ? '#f87171' : '#dc2626' };
+}
+
+function getBarColor(v) {
+    const dark = isDarkMode();
+    if (v >= 70) return dark ? '#4ade80' : '#065f46';
+    if (v >= 50) return dark ? '#fbbf24' : '#ca8a04';
+    return dark ? '#f87171' : '#dc2626';
 }
 
 // safeStorage: localStorage with in-memory fallback
@@ -782,7 +794,7 @@ function showScanResult(item) {
     for (const k of ['a', 'b', 'c', 'd', 'e']) {
         const v = scores[k] || 50;
         const w = Math.round(weights[k] * 100);
-        const barColor = v >= 70 ? '#065f46' : v >= 50 ? '#ca8a04' : '#dc2626';
+        const barColor = getBarColor(v);
         detail.innerHTML += `
             <div class="criterion-row" data-key="${k}">
                 <div class="criterion-header">
@@ -1437,9 +1449,51 @@ function applyTheme(theme) {
     safeStorage.set('RE_LIFE_THEME', theme);
 }
 
+function refreshGradeColors() {
+    // Refresh grade-tag pills and overall-score text color on all rendered elements
+    document.querySelectorAll('.grade-tag').forEach(el => {
+        const text = (el.textContent || '').trim();
+        let score;
+        if (text.includes('Excellent') || text.includes('(A)')) score = 90;
+        else if (text.includes('Good') || text.includes('(B)')) score = 75;
+        else if (text.includes('Fair') || text.includes('(C)')) score = 60;
+        else if (text.includes('Poor') || text.includes('(D)')) score = 45;
+        else score = 10;
+        const g = getGrade(score);
+        el.style.background = g.color;
+    });
+
+    // Refresh overall bar fill
+    const bar = document.getElementById('ov-bar-fill');
+    if (bar && state.lastScanResult) {
+        const ov = state.lastScanResult.overall_score || 74;
+        const g = getGrade(ov);
+        bar.style.background = g.color;
+    }
+
+    // Refresh record card overall score text colors
+    document.querySelectorAll('.record-card-ratings .rating-item:last-child span:last-child').forEach(el => {
+        const val = parseInt(el.textContent) || 50;
+        const g = getGrade(val);
+        el.style.color = g.color;
+    });
+
+    // Refresh criterion bar fills
+    document.querySelectorAll('.criterion-bar-fill').forEach(el => {
+        const key = el.getAttribute('data-key');
+        if (!key || !state.lastScanResult) return;
+        const scores = state.lastScanResult.weighted_scores;
+        if (!scores) return;
+        const v = scores[key] || 50;
+        el.style.background = getBarColor(v);
+    });
+}
+
 function toggleTheme() {
     const current = document.documentElement.getAttribute('data-theme') || 'light';
     applyTheme(current === 'dark' ? 'light' : 'dark');
+    refreshGradeColors();
+    renderRecords();
 }
 
 function openPolicy() {

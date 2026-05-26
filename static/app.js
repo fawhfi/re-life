@@ -227,6 +227,7 @@ const state = {
     claimedCoupons: [],
     rewards: [],
     clockInterval: null,
+    debugMode: false,
 };
 
 
@@ -655,6 +656,7 @@ async function doScan() {
         fd.append('mode', state.scanMode);
         fd.append('item_type', state.itemType);
         fd.append('item_state', state.itemState);
+        if (state.debugMode) fd.append('debug', 'true');
 
         const res = await fetch('/api/scan/ai', { method: 'POST', body: fd });
         const data = await res.json();
@@ -1594,7 +1596,7 @@ function initTheme() {
 function applyTheme(theme) {
     document.documentElement.setAttribute('data-theme', theme);
     const icon = document.getElementById('theme-icon');
-    if (icon) icon.src = theme === 'dark' ? '/static/DarkMode_On.png' : '/static/DarkMode_Off.png';
+    if (icon) icon.src = theme === 'dark' ? '/static/DarkMode_Off.png' : '/static/DarkMode_On.png';
     const label = document.getElementById('theme-label');
     if (label) label.textContent = theme === 'dark' ? 'Light Mode' : 'Dark Mode';
     safeStorage.set('RE_LIFE_THEME', theme);
@@ -1649,4 +1651,9 @@ function toggleTheme() {
 
 function openPolicy() {
     showAlert(tr('policy'), tr('policyText'));
+}
+
+function toggleDebug() {
+    state.debugMode = !state.debugMode;
+    document.getElementById('debug-btn').textContent = state.debugMode ? '🔧 Debug Mode: ON' : '🔧 Debug Mode: OFF';
 }

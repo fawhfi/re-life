@@ -105,12 +105,16 @@ async def scan_item(file: UploadFile = File(...), mode: str = Form("dispose")):
     return JSONResponse(result)
 
 @app.post("/api/scan/ai")
-async def scan_item_ai(file: UploadFile = File(...), mode: str = Form("dispose"), item_type: str = Form("food"), item_state: str = Form("new")):
+async def scan_item_ai(file: UploadFile = File(...), mode: str = Form("dispose"), item_type: str = Form("food"), item_state: str = Form("new"), debug: str = Form("false")):
     contents = await file.read()
     sid = f"{item_type}_{item_state}"
     ai = None
     ai_error = None
-    if not NVIDIA_API_KEY:
+    if debug.lower() == "true":
+        # Debug mode: skip AI, go straight to CNN classifier
+        ai_error = "Debug mode — skipping NVIDIA API"
+        print("[Debug] Skipping AI, using classifier directly")
+    elif not NVIDIA_API_KEY:
         ai_error = "No API key configured. Set NVIDIA_API in .env or enter it in Settings."
     else:
         for attempt in range(3):
@@ -124,8 +128,16 @@ async def scan_item_ai(file: UploadFile = File(...), mode: str = Form("dispose")
                     import asyncio
                     await asyncio.sleep(1)
     if ai is None:
-        ai = _mock(mode)
-        ai["description"] = f"⚠️ AI FAILED — using mock data"
+        # Try local CNN classifier before falling back to mock data
+        try:
+            from classifier import classifier_analyze
+            ai = classifier_analyze(contents, mode)
+            ai["description"] = f"⚠️ AI unavailable — using local CNN classifier"
+            print("[Classifier] Successfully used CNN fallback")
+        except Exception as cls_err:
+            print(f"[Classifier] CNN fallback also failed: {cls_err}")
+            ai = _mock(mode)
+            ai["description"] = f"⚠️ AI & classifier both failed — using mock data"
         if ai_error:
             ai["ai_error"] = ai_error
     ext = Path(str(file.filename)).suffix or ".png"

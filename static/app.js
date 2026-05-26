@@ -56,7 +56,7 @@ const STRINGS = {
         recycleAvg: 'Recycle Avg', notLoggedIn: 'Not Logged In', logout: 'Logout',
         loginAs: 'Login as', confirmLogout: 'Logout and clear local data?',
         confirmClear: 'Clear all records?', settings: 'Settings',
-        soundOn: '🔊 Sound ON', soundOff: '🔇 Sound OFF',
+        soundOn: 'Sound ON', soundOff: 'Sound OFF',
         ecoCommitments: 'My Eco Commitments',
         commitment1: 'Bring reusable tote bag on grocery trips.',
         commitment2: 'Separate compost scraps from general trash.',
@@ -107,7 +107,7 @@ const STRINGS = {
         recycleAvg: '回收均分', notLoggedIn: '尚未登入', logout: '登出',
         loginAs: '登入為', confirmLogout: '確定登出並清除本地數據？',
         confirmClear: '確定清除所有記錄？', settings: '設置',
-        soundOn: '🔊 聲音開', soundOff: '🔇 靜音',
+        soundOn: '聲音開', soundOff: '靜音',
         ecoCommitments: '我的環保承諾',
         commitment1: '購物時攜帶可重複使用的帆布袋。',
         commitment2: '將廚餘與一般垃圾分開。',
@@ -1563,7 +1563,10 @@ function updateAllLabels() {
         stateSel.options[1].text = tr('aboutToExpire');
     }
 
-    document.getElementById('sound-btn').textContent = soundOn ? tr('soundOn') : tr('soundOff');
+    const sndIcon = document.getElementById('sound-icon');
+    if (sndIcon) sndIcon.src = soundOn ? '/static/Sound_On.png' : '/static/Sound_Off.png';
+    const sndLabel = document.getElementById('sound-label');
+    if (sndLabel) sndLabel.textContent = soundOn ? tr('soundOn') : tr('soundOff');
     document.getElementById('clear-btn').textContent = tr('clearAll');
     updateHeaderUI();
 }
@@ -1575,7 +1578,10 @@ function updateAllLabels() {
 
 function toggleSound() {
     soundOn = !soundOn;
-    document.getElementById('sound-btn').textContent = soundOn ? tr('soundOn') : tr('soundOff');
+    const icon = document.getElementById('sound-icon');
+    if (icon) icon.src = soundOn ? '/static/Sound_On.png' : '/static/Sound_Off.png';
+    const label = document.getElementById('sound-label');
+    if (label) label.textContent = soundOn ? tr('soundOn') : tr('soundOff');
 }
 
 // ── Theme Toggle ────────────────────────────────────────────────────
@@ -1587,10 +1593,10 @@ function initTheme() {
 
 function applyTheme(theme) {
     document.documentElement.setAttribute('data-theme', theme);
-    const btn = document.getElementById('theme-btn');
-    if (btn) {
-        btn.textContent = theme === 'dark' ? '☀️ Light Mode' : '🌙 Dark Mode';
-    }
+    const icon = document.getElementById('theme-icon');
+    if (icon) icon.src = theme === 'dark' ? '/static/DarkMode_On.png' : '/static/DarkMode_Off.png';
+    const label = document.getElementById('theme-label');
+    if (label) label.textContent = theme === 'dark' ? 'Light Mode' : 'Dark Mode';
     safeStorage.set('RE_LIFE_THEME', theme);
 }
 

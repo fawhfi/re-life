@@ -1030,8 +1030,10 @@ async function deleteRecord(id) {
         await fetch(`/api/records/${id}`, { method: 'DELETE' });
         const card = document.getElementById(`rec-${id}`);
         if (card) {
-            card.style.cssText = 'opacity:0;transform:scale(0.95);transition:all 0.2s';
-            setTimeout(loadRecords, 200);
+            card.style.cssText = 'opacity:0;transform:scale(0.92) translateY(-8px);transition:all 0.3s cubic-bezier(0.4,0,0.2,1)';
+            card.style.maxHeight = card.offsetHeight + 'px';
+            requestAnimationFrame(() => { card.style.maxHeight = '0px'; card.style.marginTop = '0px'; card.style.marginBottom = '0px'; card.style.paddingTop = '0px'; card.style.paddingBottom = '0px'; card.style.overflow = 'hidden'; });
+            setTimeout(loadRecords, 350);
         }
     } catch (e) {
         console.error('Failed to delete record:', e);
@@ -1050,13 +1052,24 @@ async function clearAllRecords() {
 
 function updateStats() {
     const n = state.records.length;
-    document.getElementById('stat-items').textContent = n;
-    document.getElementById('stat-eco').textContent = n
+    const itemsEl = document.getElementById('stat-items');
+    const ecoEl = document.getElementById('stat-eco');
+    const recycleEl = document.getElementById('stat-recycle');
+
+    const animateEl = (el, value) => {
+        el.textContent = value;
+        el.classList.remove('anim-entrance');
+        void el.offsetWidth; // force reflow
+        el.classList.add('anim-entrance');
+    };
+
+    animateEl(itemsEl, n);
+    animateEl(ecoEl, n
         ? (state.records.reduce((s, r) => s + (r.eco_rate || 3), 0) / n).toFixed(1)
-        : '0';
-    document.getElementById('stat-recycle').textContent = n
+        : '0');
+    animateEl(recycleEl, n
         ? (state.records.reduce((s, r) => s + (r.recycle_rate || 3), 0) / n).toFixed(1)
-        : '0';
+        : '0');
 }
 
 
@@ -1087,8 +1100,16 @@ function showTip(index) {
     state.currentTipIndex = index;
     const tip = state.tips[index];
     if (!tip) return;
-    document.getElementById('tips-title').textContent = `"${tip.title}"`;
-    document.getElementById('tips-snippet').textContent = tip.snippet;
+    const titleEl = document.getElementById('tips-title');
+    const snippetEl = document.getElementById('tips-snippet');
+    if (titleEl) titleEl.classList.add('is-switching');
+    if (snippetEl) snippetEl.classList.add('is-switching');
+    setTimeout(() => {
+        if (titleEl) titleEl.textContent = `"${tip.title}"`;
+        if (snippetEl) snippetEl.textContent = tip.snippet;
+        if (titleEl) titleEl.classList.remove('is-switching');
+        if (snippetEl) snippetEl.classList.remove('is-switching');
+    }, 250);
     document.getElementById('tips-source').textContent = tip.source;
     document.querySelectorAll('.tips-dot').forEach((d, i) =>
         d.classList.toggle('is-active', i === index)

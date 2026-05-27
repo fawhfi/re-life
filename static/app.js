@@ -1566,7 +1566,7 @@ function updateAllLabels() {
     }
 
     const sndIcon = document.getElementById('sound-icon');
-    if (sndIcon) sndIcon.src = soundOn ? '/static/Sound_On.png' : '/static/Sound_Off.png';
+    if (sndIcon) sndIcon.src = soundOn ? '/static/images/Sound_On.png' : '/static/images/Sound_Off.png';
     const sndLabel = document.getElementById('sound-label');
     if (sndLabel) sndLabel.textContent = soundOn ? tr('soundOn') : tr('soundOff');
     document.getElementById('clear-btn').textContent = tr('clearAll');
@@ -1581,7 +1581,7 @@ function updateAllLabels() {
 function toggleSound() {
     soundOn = !soundOn;
     const icon = document.getElementById('sound-icon');
-    if (icon) icon.src = soundOn ? '/static/Sound_On.png' : '/static/Sound_Off.png';
+    if (icon) icon.src = soundOn ? '/static/images/Sound_On.png' : '/static/images/Sound_Off.png';
     const label = document.getElementById('sound-label');
     if (label) label.textContent = soundOn ? tr('soundOn') : tr('soundOff');
 }
@@ -1596,7 +1596,7 @@ function initTheme() {
 function applyTheme(theme) {
     document.documentElement.setAttribute('data-theme', theme);
     const icon = document.getElementById('theme-icon');
-    if (icon) icon.src = theme === 'dark' ? '/static/DarkMode_Off.png' : '/static/DarkMode_On.png';
+    if (icon) icon.src = theme === 'dark' ? '/static/images/DarkMode_Off.png' : '/static/images/DarkMode_On.png';
     const label = document.getElementById('theme-label');
     if (label) label.textContent = theme === 'dark' ? 'Light Mode' : 'Dark Mode';
     safeStorage.set('RE_LIFE_THEME', theme);

@@ -26,7 +26,7 @@ from PIL import Image
 
 
 # ─── Constants (mirrors cnn_classifier/dataset.py) ──────────────────────────
-CATEGORIES   = ["glass", "metal", "organic", "paper", "plastic"]
+CATEGORIES   = ["glass", "metal", "organic", "paper", "plastic", "ewaste"]
 IMG_SIZE     = 260
 MEAN         = np.array([0.485, 0.456, 0.406], dtype=np.float32)
 STD          = np.array([0.229, 0.224, 0.225], dtype=np.float32)
@@ -78,6 +78,15 @@ _MATERIAL_MAP: dict[str, dict] = {
         "disposal_guide": "Rinse clean, flatten. Use tri-colour recycling bins or GREEN@COMMUNITY.",
         "precaution": "Remove pumps, spray tops, and mixed-material parts.",
     },
+    "ewaste": {
+        "material": "ewaste",
+        "standard_type": "general",
+        "eco_rate": 2,
+        "recycle_rate": 3,
+        "description": "Electronic waste — contains recoverable metals but also hazardous materials.",
+        "disposal_guide": "Take to designated e-waste collection points or WEEE·PARK in HK.",
+        "precaution": "Remove batteries before disposal. Do not place in regular recycling bins.",
+    },
 }
 
 # ─── Product name templates per category ───────────────────────────────────
@@ -87,6 +96,7 @@ _NAME_POOL: dict[str, list[str]] = {
     "organic":  ["Food Waste", "Organic Scrap", "Compostable Item"],
     "paper":    ["Cardboard Box", "Paper Package", "Paper Carton"],
     "plastic":  ["Plastic Bottle", "Plastic Container", "Plastic Packaging"],
+    "ewaste":   ["Electronic Device", "E-Waste Item", "Electronic Component"],
 }
 
 

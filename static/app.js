@@ -205,6 +205,36 @@ const safeStorage = {
 };
 
 
+// ── Number counting animation utility ─────────────────────────────────
+function animateNumber(elementId, start, end, duration = 800) {
+    const obj = document.getElementById(elementId);
+    if (!obj) return;
+    
+    // If value didn't change, just set it
+    if (start === end) {
+        obj.textContent = end;
+        return;
+    }
+
+    let startTimestamp = null;
+    const step = (timestamp) => {
+        if (!startTimestamp) startTimestamp = timestamp;
+        const progress = Math.min((timestamp - startTimestamp) / duration, 1);
+        // easeOutQuint easing for decelerating count-up
+        const easeProgress = 1 - Math.pow(1 - progress, 5);
+        const currentCount = Math.floor(easeProgress * (end - start) + start);
+        
+        obj.textContent = currentCount.toLocaleString();
+        
+        if (progress < 1) {
+            window.requestAnimationFrame(step);
+        } else {
+            obj.textContent = end.toLocaleString();
+        }
+    };
+    window.requestAnimationFrame(step);
+}
+
 // ═══════════════════════════════════════════════════════════════════════
 // 3. APP STATE
 // ═══════════════════════════════════════════════════════════════════════
@@ -1155,7 +1185,8 @@ function renderRewards() {
             0
         );
     const balance = Math.max(0, earned - state.spentPoints);
-    document.getElementById('rew-pts').textContent = balance;
+    const oldPoints = parseInt(document.getElementById('rew-pts').textContent) || 0;
+    animateNumber('rew-pts', oldPoints, balance, 1000);
 
     // Shortcut
     document.getElementById('rew-shortcut').classList.toggle('is-shown', state.claimedCoupons.length > 0);
@@ -1678,3 +1709,29 @@ function toggleDebug() {
     state.debugMode = !state.debugMode;
     document.getElementById('debug-btn').textContent = state.debugMode ? '🔧 Debug Mode: ON' : '🔧 Debug Mode: OFF';
 }
+
+// ── Click Ripple Initialization ───────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+    const addRippleEffect = (e) => {
+        const btn = e.target.closest('.btn--primary, .scan-btn, .login-btn--primary');
+        if (!btn) return;
+
+        // Create ripple element
+        const ripple = document.createElement('span');
+        ripple.className = 'click-ripple';
+        
+        // Calculate click coordinates
+        const rect = btn.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        
+        ripple.style.left = `${x}px`;
+        ripple.style.top = `${y}px`;
+        
+        // Append and auto-cleanup
+        btn.appendChild(ripple);
+        setTimeout(() => ripple.remove(), 600);
+    };
+
+    document.body.addEventListener('click', addRippleEffect);
+});

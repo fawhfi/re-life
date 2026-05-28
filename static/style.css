@@ -1973,7 +1973,7 @@ body:has(.camera-modal.is-shown) .app-header,
     font-size: 14px;
     background: linear-gradient(90deg, #3d423b, var(--color-primary), #3d423b);
     background-size: 200% auto;
-    -webkit-background-clip: text;
+    -background-clip: text;
     -webkit-text-fill-color: transparent;
     animation: shineText 1.5s linear infinite;
 }

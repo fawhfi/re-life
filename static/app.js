@@ -26,7 +26,8 @@ const CRITERIA_LABELS = {
 // -- i18n strings (English / 中文) -------------------------------------
 const STRINGS = {
     en: {
-        appTitle: 'Re-Life', scanItems: 'Home',
+        appTitle: 'Re-Life', scanItems: 'Scan Your Item',
+        navHome: 'Home',
         toDispose: 'TO DISPOSE', toPurchase: 'TO PURCHASE',
         disposeSub: 'E-waste, Organics, Bulky', purchaseSub: 'Groceries, Dairy, Bottles',
         recordHome: 'Record', greenTips: 'GREEN TIPS', knowMore: '+ KNOW MORE',
@@ -1607,7 +1608,7 @@ function updateAllLabels() {
         'lbl-marketplace': 'ecoMarketplace',
         'lbl-claimed-title': 'claimedCoupons',
         'lbl-settings': 'settings',
-        'nav-lbl-home': 'scanItems',
+        'nav-lbl-home': 'navHome',
         'nav-lbl-record': 'recordHome',
         'nav-lbl-rewards': 'rewards',
         'nav-lbl-more': 'more',

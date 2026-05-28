@@ -1339,7 +1339,6 @@ body {
 .rewards-item:nth-child(3) { animation-delay: 0.16s; }
 .rewards-item:nth-child(4) { animation-delay: 0.22s; }
 .rewards-item:nth-child(n+5) { animation-delay: 0.28s; }
-}
 
 .rewards-item:hover {
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);

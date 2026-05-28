@@ -29,12 +29,12 @@
         <h2 class="card-header" id="lbl-scan-title">SCAN YOUR ITEMS</h2>
         <div class="scan-grid">
           <button class="scan-btn scan-btn--dispose" onclick="startScanningMode('dispose')">
-            <div class="scan-btn-icon"><img src="/static/images/to_dispose.png" alt="Dispose" style="width:100%;height:100%;object-fit:contain"></div>
+            <div class="scan-btn-icon"><img src="/static/assets/to_dispose.png" alt="Dispose" style="width:100%;height:100%;object-fit:contain"></div>
             <span class="scan-btn-label" id="lbl-dispose-btn">TO DISPOSE</span>
             <span class="scan-btn-sub" id="lbl-dispose-sub">E-waste, Organics, Bulky</span>
           </button>
           <button class="scan-btn scan-btn--purchase" onclick="startScanningMode('purchase')">
-            <div class="scan-btn-icon"><img src="/static/images/to_purchase.png" alt="Purchase" style="width:100%;height:100%;object-fit:contain"></div>
+            <div class="scan-btn-icon"><img src="/static/assets/to_purchase.png" alt="Purchase" style="width:100%;height:100%;object-fit:contain"></div>
             <span class="scan-btn-label" id="lbl-purchase-btn">TO PURCHASE</span>
             <span class="scan-btn-sub" id="lbl-purchase-sub">Groceries, Dairy, Bottles</span>
           </button>
@@ -156,7 +156,7 @@
       <button class="btn btn--danger btn--full" id="clear-btn" onclick="clearAllRecords()" style="justify-content:center">Clear All</button>
       <div id="records-list"></div>
       <div id="records-empty" class="empty-state">
-        <div class="empty-state-icon"><img src="/static/images/Record.png" alt="No records" style="width:100%;height:100%;object-fit:contain;opacity:0.5"></div>
+        <div class="empty-state-icon"><img src="/static/assets/Record.png" alt="No records" style="width:100%;height:100%;object-fit:contain;opacity:0.5"></div>
         <div class="empty-state-text" id="lbl-empty-text">No records yet</div>
         <div class="rating-label" style="margin-top:4px" id="lbl-empty-hint">Start by scanning an item</div>
       </div>
@@ -188,10 +188,10 @@
         <div class="card">
           <h3 style="font-size:12px;font-weight:700;color:var(--color-gray-800);margin-bottom:10px" id="lbl-settings">Settings</h3>
           <div style="display:flex;flex-direction:column;gap:8px">
-            <button class="btn btn--outline btn--full btn--small" id="sound-btn" onclick="toggleSound()"><img id="sound-icon" src="/static/images/Sound_On.png" alt="Sound" style="width:16px;height:16px;vertical-align:middle;margin-right:6px"><span id="sound-label">Sound ON</span></button>
-            <button class="btn btn--outline btn--full btn--small" id="theme-btn" onclick="toggleTheme()"><img id="theme-icon" src="/static/images/DarkMode_Off.png" alt="Theme" style="width:16px;height:16px;vertical-align:middle;margin-right:6px"><span id="theme-label">Dark Mode</span></button>
-            <button class="btn btn--outline btn--full btn--small" onclick="toggleLang()"><img id="lang-icon" src="/static/images/Language.png" alt="Language" style="width:16px;height:16px;vertical-align:middle;margin-right:6px"><span id="lang-label">Language</span> <span id="lang-ind">Eng</span></button>
-            <button class="btn btn--outline btn--full btn--small" onclick="openPolicy()"><img src="/static/images/Policy.png" alt="Policy" style="width:16px;height:16px;vertical-align:middle;margin-right:6px"><span>Policy</span></button>
+            <button class="btn btn--outline btn--full btn--small" id="sound-btn" onclick="toggleSound()"><img id="sound-icon" src="/static/assets/Sound_On.png" alt="Sound" style="width:16px;height:16px;vertical-align:middle;margin-right:6px"><span id="sound-label">Sound ON</span></button>
+            <button class="btn btn--outline btn--full btn--small" id="theme-btn" onclick="toggleTheme()"><img id="theme-icon" src="/static/assets/DarkMode_Off.png" alt="Theme" style="width:16px;height:16px;vertical-align:middle;margin-right:6px"><span id="theme-label">Dark Mode</span></button>
+            <button class="btn btn--outline btn--full btn--small" onclick="toggleLang()"><img id="lang-icon" src="/static/assets/Language.png" alt="Language" style="width:16px;height:16px;vertical-align:middle;margin-right:6px"><span id="lang-label">Language</span> <span id="lang-ind">Eng</span></button>
+            <button class="btn btn--outline btn--full btn--small" onclick="openPolicy()"><img src="/static/assets/Policy.png" alt="Policy" style="width:16px;height:16px;vertical-align:middle;margin-right:6px"><span>Policy</span></button>
             <button class="btn btn--outline btn--full btn--small" id="debug-btn" onclick="toggleDebug()">🔧 Debug Mode: OFF</button>
           </div>
         </div>
@@ -203,10 +203,10 @@
 
   <!-- ═══ NAV ═══ -->
   <nav class="nav">
-    <button id="nav-home" class="nav-btn is-active" onclick="navigateTo('home')"><span class="nav-btn-icon"><img src="/static/images/Scan.png" alt="Scan" style="width:100%;height:100%;object-fit:contain"></span><span id="nav-lbl-home">Home</span></button>
-    <button id="nav-record" class="nav-btn" onclick="navigateTo('record')"><span class="nav-btn-icon"><img src="/static/images/Record.png" alt="Record" style="width:100%;height:100%;object-fit:contain"></span><span id="nav-lbl-record">Record</span></button>
-    <button id="nav-rewards" class="nav-btn" onclick="navigateTo('rewards')"><span class="nav-btn-icon"><img src="/static/images/Reward.png" alt="Rewards" style="width:100%;height:100%;object-fit:contain"></span><span id="nav-lbl-rewards">Rewards</span></button>
-    <button id="nav-more" class="nav-btn" onclick="navigateTo('more')"><span class="nav-btn-icon"><img src="/static/images/More.png" alt="More" style="width:100%;height:100%;object-fit:contain"></span><span id="nav-lbl-more">More</span></button>
+    <button id="nav-home" class="nav-btn is-active" onclick="navigateTo('home')"><span class="nav-btn-icon"><img src="/static/assets/Scan.png" alt="Scan" style="width:100%;height:100%;object-fit:contain"></span><span id="nav-lbl-home">Home</span></button>
+    <button id="nav-record" class="nav-btn" onclick="navigateTo('record')"><span class="nav-btn-icon"><img src="/static/assets/Record.png" alt="Record" style="width:100%;height:100%;object-fit:contain"></span><span id="nav-lbl-record">Record</span></button>
+    <button id="nav-rewards" class="nav-btn" onclick="navigateTo('rewards')"><span class="nav-btn-icon"><img src="/static/assets/Reward.png" alt="Rewards" style="width:100%;height:100%;object-fit:contain"></span><span id="nav-lbl-rewards">Rewards</span></button>
+    <button id="nav-more" class="nav-btn" onclick="navigateTo('more')"><span class="nav-btn-icon"><img src="/static/assets/More.png" alt="More" style="width:100%;height:100%;object-fit:contain"></span><span id="nav-lbl-more">More</span></button>
   </nav>
 
 </div>

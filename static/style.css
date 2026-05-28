@@ -374,7 +374,7 @@ body {
 }
 
 .scan-btn--purchase {
-    background: var(--color-primary-light);
+    background: var(--color-emerald-50);
     border-color: rgba(61, 106, 75, 0.12);
 }
 
@@ -398,11 +398,11 @@ body {
 }
 
 .scan-btn--active.scan-btn--dispose {
-    background: #b8d4c0;
+    background: #c6f0d4;
 }
 
 .scan-btn--active.scan-btn--purchase {
-    background: #b8d4c0;
+    background: #c6f0d4;
 }
 
 .scan-btn-icon {
@@ -2465,12 +2465,12 @@ body:has(.camera-modal.is-shown) .app-header,
 
 /* ── Dark mode: scan mode active buttons ──────────────────────────── */
 [data-theme="dark"] .scan-btn--active.scan-btn--dispose {
-    background: #2d4a34;
-    border-color: var(--color-primary-mid) !important;
+    background: #1e3a28;
+    border-color: var(--color-emerald-800) !important;
 }
 
 [data-theme="dark"] .scan-btn--active.scan-btn--purchase {
-    background: #2d4a34;
+    background: #1e3a28;
     border-color: var(--color-emerald-800) !important;
 }
 

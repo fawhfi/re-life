@@ -1,7 +1,7 @@
-/* ═══════════════════════════════════════════════════════════════════[...]
+/* ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
    Re-Life — Stylesheet
    Fully readable, organized by component.
-   ═══════════════════════════════════════════════════════════════════[...]
+   ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════ */
 
 /* ── Reset ──────────────────────────────────────────────────────────── */
 *,
@@ -215,7 +215,7 @@ body {
     margin-bottom: 14px;
 }
 
-/* ── Buttons ──────────────────────────────││────────────────────────── */
+/* ── Buttons ───────────────────────────────────────────────────────── */
 .btn {
     display: inline-flex;
     align-items: center;
@@ -348,18 +348,18 @@ body {
     box-shadow: var(--shadow-md);
 }
 
-.scan-btn--dispose.scan-btn--active {
+.scan-btn--active {
     transform: scale(1.05);
     box-shadow: var(--shadow-lg);
     border-color: var(--color-primary) !important;
-    background: #b8d4c0 !important;
 }
 
-.scan-btn--purchase.scan-btn--active {
-    transform: scale(1.05);
-    box-shadow: var(--shadow-lg);
-    border-color: var(--color-emerald-700) !important;
-    background: #9eecd0 !important;
+.scan-btn--active.scan-btn--dispose {
+    background: #b8d4c0;
+}
+
+.scan-btn--active.scan-btn--purchase {
+    background: #c6f0d4;
 }
 
 .scan-btn-icon {

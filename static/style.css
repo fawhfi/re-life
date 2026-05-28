@@ -514,9 +514,8 @@ body {
     text-align: center;
     cursor: pointer;
     background: var(--color-white);
+    border-radius: 22px;
     padding: 28px 14px 18px;
-    border-radius: var(--radius-lg);
-    border: 2px dashed var(--color-gray-200);
     position: relative;
     /* Silky smooth transitions */
     transition: background-color 0.3s var(--ease-out-quint),
@@ -526,13 +525,11 @@ body {
 }
 
 .upload-zone:hover {
-    border-color: var(--color-primary-mid);
     transform: scale(1.01);
 }
 
 /* Elevated response when a file is dragged over */
 .upload-zone.drag-over {
-    border-color: var(--color-emerald-700);
     background-color: rgba(212, 232, 216, 0.4);
     box-shadow: 0 0 0 6px rgba(61, 106, 75, 0.15);
     transform: scale(1.03);
@@ -546,7 +543,6 @@ body {
     width: 64px;
     height: 64px;
     margin: 0 auto 8px;
-    border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -2301,7 +2297,6 @@ body:has(.camera-modal.is-shown) .app-header,
 }
 
 [data-theme="dark"] .upload-zone {
-    border-color: var(--color-gray-200);
     background: var(--color-gray-50);
 }
 

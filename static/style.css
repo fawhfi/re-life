@@ -2470,7 +2470,7 @@ body:has(.camera-modal.is-shown) .app-header,
 }
 
 [data-theme="dark"] .scan-btn--active.scan-btn--purchase {
-    background: #1e3a28;
+    background: #2d4a34;
     border-color: var(--color-emerald-800) !important;
 }
 

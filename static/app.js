@@ -708,15 +708,35 @@ async function doScan() {
         playBeep('success');
     } catch (err) {
         console.error('Scan error:', err);
-        // Show error inline instead of alert
-        const msg = err.message || String(err);
-        document.getElementById('scan-result').classList.remove('hidden');
-        document.getElementById('result-name').textContent = 'Scan Error';
-        document.getElementById('result-desc').textContent = msg;
-        document.getElementById('result-brand').textContent = '';
-        document.getElementById('gemini-error').textContent = '❌ ' + msg;
-        document.getElementById('gemini-error').style.display = 'block';
-        playBeep('error');
+        // Fall back to on-device CNN classifier
+        try {
+            const arrayBuf = await state.selectedFile.arrayBuffer();
+            const aiResult = await CLASSIFIER.analyze(arrayBuf, state.scanMode);
+            
+            aiResult.mode = state.scanMode;
+            aiResult.schema_id = `${state.itemType}_${state.itemState}`;
+            aiResult.weighted_scores = aiResult.weighted_scores || { a: 50, b: 50, c: 50, d: 50, e: 50 };
+            aiResult.overall_score = calcWeighted(aiResult.weighted_scores, aiResult.schema_id);
+            const g = getGrade(aiResult.overall_score);
+            aiResult.grade = g.grade;
+            aiResult.grade_advice = g.advice;
+            aiResult.grade_color = g.color;
+            aiResult.criteria_labels = CRITERIA_LABELS[aiResult.schema_id];
+            aiResult.image_url = document.getElementById('upload-preview-img').src;
+            
+            showScanResult(aiResult);
+            playBeep('success');
+        } catch (clsErr) {
+            console.error('Classifier fallback also failed:', clsErr);
+            const msg = (clsErr.message || String(clsErr));
+            document.getElementById('scan-result').classList.remove('hidden');
+            document.getElementById('result-name').textContent = 'Scan Error';
+            document.getElementById('result-desc').textContent = msg;
+            document.getElementById('result-brand').textContent = '';
+            document.getElementById('gemini-error').textContent = '❌ ' + msg;
+            document.getElementById('gemini-error').style.display = 'block';
+            playBeep('error');
+        }
     } finally {
         document.getElementById('scan-status').classList.remove('is-shown');
     }

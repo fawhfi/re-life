@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
   <title>Re-Life — Green Living Assistant</title>
+  <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.21.0/dist/ort.min.js"></script>
   <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
@@ -189,7 +190,7 @@
           <div style="display:flex;flex-direction:column;gap:8px">
             <button class="btn btn--outline btn--full btn--small" id="sound-btn" onclick="toggleSound()"><img id="sound-icon" src="/static/images/Sound_On.png" alt="Sound" style="width:16px;height:16px;vertical-align:middle;margin-right:6px"><span id="sound-label">Sound ON</span></button>
             <button class="btn btn--outline btn--full btn--small" id="theme-btn" onclick="toggleTheme()"><img id="theme-icon" src="/static/images/DarkMode_Off.png" alt="Theme" style="width:16px;height:16px;vertical-align:middle;margin-right:6px"><span id="theme-label">Dark Mode</span></button>
-            <button class="btn btn--outline btn--full btn--small" onclick="toggleLang()">🌐 Language <span id="lang-ind">Eng</span></button>
+            <button class="btn btn--outline btn--full btn--small" onclick="toggleLang()"><img id="lang-icon" src="/static/images/Language.png" alt="Language" style="width:16px;height:16px;vertical-align:middle;margin-right:6px"><span id="lang-label">Language</span> <span id="lang-ind">Eng</span></button>
             <button class="btn btn--outline btn--full btn--small" onclick="openPolicy()"><img src="/static/images/Policy.png" alt="Policy" style="width:16px;height:16px;vertical-align:middle;margin-right:6px"><span>Policy</span></button>
             <button class="btn btn--outline btn--full btn--small" id="debug-btn" onclick="toggleDebug()">🔧 Debug Mode: OFF</button>
           </div>
@@ -202,7 +203,7 @@
 
   <!-- ═══ NAV ═══ -->
   <nav class="nav">
-    <button id="nav-home" class="nav-btn is-active" onclick="navigateTo('home')"><span class="nav-btn-icon"><img src="/static/images/Home.png" alt="Home" style="width:100%;height:100%;object-fit:contain"></span><span id="nav-lbl-home">Home</span></button>
+    <button id="nav-home" class="nav-btn is-active" onclick="navigateTo('home')"><span class="nav-btn-icon"><img src="/static/images/Scan.png" alt="Scan" style="width:100%;height:100%;object-fit:contain"></span><span id="nav-lbl-home">Home</span></button>
     <button id="nav-record" class="nav-btn" onclick="navigateTo('record')"><span class="nav-btn-icon"><img src="/static/images/Record.png" alt="Record" style="width:100%;height:100%;object-fit:contain"></span><span id="nav-lbl-record">Record</span></button>
     <button id="nav-rewards" class="nav-btn" onclick="navigateTo('rewards')"><span class="nav-btn-icon"><img src="/static/images/Reward.png" alt="Rewards" style="width:100%;height:100%;object-fit:contain"></span><span id="nav-lbl-rewards">Rewards</span></button>
     <button id="nav-more" class="nav-btn" onclick="navigateTo('more')"><span class="nav-btn-icon"><img src="/static/images/More.png" alt="More" style="width:100%;height:100%;object-fit:contain"></span><span id="nav-lbl-more">More</span></button>
@@ -235,6 +236,7 @@
   </div>
 </div>
 
+<script src="/static/classifier.js"></script>
 <script src="/static/app.js"></script>
 </body>
 </html>

@@ -1,6 +1,6 @@
 /* ═══════════════════════════════════════════════════════════════════════
    Re-Life — Client-side ONNX Classifier
-   Runs INT8 EfficientNet-B2 model in the browser via ONNX Runtime Web.
+   Runs FP32 EfficientNet-B2 model in the browser via ONNX Runtime Web.
    
    Replaces the server-side classifier.py fallback — inference now runs
    entirely on the user's device with zero server GPU/CPU cost.
@@ -75,7 +75,7 @@ const CLASSIFIER = (() => {
     let _loading = false;
     let _loadPromise = null;
 
-    const MODEL_URL = '/static/models/model_INT8.onnx';
+    const MODEL_URL = '/static/models/model_FP32.onnx';
 
     // ─── Public API ─────────────────────────────────────────────────────
 

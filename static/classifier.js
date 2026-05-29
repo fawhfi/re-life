@@ -10,7 +10,7 @@ const CLASSIFIER = (() => {
 
     // ─── Constants (mirrors classifier.py) ──────────────────────────────
     const CATEGORIES = ["glass", "metal", "organic", "paper", "plastic", "ewaste"];
-    const IMG_SIZE   = 260;
+    const IMG_SIZE   = 380;
     const MEAN       = [0.485, 0.456, 0.406];
     const STD        = [0.229, 0.224, 0.225];
 
@@ -142,7 +142,7 @@ const CLASSIFIER = (() => {
         const imageData = ctx.getImageData(0, 0, IMG_SIZE, IMG_SIZE);
         const pixels = imageData.data; // RGBA, Uint8ClampedArray
 
-        // Build NCHW float32 tensor: shape [1, 3, 260, 260] = 202800 elements
+        // Build NCHW float32 tensor: shape [1, 3, 380, 380] = 433200 elements
         const tensorSize = 1 * 3 * IMG_SIZE * IMG_SIZE;
         const data = new Float32Array(tensorSize);
 

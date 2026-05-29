@@ -27,7 +27,7 @@ from PIL import Image
 
 # ─── Constants (mirrors cnn_classifier/dataset.py) ──────────────────────────
 CATEGORIES   = ["glass", "metal", "organic", "paper", "plastic", "ewaste"]
-IMG_SIZE     = 260
+IMG_SIZE     = 380
 MEAN         = np.array([0.485, 0.456, 0.406], dtype=np.float32)
 STD          = np.array([0.229, 0.224, 0.225], dtype=np.float32)
 
@@ -200,7 +200,7 @@ def get_classifier(model_path: str | Path | None = None) -> JunkClassifier:
     global _classifier
     if _classifier is None:
         if model_path is None:
-            model_path = Path(__file__).parent / "models" / "model.onnx"
+            model_path = Path(__file__).parent / "models" / "model_INT8.onnx"
         _classifier = JunkClassifier(model_path)
     return _classifier
 

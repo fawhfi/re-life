@@ -1,0 +1,23 @@
+{
+  "categories": [
+    "glass",
+    "metal",
+    "organic",
+    "paper",
+    "plastic",
+    "ewaste"
+  ],
+  "img_size": 380,
+  "mean": [
+    0.485,
+    0.456,
+    0.406
+  ],
+  "std": [
+    0.229,
+    0.224,
+    0.225
+  ],
+  "opset": 18,
+  "model_file": "model_quant.onnx"
+}

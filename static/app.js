@@ -1374,6 +1374,26 @@ function updateHeaderUI() {
     document.getElementById('hdr-avatar').textContent = state.userAvatar;
     document.getElementById('hdr-user').textContent = state.currentUser || tr('notLoggedIn');
     document.getElementById('hdr-user').style.display = state.currentUser ? 'block' : 'none';
+    const logoutBtn = document.getElementById('logout-btn');
+    if (logoutBtn) logoutBtn.style.display = state.currentUser ? '' : 'none';
+}
+
+function handleAvatarClick() {
+    // Only trigger login flow; logout is in the More tab
+    if (!state.currentUser) {
+        showUserPicker();
+    }
+}
+
+function handleLogout() {
+    if (!state.currentUser) return;
+    showConfirm(tr('confirmLogout'), () => {
+        state.currentUser = null;
+        state.userAvatar = '👤';
+        safeStorage.remove('RE_LIFE_CURRENT_USER');
+        safeStorage.remove('RE_LIFE_USER_AVATAR');
+        window.location.replace('/login');
+    });
 }
 
 function toggleLogin() {

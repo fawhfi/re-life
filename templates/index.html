@@ -14,9 +14,9 @@
   <!-- ═══ HEADER ═══ -->
   <header class="app-header">
     <div class="header-left">
-      <div class="header-avatar" id="hdr-avatar" onclick="toggleLogin()">👤</div>
+      <div class="header-avatar" id="hdr-avatar" onclick="handleAvatarClick()">👤</div>
       <span class="header-title">Re-Life</span>
-      <span class="header-user" id="hdr-user" onclick="toggleLogin()">Not Logged In</span>
+      <span class="header-user" id="hdr-user" onclick="handleAvatarClick()">Not Logged In</span>
     </div>
     <span class="header-time" id="header-time">11:45:14 AM</span>
   </header>
@@ -192,6 +192,7 @@
             <button class="btn btn--outline btn--full btn--small" onclick="toggleLang()"><img id="lang-icon" src="/static/assets/Language.png" alt="Language" style="width:16px;height:16px;vertical-align:middle;margin-right:6px"><span id="lang-label">Language</span> <span id="lang-ind">Eng</span></button>
             <button class="btn btn--outline btn--full btn--small" onclick="openPolicy()"><img src="/static/assets/Policy.png" alt="Policy" style="width:16px;height:16px;vertical-align:middle;margin-right:6px"><span>Policy</span></button>
             <button class="btn btn--outline btn--full btn--small" id="debug-btn" onclick="toggleDebug()">🔧 Debug Mode: OFF</button>
+            <button class="btn btn--outline btn--full btn--small" id="logout-btn" onclick="handleLogout()" style="display:none"><span id="logout-label">Logout</span></button>
           </div>
         </div>
 

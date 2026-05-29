@@ -128,18 +128,7 @@ async def scan_item_ai(file: UploadFile = File(...), mode: str = Form("dispose")
                     import asyncio
                     await asyncio.sleep(1)
     if ai is None:
-        # Try local CNN classifier before falling back to mock data
-        try:
-            from classifier import classifier_analyze
-            ai = classifier_analyze(contents, mode)
-            ai["description"] = f"⚠️ AI unavailable — using local CNN classifier"
-            print("[Classifier] Successfully used CNN fallback")
-        except Exception as cls_err:
-            print(f"[Classifier] CNN fallback also failed: {cls_err}")
-            ai = _mock(mode)
-            ai["description"] = f"⚠️ AI & classifier both failed — using mock data"
-        if ai_error:
-            ai["ai_error"] = ai_error
+        return JSONResponse({"classifier_fallback": True, "ai_error": ai_error, "mode": mode, "schema_id": sid})
     ext = Path(str(file.filename)).suffix or ".png"
     fn = f"{uuid.uuid4()}{ext}"
     with open(UPLOAD_DIR / fn, "wb") as f: f.write(contents)

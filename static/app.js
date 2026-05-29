@@ -691,6 +691,12 @@ async function doScan() {
 
         const res = await fetch('/api/scan/ai', { method: 'POST', body: fd });
         const data = await res.json();
+
+        // If AI failed, fall back to on-device CNN classifier
+        if (data.classifier_fallback) {
+            throw new Error('classifier_fallback');
+        }
+
         data.mode = data.mode || state.scanMode;
 
         // Enrich if backend didn't fully score

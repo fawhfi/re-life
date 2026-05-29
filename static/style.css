@@ -101,7 +101,12 @@ body {
 }
 
 /* Hardware acceleration for smooth animations on low-end devices */
-.app, .card, .scan-btn, .tab, .modal, .nav-btn-icon {
+.app {
+    will-change: opacity;
+    backface-visibility: hidden;
+}
+/* Other elements keep transform for GPU acceleration */
+.card, .scan-btn, .tab, .modal, .nav-btn-icon {
     will-change: transform, opacity;
     backface-visibility: hidden;
     transform: translate3d(0, 0, 0);

@@ -3,9 +3,13 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
-import uuid, shutil, os, json, base64, random, httpx, re, traceback
+import uuid, shutil, os, json, base64, random, httpx, re, traceback, io
 from pathlib import Path
 from datetime import datetime
+
+import numpy as np
+import onnxruntime as ort
+from PIL import Image
 
 root_dir = Path(__file__).parent
 
@@ -23,6 +27,79 @@ UPLOAD_DIR = root_dir / "uploads"
 UPLOAD_DIR.mkdir(exist_ok=True)
 app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 app.mount("/static", StaticFiles(directory=root_dir / "static"), name="static")
+
+# ── Server-side CNN Classifier ───────────────────────────────────────────────
+CNN_CATEGORIES = ["glass", "metal", "organic", "paper", "plastic", "ewaste"]
+CNN_IMG_SIZE   = 224
+CNN_MEAN        = [0.485, 0.456, 0.406]
+CNN_STD         = [0.229, 0.224, 0.225]
+
+CLASSIFIER_MATERIAL_MAP = {
+    "glass":   {"material": "glass",       "standard_type": "general", "eco_rate": 4, "recycle_rate": 5, "description": "Glass container — infinitely recyclable."},
+    "metal":   {"material": "metal",       "standard_type": "general", "eco_rate": 4, "recycle_rate": 5, "description": "Metal can — highly recyclable."},
+    "organic": {"material": "compostable", "standard_type": "food",    "eco_rate": 5, "recycle_rate": 4, "description": "Organic / food waste — compostable."},
+    "paper":   {"material": "paper",       "standard_type": "general", "eco_rate": 5, "recycle_rate": 5, "description": "Paper / cardboard — biodegradable."},
+    "plastic": {"material": "plastic",     "standard_type": "general", "eco_rate": 2, "recycle_rate": 3, "description": "Plastic container — limited recyclability."},
+    "ewaste":  {"material": "plastic",     "standard_type": "general", "eco_rate": 2, "recycle_rate": 3, "description": "Electronic waste — contains hazardous materials."},
+}
+
+CLASSIFIER_NAME_POOL = {
+    "glass":   ["Glass Bottle", "Glass Jar", "Glass Container"],
+    "metal":   ["Aluminum Can", "Metal Tin", "Steel Container"],
+    "organic": ["Food Waste", "Organic Scrap", "Compostable Item"],
+    "paper":   ["Cardboard Box", "Paper Package", "Paper Carton"],
+    "plastic": ["Plastic Bottle", "Plastic Container", "Plastic Packaging"],
+    "ewaste":  ["Electronic Device", "E-Waste Item", "Electronic Component"],
+}
+
+_model_path = root_dir / "models" / "model_INT8.onnx"
+_cnn_session: ort.InferenceSession | None = None
+if _model_path.exists():
+    _cnn_session = ort.InferenceSession(str(_model_path), providers=["CPUExecutionProvider"])
+    print(f"[Classifier] Loaded INT8 model from {_model_path}")
+else:
+    print(f"[Classifier] ⚠ Model not found at {_model_path} — classifier disabled")
+
+def _classify_image(image_bytes: bytes) -> tuple[str, float]:
+    """Run CNN inference. Returns (category, confidence)."""
+    if _cnn_session is None:
+        raise RuntimeError("Classifier model not loaded")
+    img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+    img = img.resize((CNN_IMG_SIZE, CNN_IMG_SIZE), Image.BILINEAR)
+    arr = np.array(img, dtype=np.float32) / 255.0
+    # Normalize: (pixel - mean) / std, then NCHW
+    arr = (arr - np.array(CNN_MEAN, dtype=np.float32)) / np.array(CNN_STD, dtype=np.float32)
+    arr = np.transpose(arr, (2, 0, 1))[np.newaxis, ...].astype(np.float32)  # [1, 3, 224, 224]
+    outputs = _cnn_session.run(["logits"], {"image": arr})
+    logits = outputs[0][0]
+    # Softmax
+    ex = np.exp(logits - np.max(logits))
+    probs = ex / ex.sum()
+    idx = int(np.argmax(probs))
+    return CNN_CATEGORIES[idx], float(probs[idx])
+
+def _classifier_response(category: str, confidence: float, mode: str) -> dict:
+    """Build the response dict the frontend expects from a CNN prediction."""
+    info  = CLASSIFIER_MATERIAL_MAP.get(category, CLASSIFIER_MATERIAL_MAP["plastic"])
+    names = CLASSIFIER_NAME_POOL.get(category, CLASSIFIER_NAME_POOL["plastic"])
+    name  = random.choice(names)
+    eco   = info["eco_rate"]
+    rec   = info["recycle_rate"]
+    base  = round(((eco + rec) / 2) * 20)
+    jitter = lambda: max(0, min(100, base + random.randint(-12, 12)))
+    m = info["material"]
+    disp = HK_DISPOSAL.get(m, HK_DISPOSAL["plastic"])
+    return {
+        "name": name, "brand": "", "category": category,
+        "standard_type": info["standard_type"],
+        "description": f"{info['description']} (Server CNN, {confidence:.0%} confidence)",
+        "material": m, "eco_rate": eco, "recycle_rate": rec,
+        "weighted_scores": {"a": jitter(), "b": jitter(), "c": jitter(), "d": jitter(), "e": jitter()},
+        "disposal_guide": disp.get("method", ""),
+        "precaution": "Server-side classification — verify manually for hazardous items.",
+        "disposal_info": disp,
+        "alternative": {"name": "Eco-Friendly Alternative (CNN)", "eco_rate": 5, "recycle_rate": 5} if mode == "purchase" else None,
+    }
 
 # Scoring Engine
 SCHEMA_WEIGHTS = {
@@ -128,7 +205,15 @@ async def scan_item_ai(file: UploadFile = File(...), mode: str = Form("dispose")
                     import asyncio
                     await asyncio.sleep(1)
     if ai is None:
-        return JSONResponse({"classifier_fallback": True, "ai_error": ai_error, "mode": mode, "schema_id": sid})
+        # Fall back to server-side CNN classifier
+        print(f"[Classifier] AI failed ({ai_error}), running server-side CNN…")
+        try:
+            cat, conf = _classify_image(contents)
+            print(f"[Classifier] Predicted: {cat} ({conf:.2%})")
+            ai = _classifier_response(cat, conf, mode)
+        except Exception as cls_e:
+            print(f"[Classifier] CNN failed too: {cls_e}")
+            return JSONResponse({"classifier_fallback": True, "ai_error": str(cls_e), "mode": mode, "schema_id": sid})
     ext = Path(str(file.filename)).suffix or ".png"
     fn = f"{uuid.uuid4()}{ext}"
     with open(UPLOAD_DIR / fn, "wb") as f: f.write(contents)

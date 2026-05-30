@@ -1,11 +1,13 @@
-from fastapi import FastAPI, File, UploadFile, Form
+from fastapi import FastAPI, File, UploadFile, Form, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
 from dotenv import load_dotenv
-import uuid, shutil, os, json, base64, random, httpx, re, traceback, io
+import uuid, os, json, base64, random, httpx, re, traceback, io, time
 from pathlib import Path
 from datetime import datetime
+from collections import defaultdict
 
 import numpy as np
 import onnxruntime as ort
@@ -21,7 +23,54 @@ NVIDIA_BASE_URL = "https://integrate.api.nvidia.com/v1/chat/completions"
 NVIDIA_MODEL = "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning"
 
 app = FastAPI(title="Re-Life API")
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+
+# ── CORS: allow same-origin + Firebase hosting ──────────────────────────────
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:8000",
+        "http://127.0.0.1:8000",
+        "https://re-life-9123f.web.app",
+        "https://re-life-9123f.firebaseapp.com",
+    ],
+    allow_methods=["GET", "POST", "DELETE"],
+    allow_headers=["*"],
+)
+
+# ── Security Headers ────────────────────────────────────────────────────────
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        response = await call_next(request)
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["X-XSS-Protection"] = "1; mode=block"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+        return response
+
+app.add_middleware(SecurityHeadersMiddleware)
+
+# ── Rate Limiter (in-memory, per-IP, 30 req / 60s) ──────────────────────────
+RATE_LIMIT_WINDOW = 60
+RATE_LIMIT_MAX    = 30
+_ratelimit_store: dict[str, list[float]] = defaultdict(list)
+
+class RateLimitMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        ip = request.client.host if request.client else "unknown"
+        now = time.time()
+        window = now - RATE_LIMIT_WINDOW
+        _ratelimit_store[ip] = [t for t in _ratelimit_store[ip] if t > window]
+        if len(_ratelimit_store[ip]) >= RATE_LIMIT_MAX:
+            return JSONResponse({"error": "Too many requests"}, status_code=429)
+        _ratelimit_store[ip].append(now)
+        return await call_next(request)
+
+app.add_middleware(RateLimitMiddleware)
+
+# ── Upload size limit ───────────────────────────────────────────────────────
+MAX_UPLOAD_BYTES = 10 * 1024 * 1024  # 10 MB
 
 UPLOAD_DIR = root_dir / "uploads"
 UPLOAD_DIR.mkdir(exist_ok=True)
@@ -160,9 +209,12 @@ async def register_page():
 
 @app.post("/api/scan")
 async def scan_item(file: UploadFile = File(...), mode: str = Form("dispose")):
+    contents = await file.read()
+    if len(contents) > MAX_UPLOAD_BYTES:
+        return JSONResponse({"error": f"File too large (max {MAX_UPLOAD_BYTES // (1024*1024)} MB)"}, status_code=413)
     ext = Path(str(file.filename)).suffix or ".png"
     filename = f"{uuid.uuid4()}{ext}"
-    with open(UPLOAD_DIR / filename, "wb") as f: shutil.copyfileobj(file.file, f)
+    with open(UPLOAD_DIR / filename, "wb") as f: f.write(contents)
     result = _mock(mode)
     result["mode"] = mode
     result["image_url"] = f"/uploads/{filename}"
@@ -173,6 +225,8 @@ async def scan_item(file: UploadFile = File(...), mode: str = Form("dispose")):
 @app.post("/api/scan/ai")
 async def scan_item_ai(file: UploadFile = File(...), mode: str = Form("dispose"), item_type: str = Form("food"), item_state: str = Form("new"), debug: str = Form("false")):
     contents = await file.read()
+    if len(contents) > MAX_UPLOAD_BYTES:
+        return JSONResponse({"error": f"File too large (max {MAX_UPLOAD_BYTES // (1024*1024)} MB)"}, status_code=413)
     sid = f"{item_type}_{item_state}"
     ai = None
     ai_error = None

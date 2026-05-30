@@ -16,7 +16,7 @@
       <div class="login-sub" id="lbl-register-tagline">Create your eco account</div>
     </div>
 
-    <form class="login-form" id="register-form" onsubmit="handleRegister(event)">
+    <form class="login-form" id="register-form">
       <div class="login-field">
         <label class="login-label" for="reg-username">Choose Username</label>
         <input
@@ -68,15 +68,27 @@
 </div>
 
 <script type="module" src="/static/firebase.js"></script>
-<script src="/static/app.js"></script>
 <script>
-// Override lang for register page
+// Wait for Firebase module to initialize window.FB
+function waitForFB(cb) {
+    if (window.FB) { cb(); return; }
+    let tries = 0;
+    const timer = setInterval(() => {
+        if (window.FB) { clearInterval(timer); cb(); return; }
+        if (++tries > 100) { clearInterval(timer); console.error('FB not loaded'); }
+    }, 100);
+}
+
 let registerLang = localStorage.getItem('RE_LIFE_LANG') || 'en';
 function toggleRegisterLang() {
     registerLang = registerLang === 'en' ? 'zh' : 'en';
     localStorage.setItem('RE_LIFE_LANG', registerLang);
     location.reload();
 }
+
+waitForFB(() => {
+    document.getElementById('register-form').addEventListener('submit', handleRegister);
+});
 
 async function handleRegister(e) {
     e.preventDefault();

@@ -16,7 +16,7 @@
       <div class="login-sub">Green Living Assistant</div>
     </div>
 
-    <form class="login-form" id="login-form" onsubmit="handleLogin(event)">
+    <form class="login-form" id="login-form">
       <div class="login-field">
         <label class="login-label" for="login-username">Username</label>
         <input
@@ -67,14 +67,27 @@
 </div>
 
 <script type="module" src="/static/firebase.js"></script>
-<script src="/static/app.js"></script>
 <script>
+// Wait for Firebase module to initialize window.FB
+function waitForFB(cb) {
+    if (window.FB) { cb(); return; }
+    let tries = 0;
+    const timer = setInterval(() => {
+        if (window.FB) { clearInterval(timer); cb(); return; }
+        if (++tries > 100) { clearInterval(timer); console.error('FB not loaded'); }
+    }, 100);
+}
+
 let loginLang = localStorage.getItem('RE_LIFE_LANG') || 'en';
 function toggleLoginLang() {
     loginLang = loginLang === 'en' ? 'zh' : 'en';
     localStorage.setItem('RE_LIFE_LANG', loginLang);
     location.reload();
 }
+
+waitForFB(() => {
+    document.getElementById('login-form').addEventListener('submit', handleLogin);
+});
 
 async function handleLogin(e) {
     e.preventDefault();

@@ -715,35 +715,14 @@ async function doScan() {
         playBeep('success');
     } catch (err) {
         console.error('Scan error:', err);
-        // Fall back to on-device CNN classifier
-        try {
-            const arrayBuf = await state.selectedFile.arrayBuffer();
-            const aiResult = await CLASSIFIER.analyze(arrayBuf, state.scanMode);
-            
-            aiResult.mode = state.scanMode;
-            aiResult.schema_id = `${state.itemType}_${state.itemState}`;
-            aiResult.weighted_scores = aiResult.weighted_scores || { a: 50, b: 50, c: 50, d: 50, e: 50 };
-            aiResult.overall_score = calcWeighted(aiResult.weighted_scores, aiResult.schema_id);
-            const g = getGrade(aiResult.overall_score);
-            aiResult.grade = g.grade;
-            aiResult.grade_advice = g.advice;
-            aiResult.grade_color = g.color;
-            aiResult.criteria_labels = CRITERIA_LABELS[aiResult.schema_id];
-            aiResult.image_url = document.getElementById('upload-preview-img').src;
-            
-            showScanResult(aiResult);
-            playBeep('success');
-        } catch (clsErr) {
-            console.error('Classifier fallback also failed:', clsErr);
-            const msg = (clsErr.message || String(clsErr));
-            document.getElementById('scan-result').classList.remove('hidden');
-            document.getElementById('result-name').textContent = 'Scan Error';
-            document.getElementById('result-desc').textContent = msg;
-            document.getElementById('result-brand').textContent = '';
-            document.getElementById('gemini-error').textContent = '❌ ' + msg;
-            document.getElementById('gemini-error').style.display = 'block';
-            playBeep('error');
-        }
+        const msg = (err.message || String(err));
+        document.getElementById('scan-result').classList.remove('hidden');
+        document.getElementById('result-name').textContent = 'Scan Error';
+        document.getElementById('result-desc').textContent = msg;
+        document.getElementById('result-brand').textContent = '';
+        document.getElementById('gemini-error').textContent = '❌ ' + msg;
+        document.getElementById('gemini-error').style.display = 'block';
+        playBeep('error');
     } finally {
         document.getElementById('scan-status').classList.remove('is-shown');
     }
@@ -935,10 +914,8 @@ function addScanToRecord() {
     if (!state.lastScanResult) return;
 
     const record = { ...state.lastScanResult };
-    delete record.image_url;
     delete record.disposal_info;
     delete record.criteria_labels;
-    record.image = state.scanMode === 'purchase' ? '🥛' : '🗑️';
 
     if (record.overall_score === undefined) {
         record.overall_score = calcWeighted(
@@ -947,16 +924,11 @@ function addScanToRecord() {
         );
     }
 
-    fetch('/api/records', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(record),
-    })
-        .then(r => r.json())
-        .then(() => {
-            resetScan();
-            navigateTo('record');
-        });
+    record.userName = state.currentUser || null;
+    FB.addItem(record).then(() => {
+        resetScan();
+        navigateTo('record');
+    }).catch(err => console.error('Failed to save item:', err));
 }
 
 function swapAlternative() {
@@ -985,8 +957,28 @@ function resetScan() {
 
 async function loadRecords() {
     try {
-        const res = await fetch('/api/records');
-        state.records = await res.json();
+        const items = await FB.getItems();
+        state.records = items.map(it => ({
+            id: it.id,
+            name: it.name,
+            mode: it.status,
+            eco_rate: it.eco_rate,
+            recycle_rate: it.recycle_rate,
+            overall_score: it.overall_score,
+            material: it.material,
+            grade: it.grade,
+            description: it.description,
+            image_url: it.photoUrl,
+            disposal_guide: it.dealtWithMethod,
+            disposal_info: null,
+            precaution: null,
+            alternative: it.alternative,
+            weighted_scores: it.weighted_scores,
+            schema_id: it.schema_id,
+            brand: it.brand,
+            category: it.category,
+            image: it.status === 'purchase' ? '🥛' : '🗑️',
+        }));
         renderRecords();
         updateStats();
     } catch (e) {
@@ -1047,10 +1039,14 @@ function renderRecords() {
                 </div>`;
         }
 
+        const photoHtml = r.image_url
+            ? `<img src="${esc(r.image_url)}" style="width:100%;height:100%;object-fit:cover;border-radius:8px" alt="">`
+            : (r.image || '📦');
+
         return `
-        <div class="record-card" id="rec-${r.id}">
+        <div class="record-card" id="rec-${r.id}" onclick="viewRecordDetail('${r.id}')" style="cursor:pointer">
             <div class="record-card-inner">
-                <div class="record-card-image">${r.image || '📦'}</div>
+                <div class="record-card-image">${photoHtml}</div>
                 <div class="record-card-info">
                     <div class="record-card-name">${esc(r.name)}</div>
                     <div class="record-card-meta">
@@ -1076,7 +1072,8 @@ function renderRecords() {
                 </div>
             </div>
             <div class="record-card-actions">
-                <button class="btn btn--danger" onclick="deleteRecord('${r.id}')">🗑️</button>
+                <button class="btn btn--outline btn--small" onclick="event.stopPropagation();viewRecordDetail('${r.id}')">🔍 Details</button>
+                <button class="btn btn--danger" onclick="event.stopPropagation();deleteRecord('${r.id}')">🗑️</button>
             </div>
         </div>`;
     }).join('');
@@ -1084,7 +1081,7 @@ function renderRecords() {
 
 async function deleteRecord(id) {
     try {
-        await fetch(`/api/records/${id}`, { method: 'DELETE' });
+        await FB.deleteItem(id);
         const card = document.getElementById(`rec-${id}`);
         if (card) {
             card.style.cssText = 'opacity:0;transform:scale(0.92) translateY(-8px);transition:all 0.3s cubic-bezier(0.4,0,0.2,1)';
@@ -1097,13 +1094,52 @@ async function deleteRecord(id) {
     }
 }
 
+function viewRecordDetail(id) {
+    const r = state.records.find(rec => rec.id === id);
+    if (!r) return;
+
+    const grade = getGrade(r.overall_score || 50);
+    const photoHtml = r.image_url
+        ? `<img src="${esc(r.image_url)}" style="width:100%;max-height:200px;object-fit:cover;border-radius:12px;margin-bottom:12px" alt="">`
+        : `<div style="font-size:48px;text-align:center;margin-bottom:12px">${r.image || '📦'}</div>`;
+
+    const guideHtml = (r.disposal_guide || r.material) ? `
+        <div class="disposal-guide" style="margin-top:12px">
+            <div class="disposal-guide-title">♻️ ${tr('disposalGuide')}</div>
+            ${r.material ? `<div class="disposal-guide-row"><span class="disposal-guide-label">${tr('material')}:</span> ${esc(r.material)}</div>` : ''}
+            ${r.disposal_guide ? `<div class="disposal-guide-row">${esc(r.disposal_guide)}</div>` : ''}
+        </div>` : '';
+
+    document.getElementById('modal-icon').textContent = '';
+    document.getElementById('modal-title').textContent = r.name;
+    document.getElementById('modal-body').innerHTML = `
+        ${photoHtml}
+        <div style="font-size:11px;color:var(--color-gray-500);margin-bottom:8px">${esc(r.description || '')}</div>
+        <div style="display:flex;gap:6px;align-items:center;margin-bottom:8px">
+            <span class="record-card-badge record-card-badge--${r.mode}">${r.mode === 'purchase' ? tr('purchaseBadge') : tr('disposeBadge')}</span>
+            <span class="grade-tag" style="background:${grade.color}">${grade.grade}</span>
+        </div>
+        <div style="display:flex;gap:16px;margin-bottom:10px">
+            <div class="rating-item"><span class="rating-label">${tr('ecoRate')}</span><div class="star-rating">${buildStars(r.eco_rate)}</div></div>
+            <div class="rating-item"><span class="rating-label">${tr('recycleRate')}</span><div class="star-rating">${buildStars(r.recycle_rate)}</div></div>
+        </div>
+        <div class="overall-row"><span class="overall-label">${tr('overallScore')}</span><div><span class="overall-value">${r.overall_score || 50}</span><span class="overall-max">/100</span></div></div>
+        <div class="overall-bar" style="margin-bottom:0"><div class="overall-bar-fill" style="width:${r.overall_score || 50}%;background:${grade.color}"></div></div>
+        ${guideHtml}
+    `;
+    document.getElementById('modal-actions').innerHTML = `
+        <button class="btn btn--outline btn--full" onclick="closeModal()">${tr('closeBtn')}</button>
+        <button class="btn btn--danger" onclick="closeModal();deleteRecord('${r.id}')">🗑️ ${tr('clearAll') || 'Delete'}</button>
+    `;
+    document.getElementById('modal-overlay').classList.add('is-shown');
+}
+
 async function clearAllRecords() {
     showConfirm(tr('confirmClear'), async () => {
-        await fetch('/api/records', { method: 'DELETE' });
+        await FB.clearAllItems();
         state.records = [];
         renderRecords();
         updateStats();
-        saveUserData();
     });
 }
 
@@ -1361,10 +1397,12 @@ async function initAccounts() {
         state.currentUser = stored;
         state.userAvatar = safeStorage.get('RE_LIFE_USER_AVATAR') || '👤';
         try {
-            const res = await fetch(`/api/users/${encodeURIComponent(stored)}/data`);
-            const data = await res.json();
-            state.spentPoints = data.spent_points || 0;
-            state.claimedCoupons = data.claimed_coupons || [];
+            const user = await FB.getUserByName(stored);
+            if (user) {
+                state.userId = user.id;
+                state.spentPoints = user.spent_points || 0;
+                state.claimedCoupons = user.claimed_coupons || [];
+            }
         } catch (_) { /* offline */ }
     }
     updateHeaderUI();
@@ -1412,15 +1450,14 @@ function toggleLogin() {
 
 async function showUserPicker() {
     try {
-        const res = await fetch('/api/users');
-        const users = await res.json();
+        const users = await FB.getAllUsers();
         document.getElementById('modal-icon').textContent = '👤';
         document.getElementById('modal-title').textContent = tr('loginAs');
         const list = users.map(u => `
             <button class="btn btn--outline btn--full" style="margin-bottom:6px;justify-content:flex-start;gap:8px"
-                    onclick="loginAs('${u.name}','${u.avatar}')">
-                <span style="font-size:20px">${u.avatar}</span>
-                <span>${u.name}</span>
+                    onclick="loginAs('${u.displayName}','${u.photoUrl || '👤'}','${u.id}')">
+                <span style="font-size:20px">${u.photoUrl || '👤'}</span>
+                <span>${u.displayName}</span>
             </button>
         `).join('');
         document.getElementById('modal-body').innerHTML = list;
@@ -1430,16 +1467,19 @@ async function showUserPicker() {
     } catch (_) { /* offline */ }
 }
 
-async function loginAs(name, avatar) {
+async function loginAs(name, avatar, userId) {
     state.currentUser = name;
     state.userAvatar = avatar;
+    state.userId = userId || null;
     safeStorage.set('RE_LIFE_CURRENT_USER', name);
     safeStorage.set('RE_LIFE_USER_AVATAR', avatar);
     try {
-        const res = await fetch(`/api/users/${encodeURIComponent(name)}/data`);
-        const data = await res.json();
-        state.spentPoints = data.spent_points || 0;
-        state.claimedCoupons = data.claimed_coupons || [];
+        const user = await FB.getUserByName(name);
+        if (user) {
+            state.userId = user.id;
+            state.spentPoints = user.spent_points || 0;
+            state.claimedCoupons = user.claimed_coupons || [];
+        }
     } catch (_) { /* offline */ }
     closeModal();
     updateHeaderUI();
@@ -1447,15 +1487,11 @@ async function loginAs(name, avatar) {
 }
 
 async function saveUserData() {
-    if (!state.currentUser) return;
+    if (!state.currentUser || !state.userId) return;
     try {
-        await fetch(`/api/users/${encodeURIComponent(state.currentUser)}/data`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                spent_points: state.spentPoints,
-                claimed_coupons: state.claimedCoupons,
-            }),
+        await FB.saveUserData(state.userId, {
+            spent_points: state.spentPoints,
+            claimed_coupons: state.claimedCoupons,
         });
     } catch (_) { /* offline */ }
 }
@@ -1533,18 +1569,13 @@ async function handleLogin(e) {
     }
     btn.textContent = '...';
     try {
-        const res = await fetch('/api/login', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username }),
-        });
-        const data = await res.json();
-        if (data.ok) {
-            safeStorage.set('RE_LIFE_CURRENT_USER', data.user.name);
-            safeStorage.set('RE_LIFE_USER_AVATAR', data.user.avatar);
+        const user = await FB.getUserByName(username);
+        if (user) {
+            safeStorage.set('RE_LIFE_CURRENT_USER', user.displayName);
+            safeStorage.set('RE_LIFE_USER_AVATAR', user.photoUrl || '👤');
             window.location.replace('/');
         } else {
-            errorEl.textContent = data.error || STRINGS[loginLang].loginError;
+            errorEl.textContent = loginLang === 'zh' ? '用戶不存在，請先註冊' : 'User not found. Please register first.';
         }
     } catch (_) {
         errorEl.textContent = STRINGS[loginLang].loginError;
@@ -1564,21 +1595,14 @@ async function handleRegister(e) {
     }
     btn.textContent = '...';
     try {
-        const res = await fetch('/api/register', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username }),
-        });
-        const data = await res.json();
-        if (data.ok) {
-            safeStorage.set('RE_LIFE_CURRENT_USER', data.user.name);
-            safeStorage.set('RE_LIFE_USER_AVATAR', data.user.avatar);
-            window.location.replace('/');
-        } else {
-            errorEl.textContent = data.error || STRINGS[loginLang].registerError;
-        }
-    } catch (_) {
-        errorEl.textContent = STRINGS[loginLang].registerError;
+        const user = await FB.createUser(username);
+        safeStorage.set('RE_LIFE_CURRENT_USER', user.displayName);
+        safeStorage.set('RE_LIFE_USER_AVATAR', '👤');
+        window.location.replace('/');
+    } catch (err) {
+        errorEl.textContent = err.message === 'Username already taken'
+            ? (loginLang === 'zh' ? '用戶名已被使用' : 'Username already taken')
+            : STRINGS[loginLang].registerError;
     }
     btn.innerHTML = '<span>' + STRINGS[loginLang].createAccountBtn + '</span>';
 }

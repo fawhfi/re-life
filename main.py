@@ -134,21 +134,6 @@ REWARDS_CATALOG = [
     {"id": "reusable-kit", "title": "Reusable Eco Starter Kit", "provider": "Green Store HK", "cost": 400, "image": "🎒", "category": "Product", "description": "Bamboo cutlery set, beeswax wrap, and organic cotton tote bag."},
 ]
 
-# Seed Records
-records: list[dict] = [
-    {"id": "1", "name": "Fresh Milk", "mode": "purchase", "eco_rate": 3, "recycle_rate": 4, "image": "🥛", "alternative": {"name": "Almond Milk", "eco_rate": 5, "recycle_rate": 4}, "weighted_scores": {"a": 65, "b": 60, "c": 40, "d": 70, "e": 75}, "schema_id": "food_new", "material": "plastic", "disposal_guide": "Rinse and flatten before recycling.", "precaution": "Ensure carton is empty and rinsed.", "timestamp": "2025-05-16T09:00:00"},
-    {"id": "2", "name": "Old Furnitures", "mode": "dispose", "eco_rate": 2, "recycle_rate": 3, "image": "🪑", "alternative": None, "weighted_scores": {"a": 50, "b": 65, "c": 40, "d": 70, "e": 50}, "schema_id": "item_expire", "material": "wood", "disposal_guide": "Contact private wood recyclers or LCSD.", "precaution": "Do not dispose in standard refuse chutes.", "timestamp": "2025-05-15T14:00:00"},
-    {"id": "3", "name": "Rotten Banana", "mode": "dispose", "eco_rate": 5, "recycle_rate": 5, "image": "🍌", "alternative": None, "weighted_scores": {"a": 95, "b": 95, "c": 100, "d": 100, "e": 90}, "schema_id": "food_expire", "material": "compostable", "disposal_guide": "Place in organic food waste bin.", "precaution": "Do not wrap in airtight plastic.", "timestamp": "2025-05-15T10:00:00"},
-    {"id": "4", "name": "Kitchen Waste", "mode": "dispose", "eco_rate": 4, "recycle_rate": 5, "image": "🗑️", "alternative": None, "weighted_scores": {"a": 85, "b": 80, "c": 95, "d": 85, "e": 80}, "schema_id": "food_expire", "material": "compostable", "disposal_guide": "Use GREEN@COMMUNITY food waste smart bins.", "precaution": "Drain excess liquid before depositing.", "timestamp": "2025-05-14T18:00:00"},
-    {"id": "5", "name": "Abandoned TV", "mode": "dispose", "eco_rate": 1, "recycle_rate": 5, "image": "📺", "alternative": None, "weighted_scores": {"a": 30, "b": 40, "c": 5, "d": 85, "e": 50}, "schema_id": "item_expire", "material": "metal", "disposal_guide": "Call WEEE·PARK hotline for free pickup.", "precaution": "Contains lead and mercury. Do NOT dismantle.", "timestamp": "2025-05-14T12:00:00"},
-    {"id": "6", "name": "Old Charger", "mode": "dispose", "eco_rate": 2, "recycle_rate": 5, "image": "🔌", "alternative": None, "weighted_scores": {"a": 40, "b": 45, "c": 5, "d": 90, "e": 60}, "schema_id": "item_expire", "material": "pp_plastic", "disposal_guide": "Drop at GREEN@COMMUNITY points.", "precaution": "Remove detachable battery first.", "timestamp": "2025-05-13T09:00:00"},
-]
-
-users: dict[str, dict] = {
-    "EcoWarrior": {"avatar": "🌿", "records": [], "spent_points": 0, "claimed_coupons": []},
-    "ZeroWasteHK": {"avatar": "♻️", "records": [], "spent_points": 100, "claimed_coupons": []},
-}
-
 def calc_weighted(scores, sid):
     w = SCHEMA_WEIGHTS.get(sid, SCHEMA_WEIGHTS["food_new"])
     return round(sum(scores.get(k, 50) * w[k] for k in w))
@@ -379,21 +364,6 @@ def _mock(mode):
         return {"name": "Scanned Product", "eco_rate": r(), "recycle_rate": r(), "alternative": {"name": "Eco-Friendly Alternative", "eco_rate": 5, "recycle_rate": 4}, "description": "Mock analysis.", "weighted_scores": s(), "material": random.choice(["plastic", "paper", "glass"]), "disposal_guide": "Rinse and recycle.", "precaution": "Remove caps and labels."}
     return {"name": "Scanned Item", "eco_rate": r(), "recycle_rate": r(), "alternative": None, "description": "Mock analysis.", "weighted_scores": s(), "material": random.choice(["plastic", "pp_plastic", "metal", "wood"]), "disposal_guide": "Drop at GREEN@COMMUNITY.", "precaution": "Separate materials."}
 
-@app.get("/api/records")
-async def get_records(): return records
-
-@app.post("/api/records")
-async def add_record(record: dict):
-    record["id"] = str(uuid.uuid4()); record["timestamp"] = datetime.now().isoformat(); records.insert(0, record); return record
-
-@app.delete("/api/records/{record_id}")
-async def delete_record(record_id: str):
-    global records; records = [r for r in records if r["id"] != record_id]; return {"ok": True}
-
-@app.delete("/api/records")
-async def clear_records():
-    global records; records = []; return {"ok": True}
-
 @app.get("/api/tips")
 async def get_tips():
     return [{"title": "Energy saving tips to save money", "source": "From HSBC SG", "snippet": "More and more people are making a conscious effort to use less energy."}, {"title": "How to recycle electronics properly", "source": "From NEA", "snippet": "E-waste contains valuable materials but also hazardous substances."}, {"title": "Zero waste grocery shopping", "source": "From WWF", "snippet": "Simple swaps can dramatically cut your household plastic waste."}]
@@ -411,49 +381,6 @@ async def redeem_reward(data: dict):
     if not reward: return JSONResponse({"error": "Not found"}, 404)
     code = "RL-" + uuid.uuid4().hex[:6].upper() + "-" + str(reward["cost"])
     return {"ok": True, "coupon": {"code": code, "title": reward["title"], "image": reward["image"], "cost": reward["cost"], "claimed_date": "Just now", "expiry": "Valid 30 days"}}
-
-@app.post("/api/login")
-async def login(data: dict):
-    username = data.get("username", "").strip()
-    if not username:
-        return JSONResponse({"error": "Username required"}, 400)
-    # Demo: auto-create user if they don't exist
-    if username not in users:
-        avatars = ["🌿", "♻️", "🌱", "🍃", "🌳", "💚", "🌍", "🪴"]
-        users[username] = {"avatar": avatars[len(users) % len(avatars)], "records": [], "spent_points": 0, "claimed_coupons": []}
-    return {"ok": True, "user": {"name": username, "avatar": users[username]["avatar"]}}
-
-@app.post("/api/register")
-async def register(data: dict):
-    username = data.get("username", "").strip()
-    if not username or len(username) < 2:
-        return JSONResponse({"error": "Username must be at least 2 characters"}, 400)
-    if username in users:
-        return JSONResponse({"error": "Username already taken"}, 409)
-    avatars = ["🌿", "♻️", "🌱", "🍃", "🌳", "💚", "🌍", "🪴"]
-    users[username] = {"avatar": avatars[len(users) % len(avatars)], "records": [], "spent_points": 0, "claimed_coupons": []}
-    return {"ok": True, "user": {"name": username, "avatar": users[username]["avatar"]}}
-
-@app.get("/api/users")
-async def get_users():
-    return [{"name": k, "avatar": v["avatar"], "records_count": len(v["records"]), "spent_points": v["spent_points"]} for k, v in users.items()]
-
-@app.post("/api/users/{username}/data")
-async def save_user_data(username: str, data: dict):
-    if username not in users: users[username] = {"avatar": "👤", "records": [], "spent_points": 0, "claimed_coupons": []}
-    for k in ["records", "spent_points", "claimed_coupons"]:
-        if k in data: users[username][k] = data[k]
-    return {"ok": True}
-
-@app.get("/api/users/{username}/data")
-async def load_user_data(username: str):
-    if username not in users: return {"records": [], "spent_points": 0, "claimed_coupons": []}
-    return users[username]
-
-@app.get("/api/stats")
-async def get_stats():
-    n = len(records) or 1
-    return {"total_items": len(records), "total_points": sum(r.get("overall_score", 50) for r in records), "eco_avg": round(sum(r.get("eco_rate", 3) for r in records) / n, 1), "recycle_avg": round(sum(r.get("recycle_rate", 3) for r in records) / n, 1)}
 
 @app.get("/api/fact")
 async def get_fact():

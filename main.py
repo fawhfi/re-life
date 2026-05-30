@@ -22,6 +22,17 @@ NVIDIA_API_KEY = os.getenv("NVIDIA_API")
 NVIDIA_BASE_URL = "https://integrate.api.nvidia.com/v1/chat/completions"
 NVIDIA_MODEL = "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning"
 
+# ── Email verification config ───────────────────────────────────────────────
+SMTP_HOST = os.getenv("SMTP_HOST", "smtp.gmail.com")
+SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
+SMTP_USER = os.getenv("SMTP_USER", "")
+SMTP_PASS = os.getenv("SMTP_PASS", "")
+SMTP_FROM = os.getenv("SMTP_FROM", SMTP_USER)
+VERIFICATION_CODE_EXPIRY = 300  # 5 minutes
+
+# In-memory pending verifications  { email: { code, expires_at } }
+_pending_verifications: dict[str, dict] = {}
+
 app = FastAPI(title="Re-Life API")
 
 # ── CORS: allow same-origin + Firebase hosting ──────────────────────────────
@@ -205,6 +216,76 @@ async def login_page(request: Request):
 async def register_page(request: Request):
     check_rate_limit(request, max_requests=10, window_sec=60)
     return (root_dir / "templates/register.html").read_text(encoding="utf-8")
+
+@app.post("/api/send-verification")
+async def send_verification(request: Request, data: dict):
+    """Generate 6-digit code and send to email via SMTP."""
+    check_rate_limit(request, max_requests=3, window_sec=120)
+    email = (data.get("email") or "").strip().lower()
+    if not email or "@" not in email or "." not in email:
+        return JSONResponse({"error": "Valid email required"}, status_code=400)
+
+    import smtplib
+    from email.mime.text import MIMEText
+    from email.mime.multipart import MIMEMultipart
+
+    code = str(random.randint(100000, 999999))
+    now = time.time()
+    _pending_verifications[email] = {"code": code, "expires_at": now + VERIFICATION_CODE_EXPIRY}
+
+    # Prune expired entries
+    for k in list(_pending_verifications):
+        if _pending_verifications[k]["expires_at"] < now:
+            del _pending_verifications[k]
+
+    # Send email (skip if SMTP not configured — log code for dev)
+    if SMTP_USER and SMTP_PASS:
+        try:
+            msg = MIMEMultipart()
+            msg["From"] = SMTP_FROM
+            msg["To"] = email
+            msg["Subject"] = "Re-Life — Email Verification Code"
+            msg.attach(MIMEText(
+                f"Your verification code is: {code}\n\n"
+                f"This code expires in 5 minutes.\n\n"
+                f"If you didn't request this, ignore this email.",
+                "plain",
+            ))
+            with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=10) as server:
+                server.starttls()
+                server.login(SMTP_USER, SMTP_PASS)
+                server.send_message(msg)
+            print(f"[Verify] Sent code to {email}")
+        except Exception as e:
+            print(f"[Verify] SMTP failed: {e}")
+            return JSONResponse({"error": "Failed to send email"}, status_code=500)
+    else:
+        print(f"[Verify] SMTP not configured — code for {email}: {code}")
+
+    return JSONResponse({"ok": True, "message": "Verification code sent"})
+
+@app.post("/api/verify-code")
+async def verify_code(request: Request, data: dict):
+    """Check verification code and return success if valid."""
+    check_rate_limit(request, max_requests=5, window_sec=60)
+    email = (data.get("email") or "").strip().lower()
+    code  = (data.get("code") or "").strip()
+    if not email or not code:
+        return JSONResponse({"error": "Email and code required"}, status_code=400)
+
+    pending = _pending_verifications.get(email)
+    if not pending:
+        return JSONResponse({"error": "No verification code found — request a new one"}, status_code=400)
+
+    if time.time() > pending["expires_at"]:
+        del _pending_verifications[email]
+        return JSONResponse({"error": "Code expired — request a new one"}, status_code=400)
+
+    if pending["code"] != code:
+        return JSONResponse({"error": "Invalid code"}, status_code=400)
+
+    del _pending_verifications[email]
+    return JSONResponse({"ok": True, "email": email})
 
 @app.post("/api/scan")
 async def scan_item(request: Request, file: UploadFile = File(...), mode: str = Form("dispose")):

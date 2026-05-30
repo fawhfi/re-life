@@ -81,19 +81,27 @@ const FB = {
 
     // ── Users ──────────────────────────────────────────────────────────
 
-    async createUser(displayName, password) {
+    async createUser(displayName, password, email = null) {
         // Check if username already taken
-        const q = query(ref(db, "users"), orderByChild("displayName"), equalTo(displayName), limitToFirst(1));
-        const snap = await get(q);
-        if (snap.exists()) throw new Error("USERNAME_TAKEN");
+        const qName = query(ref(db, "users"), orderByChild("displayName"), equalTo(displayName), limitToFirst(1));
+        const snapName = await get(qName);
+        if (snapName.exists()) throw new Error("USERNAME_TAKEN");
+
+        // Check if email already registered
+        if (email) {
+            const qEmail = query(ref(db, "users"), orderByChild("email"), equalTo(email), limitToFirst(1));
+            const snapEmail = await get(qEmail);
+            if (snapEmail.exists()) throw new Error("EMAIL_TAKEN");
+        }
 
         const salt = randomSalt();
         const passwordHash = await hashPassword(password, salt);
         const userRef = push(ref(db, "users"));
         await set(userRef, {
             displayName,
-            passwordHash,  // argon2id encoded string: includes salt + params
-            email: null,
+            passwordHash,
+            email: email || null,
+            emailVerified: !!email,
             createdAt: Date.now(),
             photoUrl: null,
         });

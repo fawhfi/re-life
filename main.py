@@ -23,11 +23,8 @@ NVIDIA_BASE_URL = "https://integrate.api.nvidia.com/v1/chat/completions"
 NVIDIA_MODEL = "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning"
 
 # ── Email verification config ───────────────────────────────────────────────
-SMTP_HOST = os.getenv("SMTP_HOST", "smtp.gmail.com")
-SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
-SMTP_USER = os.getenv("SMTP_USER", "")
-SMTP_PASS = os.getenv("SMTP_PASS", "")
-SMTP_FROM = os.getenv("SMTP_FROM", SMTP_USER)
+RESEND_API_KEY = os.getenv("RESEND_API_KEY", "")
+RESEND_FROM    = os.getenv("RESEND_FROM", "Re-Life <noreply@re-life.app>")
 VERIFICATION_CODE_EXPIRY = 300  # 5 minutes
 
 # In-memory pending verifications  { email: { code, expires_at } }
@@ -225,10 +222,6 @@ async def send_verification(request: Request, data: dict):
     if not email or "@" not in email or "." not in email:
         return JSONResponse({"error": "Valid email required"}, status_code=400)
 
-    import smtplib
-    from email.mime.text import MIMEText
-    from email.mime.multipart import MIMEMultipart
-
     code = str(random.randint(100000, 999999))
     now = time.time()
     _pending_verifications[email] = {"code": code, "expires_at": now + VERIFICATION_CODE_EXPIRY}
@@ -238,28 +231,33 @@ async def send_verification(request: Request, data: dict):
         if _pending_verifications[k]["expires_at"] < now:
             del _pending_verifications[k]
 
-    # Try to send email via SMTP; fall back to dev-mode logging
+    # Send email via Resend API; fall back to dev-mode logging
     email_sent = False
-    if SMTP_USER and SMTP_PASS:
+    if RESEND_API_KEY:
         try:
-            msg = MIMEMultipart()
-            msg["From"] = SMTP_FROM
-            msg["To"] = email
-            msg["Subject"] = "Re-Life — Email Verification Code"
-            msg.attach(MIMEText(
-                f"Your verification code is: {code}\n\n"
-                f"This code expires in 5 minutes.\n\n"
-                f"If you didn't request this, ignore this email.",
-                "plain",
-            ))
-            with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=10) as server:
-                server.starttls()
-                server.login(SMTP_USER, SMTP_PASS)
-                server.send_message(msg)
-            email_sent = True
-            print(f"[Verify] Sent code to {email}")
+            res = httpx.post(
+                "https://api.resend.com/emails",
+                headers={
+                    "Authorization": f"Bearer {RESEND_API_KEY}",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "from": RESEND_FROM,
+                    "to": [email],
+                    "subject": "Re-Life — Email Verification Code",
+                    "text": f"Your verification code is: {code}\n\nThis code expires in 5 minutes.\n\nIf you didn't request this, ignore this email.",
+                },
+                timeout=15,
+            )
+            if res.status_code in (200, 201):
+                email_sent = True
+                print(f"[Verify] Sent code to {email} via Resend")
+            else:
+                print(f"[Verify] Resend error {res.status_code}: {res.text[:200]}")
         except Exception as e:
-            print(f"[Verify] SMTP failed: {e} — falling back to dev mode")
+            print(f"[Verify] Resend failed: {e} — falling back to dev mode")
+    else:
+        print("[Verify] RESEND_API_KEY not configured")
     if not email_sent:
         print(f"[Verify] Dev mode — code for {email}: {code}")
         return JSONResponse({"ok": True, "message": "Verification code sent", "dev_code": code})

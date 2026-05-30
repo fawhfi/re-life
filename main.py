@@ -154,6 +154,10 @@ async def root():
 async def login_page():
     return (root_dir / "templates/login.html").read_text(encoding="utf-8")
 
+@app.get("/register", response_class=HTMLResponse)
+async def register_page():
+    return (root_dir / "templates/register.html").read_text(encoding="utf-8")
+
 @app.post("/api/scan")
 async def scan_item(file: UploadFile = File(...), mode: str = Form("dispose")):
     ext = Path(str(file.filename)).suffix or ".png"

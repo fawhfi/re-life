@@ -11,15 +11,14 @@
 <div class="login-shell">
 
   <div class="login-card">
-    <!-- Brand -->
     <div class="login-brand">
       <div class="login-logo"><img src="/static/assets/Logo.png" alt="Re-Life" style="width:128px;height:128px"></div>
+      <div class="login-sub">Green Living Assistant</div>
     </div>
 
-    <!-- Form -->
     <form class="login-form" id="login-form" onsubmit="handleLogin(event)">
       <div class="login-field">
-        <label class="login-label" for="login-username" id="lbl-username">Username</label>
+        <label class="login-label" for="login-username">Username</label>
         <input
           class="login-input"
           type="text"
@@ -32,7 +31,7 @@
         >
       </div>
       <div class="login-field">
-        <label class="login-label" for="login-password" id="lbl-password">Password</label>
+        <label class="login-label" for="login-password">Password</label>
         <input
           class="login-input"
           type="password"
@@ -46,62 +45,22 @@
       <div class="login-error" id="login-error"></div>
 
       <button class="login-btn login-btn--primary" type="submit" id="login-submit-btn">
-        <span id="lbl-login-btn">Log In</span>
+        <span>Log In</span>
       </button>
 
       <div class="login-divider">
-        <span id="lbl-or">or</span>
+        <span>or</span>
       </div>
 
-      <button class="login-btn login-btn--ghost" type="button" id="register-btn" onclick="toggleRegister()">
-        <span id="lbl-register-btn">Create Account</span>
-      </button>
+      <a href="/register" class="login-btn login-btn--ghost" style="text-decoration:none;text-align:center;display:block">
+        Create Account
+      </a>
     </form>
 
-    <!-- Register form (hidden by default) -->
-    <form class="login-form hidden" id="register-form" onsubmit="handleRegister(event)">
-      <div class="login-field">
-        <label class="login-label" for="reg-username" id="lbl-reg-username">Choose Username</label>
-        <input
-          class="login-input"
-          type="text"
-          id="reg-username"
-          placeholder="GreenHero2026"
-          autocomplete="off"
-          required
-          minlength="2"
-          maxlength="24"
-        >
-      </div>
-      <div class="login-field">
-        <label class="login-label" for="reg-password" id="lbl-reg-password">Choose Password</label>
-        <input
-          class="login-input"
-          type="password"
-          id="reg-password"
-          placeholder="••••••••"
-          autocomplete="new-password"
-          required
-          minlength="4"
-        >
-      </div>
-
-      <div class="login-error" id="register-error"></div>
-
-      <button class="login-btn login-btn--primary" type="submit" id="register-submit-btn">
-        <span id="lbl-create-account-btn">Create Account</span>
-      </button>
-
-      <button class="login-btn login-btn--ghost" type="button" onclick="toggleRegister()">
-        <span id="lbl-back-login">← Back to Login</span>
-      </button>
-    </form>
-
-    <!-- Footer links -->
     <div class="login-footer">
-      <button class="login-footer-link" id="lang-btn" onclick="toggleLoginLang()">🌐 EN</button>
+      <button class="login-footer-link" onclick="toggleLoginLang()">🌐 EN</button>
       <span class="login-footer-dot">·</span>
-      <span class="login-footer-text" id="lbl-version">v4.2.0 HK</span>
+      <span class="login-footer-text">v4.2.0 HK</span>
     </div>
   </div>
 
@@ -109,5 +68,47 @@
 
 <script type="module" src="/static/firebase.js"></script>
 <script src="/static/app.js"></script>
+<script>
+let loginLang = localStorage.getItem('RE_LIFE_LANG') || 'en';
+function toggleLoginLang() {
+    loginLang = loginLang === 'en' ? 'zh' : 'en';
+    localStorage.setItem('RE_LIFE_LANG', loginLang);
+    location.reload();
+}
+
+async function handleLogin(e) {
+    e.preventDefault();
+    const errorEl = document.getElementById('login-error');
+    const btn = document.getElementById('login-submit-btn');
+    errorEl.textContent = '';
+    const username = document.getElementById('login-username').value.trim();
+    const password = document.getElementById('login-password').value;
+    if (!username) {
+        errorEl.textContent = loginLang === 'zh' ? '請輸入用戶名' : 'Please enter a username';
+        return;
+    }
+    if (!password) {
+        errorEl.textContent = loginLang === 'zh' ? '請輸入密碼' : 'Please enter a password';
+        return;
+    }
+    btn.textContent = '...';
+    try {
+        const user = await window.FB.loginUser(username, password);
+        localStorage.setItem('RE_LIFE_CURRENT_USER', user.displayName);
+        localStorage.setItem('RE_LIFE_USER_AVATAR', user.photoUrl || '👤');
+        window.location.replace('/');
+    } catch (err) {
+        if (err.message === 'USER_NOT_FOUND') {
+            errorEl.textContent = loginLang === 'zh' ? '用戶不存在，請先註冊' : 'User not found. Please register first.';
+        } else if (err.message === 'WRONG_PASSWORD') {
+            errorEl.textContent = loginLang === 'zh' ? '密碼錯誤' : 'Wrong password.';
+        } else {
+            errorEl.textContent = 'Login failed. Try again.';
+        }
+        console.error('Login error:', err);
+    }
+    btn.textContent = 'Log In';
+}
+</script>
 </body>
 </html>

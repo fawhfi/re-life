@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════════
-   Re-Life — Firebase / Firestore Helpers
+   Re-Life — Firebase Realtime Database Helpers
    Attached to window.FB for use by app.js (non-module).
    Schema: users | items | suggestions | itemSuggestions
    Passwords hashed client-side with SHA-256 + username salt.
@@ -7,10 +7,9 @@
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-app.js";
 import {
-    getFirestore, collection, doc, addDoc, getDocs, getDoc,
-    setDoc, deleteDoc, query, where, orderBy, serverTimestamp,
-    limit,
-} from "https://www.gstatic.com/firebasejs/12.14.0/firebase-firestore.js";
+    getDatabase, ref, push, set, get, update, remove,
+    query, orderByChild, equalTo, limitToFirst,
+} from "https://www.gstatic.com/firebasejs/12.14.0/firebase-database.js";
 
 const firebaseConfig = {
     apiKey: "AIzaSyCgks1-HcpZVFpjJX6CVlNb-JCKCg9Y6q8",
@@ -19,10 +18,11 @@ const firebaseConfig = {
     storageBucket: "re-life-9123f.firebasestorage.app",
     messagingSenderId: "246213132121",
     appId: "1:246213132121:web:b2a4580f2582f825ff1648",
+    databaseURL: "https://re-life-9123f-default-rtdb.asia-southeast1.firebasedatabase.app",
 };
 
 const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
+const db = getDatabase(app);
 
 // ═══════════════════════════════════════════════════════════════════════
 // PASSWORD HASHING  (SHA-256 + username as salt)
@@ -45,25 +45,32 @@ const FB = {
     // ── Users ──────────────────────────────────────────────────────────
 
     async createUser(displayName, password) {
-        const existing = await FB.getUserByName(displayName);
-        if (existing) throw new Error("USERNAME_TAKEN");
+        // Check if username already taken
+        const q = query(ref(db, "users"), orderByChild("displayName"), equalTo(displayName), limitToFirst(1));
+        const snap = await get(q);
+        if (snap.exists()) throw new Error("USERNAME_TAKEN");
+
         const passwordHash = await hashPassword(password, displayName);
-        const ref = await addDoc(collection(db, "users"), {
+        const userRef = push(ref(db, "users"));
+        await set(userRef, {
             displayName,
             passwordHash,
             email: null,
-            createdAt: serverTimestamp(),
+            createdAt: Date.now(),
             photoUrl: null,
         });
-        return { id: ref.id, displayName };
+        return { id: userRef.key, displayName };
     },
 
     async getUserByName(displayName) {
-        const q = query(collection(db, "users"), where("displayName", "==", displayName), limit(1));
-        const snap = await getDocs(q);
-        if (snap.empty) return null;
-        const d = snap.docs[0];
-        return { id: d.id, ...d.data() };
+        const q = query(ref(db, "users"), orderByChild("displayName"), equalTo(displayName), limitToFirst(1));
+        const snap = await get(q);
+        if (!snap.exists()) return null;
+        // snap is { pushKey: { ... } }
+        const entries = Object.entries(snap.val());
+        if (entries.length === 0) return null;
+        const [id, data] = entries[0];
+        return { id, ...data };
     },
 
     async loginUser(displayName, password) {
@@ -75,33 +82,34 @@ const FB = {
     },
 
     async getAllUsers() {
-        const snap = await getDocs(collection(db, "users"));
-        return snap.docs.map(d => {
-            const data = d.data();
-            // Never expose passwordHash to client
+        const snap = await get(ref(db, "users"));
+        if (!snap.exists()) return [];
+        const val = snap.val();
+        return Object.entries(val).map(([id, data]) => {
             const { passwordHash, ...safe } = data;
-            return { id: d.id, ...safe };
+            return { id, ...safe };
         });
     },
 
     async getUser(userId) {
-        const d = await getDoc(doc(db, "users", userId));
-        if (!d.exists()) return null;
-        const data = d.data();
+        const snap = await get(ref(db, "users/" + userId));
+        if (!snap.exists()) return null;
+        const data = snap.val();
         const { passwordHash, ...safe } = data;
-        return { id: d.id, ...safe };
+        return { id: userId, ...safe };
     },
 
     async saveUserData(userId, data) {
-        await setDoc(doc(db, "users", userId), data, { merge: true });
+        await update(ref(db, "users/" + userId), data);
     },
 
     // ── Items ──────────────────────────────────────────────────────────
 
     async addItem(item) {
-        const ref = await addDoc(collection(db, "items"), {
+        const itemRef = push(ref(db, "items"));
+        await set(itemRef, {
             name: item.name || "Scanned Item",
-            createdAt: serverTimestamp(),
+            createdAt: Date.now(),
             status: item.mode || "dispose",
             description: item.description || "",
             photoUrl: item.image_url || "",
@@ -119,21 +127,29 @@ const FB = {
             schema_id: item.schema_id || "",
             alternative: item.alternative || null,
         });
-        return { id: ref.id };
+        return { id: itemRef.key };
     },
 
     async getItems() {
-        const snap = await getDocs(query(collection(db, "items"), orderBy("createdAt", "desc")));
-        return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        const snap = await get(query(ref(db, "items"), orderByChild("createdAt")));
+        if (!snap.exists()) return [];
+        const val = snap.val();
+        // Realtime DB returns oldest-first; reverse for newest-first
+        return Object.entries(val)
+            .map(([id, data]) => ({ id, ...data }))
+            .reverse();
     },
 
     async deleteItem(itemId) {
-        await deleteDoc(doc(db, "items", itemId));
+        await remove(ref(db, "items/" + itemId));
     },
 
     async clearAllItems() {
-        const snap = await getDocs(collection(db, "items"));
-        await Promise.all(snap.docs.map(d => deleteDoc(doc(db, "items", d.id))));
+        const snap = await get(ref(db, "items"));
+        if (snap.exists()) {
+            const val = snap.val();
+            await Promise.all(Object.keys(val).map(id => remove(ref(db, "items/" + id))));
+        }
     },
 
 };

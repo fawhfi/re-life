@@ -29,22 +29,22 @@
         <h2 class="card-header" id="lbl-scan-title">SCAN YOUR ITEMS</h2>
         <div class="scan-grid">
           <button class="scan-btn scan-btn--dispose" onclick="startScanningMode('dispose')">
-            <div class="scan-btn-icon"><img src="/static/assets/to_dispose.png" alt="Dispose" style="width:100%;height:100%;object-fit:contain"></div>
+            <div class="scan-btn-icon"><img src="/static/assets/to_dispose.png" alt="Dispose" class="img-cover"></div>
             <span class="scan-btn-label" id="lbl-dispose-btn">TO DISPOSE</span>
           </button>
           <button class="scan-btn scan-btn--purchase" onclick="startScanningMode('purchase')">
-            <div class="scan-btn-icon"><img src="/static/assets/to_purchase.png" alt="Purchase" style="width:100%;height:100%;object-fit:contain"></div>
+            <div class="scan-btn-icon"><img src="/static/assets/to_purchase.png" alt="Purchase" class="img-cover"></div>
             <span class="scan-btn-label" id="lbl-purchase-btn">TO PURCHASE</span>
           </button>
         </div>
       </div>
 
       <div class="upload-zone" id="upload-zone" onclick="zoneTap()">
-        <div class="upload-zone-icon"><img src="/static/assets/Scan.png" alt="Scan" style="width:75%;height:75%;object-fit:contain"></div>
+        <div class="upload-zone-icon"><img src="/static/assets/Scan.png" alt="Scan" class="img-cover" style="opacity:0.7"></div>
         <div class="upload-zone-text" id="lbl-upload-text">Tap to scan</div>
         <div class="upload-zone-sub" id="lbl-upload-hint">or drag &amp; drop anywhere</div>
         <input type="file" id="file-input" accept="image/*" capture="environment" onchange="handleFileSelect(event)" class="hidden">
-        <div class="upload-gallery-link" id="upload-gallery-link" onclick="event.stopPropagation();triggerUpload()" style="display:none">📁 Choose from gallery</div>
+        <div class="upload-gallery-link hidden" id="upload-gallery-link" onclick="event.stopPropagation();triggerUpload()">📁 Choose from gallery</div>
         <div class="upload-preview" id="upload-preview">
           <img id="upload-preview-img" src="" alt="Preview">
           <button class="upload-preview-remove" onclick="event.stopPropagation();clearPreview()">×</button>
@@ -64,11 +64,11 @@
       <div id="scan-result" class="result-card hidden">
         <div class="record-card-image" id="result-img">📦</div>
         <div class="result-card-name" id="result-name">Scanned Item</div>
-        <div class="result-card-tip" style="font-weight:600;font-style:normal" id="result-brand"></div>
+        <div class="result-card-tip font-bold" id="result-brand"></div>
         <div class="result-card-tip" id="result-desc"></div>
-        <div class="gemini-error" id="gemini-error" style="display:none"></div>
+        <div class="gemini-error hidden" id="gemini-error"></div>
 
-        <div class="record-card-ratings" style="justify-content:center;margin-top:10px">
+        <div class="record-card-ratings flex-center mt-3">
           <div class="rating-item">
             <span class="rating-label">Eco-Rate</span>
             <div class="star-rating" id="result-eco-stars"></div>
@@ -86,7 +86,7 @@
             <div class="rating-item"><span class="rating-label">Eco-Rate:</span><div class="star-rating" id="alt-eco-stars"></div></div>
             <div class="rating-item"><span class="rating-label">Recycle Rate:</span><div class="star-rating" id="alt-recycle-stars"></div></div>
           </div>
-          <button class="btn btn--outline btn--small btn--full" style="margin-top:8px" id="lbl-swap" onclick="swapAlternative()">SWAP ME</button>
+          <button class="btn btn--outline btn--small btn--full mt-2" id="lbl-swap" onclick="swapAlternative()">SWAP ME</button>
         </div>
 
         <!-- Weighted Score -->
@@ -102,7 +102,7 @@
           <div class="grade-row">
             <span class="rating-label" id="lbl-grade">Grade</span>
             <span class="grade-tag" id="grade-tag" style="background:#047857">Good (B)</span>
-            <span style="font-weight:600;color:var(--color-gray-500);font-size:10px" id="grade-advice">Acceptable</span>
+            <span class="text-muted text-sm font-bold" id="grade-advice">Acceptable</span>
           </div>
           <div class="overall-bar">
             <div class="overall-bar-fill" id="ov-bar-fill" style="width:74%;background:#047857"></div>
@@ -116,7 +116,7 @@
           <div class="disposal-guide-row"><span class="disposal-guide-label" id="lbl-disp-material">Material:</span><span id="disp-material"></span></div>
           <div class="disposal-guide-row"><span class="disposal-guide-label" id="lbl-disp-method">Method:</span><span id="disp-method"></span></div>
           <div class="disposal-guide-row"><span class="disposal-guide-label" id="lbl-disp-location">Location:</span><span id="disp-location"></span></div>
-          <div class="disposal-guide-row" style="margin-top:3px" id="disp-guide"></div>
+          <div class="disposal-guide-row mt-2" id="disp-guide"></div>
           <div class="disposal-guide-precaution" id="disp-prec"></div>
         </div>
 
@@ -151,7 +151,7 @@
         <div class="stat"><div class="stat-number" id="stat-eco">0</div><div class="stat-label" id="lbl-stat-eco">Eco Avg</div></div>
         <div class="stat"><div class="stat-number" id="stat-recycle">0</div><div class="stat-label" id="lbl-stat-recycle">Recycle Avg</div></div>
       </div>
-      <button class="btn btn--danger btn--full" id="clear-btn" onclick="clearAllRecords()" style="justify-content:center">Clear All</button>
+      <button class="btn btn--danger btn--full" id="clear-btn" onclick="clearAllRecords()">Clear All</button>
       <div id="records-list"></div>
       <div id="records-empty" class="empty-state">
         <div class="empty-state-icon"><img src="/static/assets/Record.png" alt="No records" style="width:100%;height:100%;object-fit:contain;opacity:0.5"></div>
@@ -167,15 +167,15 @@
         <div class="rewards-points">🪙 <span id="rew-pts">340</span></div>
         <div class="rewards-sub" id="lbl-rew-sub">Convert your choices into real-world action.</div>
         <div id="rew-shortcut" class="rewards-shortcut">
-          <span style="font-size:10px;font-weight:600;color:var(--color-emerald-200)" id="lbl-my-coupons">My Coupons</span>
-          <button onclick="document.getElementById('rew-coupons').scrollIntoView({behavior:'smooth'})" style="background:var(--color-amber-400);color:var(--color-primary);font-weight:700;font-size:9px;padding:5px 10px;border-radius:var(--radius-sm);border:none;cursor:pointer;font-family:inherit" id="lbl-view-claimed">🎫 View Claimed</button>
+          <span class="text-sm font-bold" style="color:var(--color-emerald-200)" id="lbl-my-coupons">My Coupons</span>
+          <button class="rew-view-btn" onclick="document.getElementById('rew-coupons').scrollIntoView({behavior:'smooth'})" id="lbl-view-claimed">🎫 View Claimed</button>
         </div>
       </div>
       <div id="rew-alert" class="rewards-alert">⚠️ Not enough points.</div>
-      <h3 style="font-size:14px;font-weight:700;color:var(--color-gray-800)" id="lbl-marketplace">Eco-Marketplace</h3>
-      <div id="rew-catalogue" style="display:flex;flex-direction:column;gap:10px"></div>
-      <div id="rew-coupons" style="margin-top:8px;padding-top:12px;border-top:1px solid var(--color-gray-200)">
-        <h3 style="font-size:14px;font-weight:700;color:var(--color-gray-800);margin-bottom:8px" id="lbl-claimed-title">My Claimed Coupons</h3>
+      <h3 class="section-title" id="lbl-marketplace">Eco-Marketplace</h3>
+      <div id="rew-catalogue" class="flex-col gap-2"></div>
+      <div id="rew-coupons" class="section-divider">
+        <h3 class="section-title mb-3" id="lbl-claimed-title">My Claimed Coupons</h3>
         <div id="rew-coupon-grid" class="rewards-coupons"></div>
       </div>
     </section>
@@ -184,14 +184,14 @@
     <section id="tab-more" class="tab">
       <div class="more-section">
         <div class="card">
-          <h3 style="font-size:12px;font-weight:700;color:var(--color-gray-800);margin-bottom:10px" id="lbl-settings">Settings</h3>
-          <div style="display:flex;flex-direction:column;gap:8px">
-            <button class="btn btn--outline btn--full btn--small" id="sound-btn" onclick="toggleSound()"><img id="sound-icon" src="/static/assets/Sound_On.png" alt="Sound" style="width:16px;height:16px;vertical-align:middle;margin-right:6px"><span id="sound-label">Sound ON</span></button>
-            <button class="btn btn--outline btn--full btn--small" id="theme-btn" onclick="toggleTheme()"><img id="theme-icon" src="/static/assets/DarkMode_Off.png" alt="Theme" style="width:16px;height:16px;vertical-align:middle;margin-right:6px"><span id="theme-label">Dark Mode</span></button>
-            <button class="btn btn--outline btn--full btn--small" onclick="toggleLang()"><img id="lang-icon" src="/static/assets/Language.png" alt="Language" style="width:16px;height:16px;vertical-align:middle;margin-right:6px"><span id="lang-label">Language</span> <span id="lang-ind">Eng</span></button>
-            <button class="btn btn--outline btn--full btn--small" onclick="openPolicy()"><img src="/static/assets/Policy.png" alt="Policy" style="width:16px;height:16px;vertical-align:middle;margin-right:6px"><span>Policy</span></button>
+          <h3 class="section-title mb-3" id="lbl-settings">Settings</h3>
+          <div class="flex-col gap-2">
+            <button class="btn btn--outline btn--full btn--small" id="sound-btn" onclick="toggleSound()"><img id="sound-icon" src="/static/assets/Sound_On.png" alt="Sound" class="btn-icon"><span id="sound-label">Sound ON</span></button>
+            <button class="btn btn--outline btn--full btn--small" id="theme-btn" onclick="toggleTheme()"><img id="theme-icon" src="/static/assets/DarkMode_Off.png" alt="Theme" class="btn-icon"><span id="theme-label">Dark Mode</span></button>
+            <button class="btn btn--outline btn--full btn--small" onclick="toggleLang()"><img id="lang-icon" src="/static/assets/Language.png" alt="Language" class="btn-icon"><span id="lang-label">Language</span> <span id="lang-ind">Eng</span></button>
+            <button class="btn btn--outline btn--full btn--small" onclick="openPolicy()"><img src="/static/assets/Policy.png" alt="Policy" class="btn-icon"><span>Policy</span></button>
             <button class="btn btn--outline btn--full btn--small" id="debug-btn" onclick="toggleDebug()">🔧 Debug Mode: OFF</button>
-            <button class="btn btn--outline btn--full btn--small" id="logout-btn" onclick="handleLogout()" style="display:none"><span id="logout-label">Logout</span></button>
+            <button class="btn btn--danger btn--full btn--small hidden" id="logout-btn" onclick="handleLogout()"><span id="logout-label">Logout</span></button>
           </div>
         </div>
 

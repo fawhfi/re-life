@@ -71,6 +71,12 @@
     --transition-spring: 0.5s var(--spring-wobbly);
 }
 
+/* Smooth theme switching */
+body, .app, .card, .btn, .upload-zone, .record-card, .result-card,
+.app-header, nav.nav, .app-nav, .login-card, .login-page {
+    transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease, box-shadow 0.3s ease;
+}
+
 /* ── Base ──────────────────────────────────────────────────────────── */
 html {
     font-size: 16px;
@@ -114,23 +120,22 @@ body {
 
 /* ── Header ────────────────────────────────────────────────────────── */
 .app-header {
-    position: absolute !important;
-    top: 15px !important;
-    left: 15px !important;
-    width: calc(100% - 30px) !important;
-    height: auto !important;
+    position: absolute;
+    top: 15px;
+    left: 15px;
+    width: calc(100% - 30px);
     display: flex;
     align-items: center;
     justify-content: space-between;
     padding: 12px 18px;
-    background: rgba(255, 255, 255, 0.2) !important;
-    backdrop-filter: blur(25px) saturate(200%) !important;
-    -webkit-backdrop-filter: blur(25px) saturate(200%) !important;
-    border: 1px solid rgba(255, 255, 255, 0.25) !important;
-    box-shadow: 0 10px 30px rgba(31, 38, 135, 0.06), 0 1px 0 rgba(255, 255, 255, 0.15) inset !important;
-    border-radius: 16px !important;
-    z-index: 9999 !important;
-    transition: box-shadow 0.2s ease !important;
+    background: rgba(255, 255, 255, 0.2);
+    backdrop-filter: blur(25px) saturate(200%);
+    -webkit-backdrop-filter: blur(25px) saturate(200%);
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    box-shadow: 0 10px 30px rgba(31, 38, 135, 0.06), 0 1px 0 rgba(255, 255, 255, 0.15) inset;
+    border-radius: 16px;
+    z-index: 100;
+    transition: box-shadow 0.2s ease;
 }
 
 .header-left {
@@ -295,18 +300,18 @@ body {
 }
 
 .btn--danger {
-    background: transparent;
-    border: 1.5px solid var(--color-red-400);
-    color: var(--color-red-500);
+    background: var(--color-red-500);
+    border: 1.5px solid var(--color-red-500);
+    color: #fff;
     padding: 5px 10px;
-    font-size: 9px;
+    font-size: 10px;
     border-radius: var(--radius-sm);
 }
 
 .btn--danger:hover {
-    background: var(--color-red-400);
-    color: var(--color-white);
-    border-color: var(--color-red-400);
+    background: #dc2626;
+    border-color: #dc2626;
+    color: #fff;
 }
 
 .btn--small {
@@ -517,10 +522,10 @@ body {
     text-align: center;
     cursor: pointer;
     background: var(--color-white);
+    border: 2px dashed var(--color-gray-200);
     border-radius: 22px;
-    padding: 28px 14px 18px;
+    padding: 32px 14px 22px;
     position: relative;
-    /* Silky smooth transitions */
     transition: background-color 0.3s var(--ease-out-quint),
                 border-color 0.3s var(--ease-out-quint),
                 transform 0.3s var(--spring-wobbly),
@@ -740,7 +745,7 @@ body {
 }
 
 .rating-label {
-    font-size: 8px;
+    font-size: 10px;
     font-weight: 600;
     color: var(--color-gray-400);
     text-transform: uppercase;
@@ -1760,28 +1765,26 @@ body {
 
 /* ── Bottom Nav ────────────────────────────────────────────────────── */
 nav.nav, .app-nav {
-    position: fixed !important;
-    bottom: max(20px, env(safe-area-inset-bottom, 20px)) !important;
-    top: auto !important;
-    left: 0 !important;
-    right: 0 !important;
-    margin: 0 auto !important;
-    width: calc(100% - 30px) !important;
-    max-width: 400px !important;
-    height: auto !important;
-    display: flex !important;
-    justify-content: space-around !important;
-    align-items: center !important;
-    gap: 0 !important;
-    background: rgba(255, 255, 255, 0.2) !important;
-    backdrop-filter: blur(25px) saturate(200%) !important;
-    -webkit-backdrop-filter: blur(25px) saturate(200%) !important;
-    border: 1px solid rgba(255, 255, 255, 0.25) !important;
-    box-shadow: 0 10px 30px rgba(31, 38, 135, 0.06), 0 1px 0 rgba(255, 255, 255, 0.15) inset !important;
-    border-radius: 20px !important;
-    padding: 6px 14px !important;
-    z-index: 9999 !important;
-    transition: box-shadow 0.2s ease, opacity 0.2s ease, visibility 0.2s !important;
+    position: fixed;
+    bottom: max(20px, env(safe-area-inset-bottom, 20px));
+    left: 0;
+    right: 0;
+    margin: 0 auto;
+    width: calc(100% - 30px);
+    max-width: 400px;
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    gap: 0;
+    background: rgba(255, 255, 255, 0.2);
+    backdrop-filter: blur(25px) saturate(200%);
+    -webkit-backdrop-filter: blur(25px) saturate(200%);
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    box-shadow: 0 10px 30px rgba(31, 38, 135, 0.06), 0 1px 0 rgba(255, 255, 255, 0.15) inset;
+    border-radius: 20px;
+    padding: 6px 14px;
+    z-index: 100;
+    transition: box-shadow 0.2s ease, opacity 0.2s ease, visibility 0.2s;
 }
 
 /* Hide floating bars when camera is active */
@@ -2016,8 +2019,52 @@ body:has(.camera-modal.is-shown) .app-header,
 }
 
 /* ── Utilities ─────────────────────────────────────────────────────── */
-.hidden {
-    display: none !important;
+.hidden { display: none !important; }
+.text-center { text-align: center; }
+.text-muted { color: var(--color-gray-500); }
+.text-sm { font-size: 11px; }
+.text-xs { font-size: 10px; }
+.font-bold { font-weight: 700; }
+.mt-2 { margin-top: 8px; }
+.mt-3 { margin-top: 12px; }
+.mt-4 { margin-top: 16px; }
+.mb-2 { margin-bottom: 8px; }
+.mb-3 { margin-bottom: 12px; }
+.gap-2 { gap: 8px; }
+.gap-3 { gap: 12px; }
+.flex-col { display: flex; flex-direction: column; }
+.flex-center { display: flex; align-items: center; justify-content: center; }
+.w-full { width: 100%; }
+.rounded { border-radius: var(--radius-md); }
+.img-cover { width: 100%; height: 100%; object-fit: contain; }
+
+/* ── Shared component classes ─────────────────────────────────────── */
+.section-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--color-gray-800);
+}
+.section-divider {
+    margin-top: 8px;
+    padding-top: 12px;
+    border-top: 1px solid var(--color-gray-200);
+}
+.btn-icon {
+    width: 16px;
+    height: 16px;
+    vertical-align: middle;
+    margin-right: 6px;
+}
+.rew-view-btn {
+    background: var(--color-amber-400);
+    color: var(--color-primary);
+    font-weight: 700;
+    font-size: 10px;
+    padding: 5px 10px;
+    border-radius: var(--radius-sm);
+    border: none;
+    cursor: pointer;
+    font-family: inherit;
 }
 
 /* ── Scrollbar ─────────────────────────────────────────────────────── */
@@ -2247,29 +2294,29 @@ body:has(.camera-modal.is-shown) .app-header,
 
 /* ── Dark Theme ────────────────────────────────────────────────────── */
 [data-theme="dark"] {
-    --color-primary:        #2d4a34;
-    --color-primary-hover:  #3a5e43;
-    --color-primary-light:  #1a2a1e;
-    --color-primary-mid:    #4a7a55;
-    --color-bg:             #141714;
-    --color-bg-alt:         #1a1d1a;
-    --color-white:          #1e241e;
-    --color-gray-50:        #1a1f1a;
-    --color-gray-100:       #252a25;
-    --color-gray-200:       #353a35;
-    --color-gray-400:       #8a908a;
-    --color-gray-500:       #7a807a;
-    --color-gray-700:       #c5cac5;
+    --color-primary:        #4a9a5b;
+    --color-primary-hover:  #5aae6b;
+    --color-primary-light:  #1e3a28;
+    --color-primary-mid:    #3a7a4b;
+    --color-bg:             #0f120f;
+    --color-bg-alt:         #151815;
+    --color-white:          #1a1f1a;
+    --color-gray-50:        #161a16;
+    --color-gray-100:       #1e231e;
+    --color-gray-200:       #2a302a;
+    --color-gray-400:       #7a807a;
+    --color-gray-500:       #9aa09a;
+    --color-gray-700:       #c8cec8;
     --color-gray-800:       #e8ebe8;
-    --color-amber-200:      #3d3520;
-    --color-amber-400:      #b8860b;
-    --color-emerald-50:     #152218;
-    --color-emerald-100:    #1a2e20;
-    --color-emerald-200:    #25452d;
+    --color-amber-200:      #5a4a20;
+    --color-amber-400:      #d4a017;
+    --color-emerald-50:     #122016;
+    --color-emerald-100:    #182a1e;
+    --color-emerald-200:    #1e3a28;
     --color-emerald-700:    #4ade80;
     --color-emerald-800:    #6ee7a0;
-    --color-red-400:        #dc2626;
-    --color-red-500:        #ef4444;
+    --color-red-400:        #ef4444;
+    --color-red-500:        #f87171;
 }
 
 [data-theme="dark"] body {
@@ -2279,13 +2326,13 @@ body:has(.camera-modal.is-shown) .app-header,
 [data-theme="dark"] .app-header,
 [data-theme="dark"] nav.nav,
 [data-theme="dark"] .app-nav {
-    background: rgba(30, 35, 30, 0.3) !important;
-    border: 1px solid rgba(255, 255, 255, 0.06) !important;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25) !important;
+    background: rgba(20, 30, 20, 0.4);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
 }
 
 [data-theme="dark"] .header-title {
-    color: var(--color-primary-light);
+    color: var(--color-emerald-200);
 }
 
 [data-theme="dark"] .header-time,
@@ -2471,21 +2518,32 @@ body:has(.camera-modal.is-shown) .app-header,
 /* ── Dark mode: scan mode active buttons ──────────────────────────── */
 [data-theme="dark"] .scan-btn--active.scan-btn--dispose {
     background: #1e3a28;
-    border-color: var(--color-emerald-800) !important;
+    border-color: var(--color-emerald-700);
 }
 
 [data-theme="dark"] .scan-btn--active.scan-btn--purchase {
     background: #1e3a28;
-    border-color: var(--color-emerald-800) !important;
+    border-color: var(--color-emerald-700);
+}
+
+/* ── Dark mode: danger button ─────────────────────────────────────── */
+[data-theme="dark"] .btn--danger {
+    background: #dc2626;
+    border-color: #dc2626;
+    color: #fff;
+}
+[data-theme="dark"] .btn--danger:hover {
+    background: #b91c1c;
+    border-color: #b91c1c;
 }
 
 /* ── Dark mode: login page ────────────────────────────────────────── */
 [data-theme="dark"] .login-page {
-    background: radial-gradient(circle at top left, #1a2a1e 0%, #141714 60%);
+    background: radial-gradient(circle at top left, #1a2a1e 0%, #0f120f 60%);
 }
 
 [data-theme="dark"] .login-card {
-    background: rgba(30, 36, 30, 0.85);
+    background: rgba(20, 28, 20, 0.9);
     border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
@@ -2494,7 +2552,7 @@ body:has(.camera-modal.is-shown) .app-header,
 }
 
 [data-theme="dark"] .login-sub {
-    color: var(--color-gray-400);
+    color: var(--color-gray-500);
 }
 
 [data-theme="dark"] .login-input {
@@ -2505,7 +2563,7 @@ body:has(.camera-modal.is-shown) .app-header,
 
 [data-theme="dark"] .login-input:focus {
     border-color: var(--color-emerald-700);
-    box-shadow: 0 0 0 3px rgba(74, 222, 128, 0.12);
+    box-shadow: 0 0 0 3px rgba(74, 222, 128, 0.15);
 }
 
 [data-theme="dark"] .login-btn--ghost {
@@ -2525,6 +2583,15 @@ body:has(.camera-modal.is-shown) .app-header,
 [data-theme="dark"] .login-divider::before,
 [data-theme="dark"] .login-divider::after {
     background: var(--color-gray-200);
+}
+
+/* ── Dark mode: upload zone ───────────────────────────────────────── */
+[data-theme="dark"] .upload-zone {
+    border-color: var(--color-gray-200);
+}
+[data-theme="dark"] .upload-zone.drag-over {
+    background-color: rgba(74, 154, 91, 0.15);
+    box-shadow: 0 0 0 6px rgba(74, 154, 91, 0.12);
 }
 
 /* ── Click Ripple Effect ──────────────────────────────────────────── */

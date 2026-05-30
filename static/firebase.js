@@ -82,8 +82,11 @@ const FB = {
 
         const salt = randomSalt();
         const passwordHash = await hashPassword(password, salt);
+        // Short unique user ID: "usr_" + 8 hex chars from UUID v4
+        const userId = "usr_" + crypto.randomUUID().split("-")[0];
         const userRef = push(ref(db, "users"));
         await set(userRef, {
+            userId,
             displayName,
             passwordHash,
             email: email || null,
@@ -91,7 +94,17 @@ const FB = {
             createdAt: Date.now(),
             photoUrl: null,
         });
-        return { id: userRef.key, displayName };
+        return { id: userId, displayName };
+    },
+
+    async getUserById(userId) {
+        const q = query(ref(db, "users"), orderByChild("userId"), equalTo(userId), limitToFirst(1));
+        const snap = await get(q);
+        if (!snap.exists()) return null;
+        const entries = Object.entries(snap.val());
+        if (entries.length === 0) return null;
+        const [id, data] = entries[0];
+        return { id: data.userId, ...data };
     },
 
     async getUserByName(displayName) {
@@ -109,16 +122,16 @@ const FB = {
         if (!user) throw new Error("USER_NOT_FOUND");
         const ok = await verifyPassword(password, user.passwordHash);
         if (!ok) throw new Error("WRONG_PASSWORD");
-        return { id: user.id, displayName: user.displayName, photoUrl: user.photoUrl };
+        return { id: user.userId || user.id, displayName: user.displayName, photoUrl: user.photoUrl };
     },
 
     async getAllUsers() {
         const snap = await get(ref(db, "users"));
         if (!snap.exists()) return [];
         const val = snap.val();
-        return Object.entries(val).map(([id, data]) => {
+        return Object.entries(val).map(([firebaseKey, data]) => {
             const { passwordHash, ...safe } = data;
-            return { id, ...safe };
+            return { id: data.userId || firebaseKey, ...safe };
         });
     },
 

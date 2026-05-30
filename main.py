@@ -192,7 +192,8 @@ def get_grade(score):
 
 # Routes
 @app.get("/", response_class=HTMLResponse)
-async def root():
+async def root(request: Request):
+    check_rate_limit(request, max_requests=60, window_sec=60)
     return (root_dir / "templates/index.html").read_text(encoding="utf-8")
 
 @app.get("/login", response_class=HTMLResponse)
@@ -206,7 +207,8 @@ async def register_page(request: Request):
     return (root_dir / "templates/register.html").read_text(encoding="utf-8")
 
 @app.post("/api/scan")
-async def scan_item(file: UploadFile = File(...), mode: str = Form("dispose")):
+async def scan_item(request: Request, file: UploadFile = File(...), mode: str = Form("dispose")):
+    check_rate_limit(request, max_requests=20, window_sec=60)
     contents = await file.read()
     if len(contents) > MAX_UPLOAD_BYTES:
         return JSONResponse({"error": f"File too large (max {MAX_UPLOAD_BYTES // (1024*1024)} MB)"}, status_code=413)
@@ -221,7 +223,8 @@ async def scan_item(file: UploadFile = File(...), mode: str = Form("dispose")):
     return JSONResponse(result)
 
 @app.post("/api/scan/ai")
-async def scan_item_ai(file: UploadFile = File(...), mode: str = Form("dispose"), item_type: str = Form("food"), item_state: str = Form("new"), debug: str = Form("false")):
+async def scan_item_ai(request: Request, file: UploadFile = File(...), mode: str = Form("dispose"), item_type: str = Form("food"), item_state: str = Form("new"), debug: str = Form("false")):
+    check_rate_limit(request, max_requests=15, window_sec=60)
     contents = await file.read()
     if len(contents) > MAX_UPLOAD_BYTES:
         return JSONResponse({"error": f"File too large (max {MAX_UPLOAD_BYTES // (1024*1024)} MB)"}, status_code=413)
@@ -421,25 +424,30 @@ def _mock(mode):
     return {"name": "Scanned Item", "eco_rate": r(), "recycle_rate": r(), "alternative": None, "description": "Mock analysis.", "weighted_scores": s(), "material": random.choice(["plastic", "pp_plastic", "metal", "wood"]), "disposal_guide": "Drop at GREEN@COMMUNITY.", "precaution": "Separate materials."}
 
 @app.get("/api/tips")
-async def get_tips():
+async def get_tips(request: Request):
+    check_rate_limit(request, max_requests=60, window_sec=60)
     return [{"title": "Energy saving tips to save money", "source": "From HSBC SG", "snippet": "More and more people are making a conscious effort to use less energy."}, {"title": "How to recycle electronics properly", "source": "From NEA", "snippet": "E-waste contains valuable materials but also hazardous substances."}, {"title": "Zero waste grocery shopping", "source": "From WWF", "snippet": "Simple swaps can dramatically cut your household plastic waste."}]
 
 @app.get("/api/schemas")
-async def get_schemas():
+async def get_schemas(request: Request):
+    check_rate_limit(request, max_requests=60, window_sec=60)
     return {"item_types": [{"value": "food", "label": "Food Items"}, {"value": "general", "label": "General Items"}], "item_states": [{"value": "new", "label": "New Purchase"}, {"value": "expire", "label": "About to Expire"}], "weights": SCHEMA_WEIGHTS, "criteria_labels": CRITERIA_LABELS}
 
 @app.get("/api/rewards")
-async def get_rewards(): return REWARDS_CATALOG
+async def get_rewards(request: Request):
+    check_rate_limit(request, max_requests=60, window_sec=60) return REWARDS_CATALOG
 
 @app.post("/api/rewards/redeem")
-async def redeem_reward(data: dict):
+async def redeem_reward(request: Request, data: dict):
+    check_rate_limit(request, max_requests=30, window_sec=60)
     reward = next((r for r in REWARDS_CATALOG if r["id"] == data.get("reward_id")), None)
     if not reward: return JSONResponse({"error": "Not found"}, 404)
     code = "RL-" + uuid.uuid4().hex[:6].upper() + "-" + str(reward["cost"])
     return {"ok": True, "coupon": {"code": code, "title": reward["title"], "image": reward["image"], "cost": reward["cost"], "claimed_date": "Just now", "expiry": "Valid 30 days"}}
 
 @app.get("/api/fact")
-async def get_fact():
+async def get_fact(request: Request):
+    check_rate_limit(request, max_requests=60, window_sec=60)
     facts = ["Recycling a single aluminum can saves enough energy to power a TV for 3 hours.", "Hong Kong generates over 15,000 tonnes of municipal solid waste every day.", "One tree can absorb up to 22kg of CO2 per year.", "Plastic bottles take up to 450 years to decompose.", "Food waste accounts for 30% of HK municipal solid waste.", "Glass is 100% recyclable endlessly without quality loss."]
     return {"fact": random.choice(facts)}
 

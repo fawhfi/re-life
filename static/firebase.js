@@ -12,7 +12,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-database.js";
 
 // argon2id via hash-wasm (WASM, ~20KB gzipped)
-import { argon2id } from "https://cdn.jsdelivr.net/npm/hash-wasm@4/dist/hash-wasm.esm.min.js";
+import { argon2id } from "https://cdn.jsdelivr.net/npm/hash-wasm@4/+esm";
 
 const firebaseConfig = {
     apiKey: "AIzaSyCgks1-HcpZVFpjJX6CVlNb-JCKCg9Y6q8",

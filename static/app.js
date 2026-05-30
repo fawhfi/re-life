@@ -924,7 +924,7 @@ function addScanToRecord() {
         );
     }
 
-    record.userName = state.currentUser || null;
+    record.userId = state.userId || null;
     FB.addItem(record).then(() => {
         resetScan();
         navigateTo('record');
@@ -957,7 +957,7 @@ function resetScan() {
 
 async function loadRecords() {
     try {
-        const items = await FB.getItems();
+        const items = await FB.getItems(state.userId);
         state.records = items.map(it => ({
             id: it.id,
             name: it.name,

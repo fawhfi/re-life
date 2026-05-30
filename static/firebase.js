@@ -93,6 +93,8 @@ const FB = {
             emailVerified: !!email,
             createdAt: Date.now(),
             photoUrl: null,
+            spent_points: 0,
+            claimed_coupons: [],
         });
         return { id: userId, displayName };
     },
@@ -159,7 +161,7 @@ const FB = {
             photoUrl: item.image_url || "",
             dealtWithMethod: item.disposal_guide || "",
             dealtWithDate: null,
-            user: item.userName || null,
+            userId: item.userId || null,
             eco_rate: item.eco_rate || 3,
             recycle_rate: item.recycle_rate || 4,
             overall_score: item.overall_score || 50,
@@ -174,13 +176,17 @@ const FB = {
         return { id: itemRef.key };
     },
 
-    async getItems() {
+    async getItems(userId = null) {
         const snap = await get(query(ref(db, "items"), orderByChild("createdAt")));
         if (!snap.exists()) return [];
         const val = snap.val();
-        return Object.entries(val)
+        let items = Object.entries(val)
             .map(([id, data]) => ({ id, ...data }))
             .reverse();
+        if (userId) {
+            items = items.filter(it => it.userId === userId);
+        }
+        return items;
     },
 
     async deleteItem(itemId) {

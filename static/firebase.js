@@ -12,7 +12,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-database.js";
 
 // argon2id via hash-wasm (WASM, ~20KB gzipped)
-import { argon2id } from "https://cdn.jsdelivr.net/npm/hash-wasm@4/+esm";
+import { argon2id, argon2Verify } from "https://cdn.jsdelivr.net/npm/hash-wasm@4/+esm";
 
 const firebaseConfig = {
     apiKey: "AIzaSyCgks1-HcpZVFpjJX6CVlNb-JCKCg9Y6q8",
@@ -51,26 +51,12 @@ async function hashPassword(password, salt) {
 }
 
 async function verifyPassword(password, storedHash) {
-    // Parse the argon2id encoded string: $argon2id$v=19$m=65536,t=3,p=1$<salt>$<hash>
-    const parts = storedHash.split("$");
-    if (parts.length < 6) return false;
-    // parts[0]=""  parts[1]="argon2id"  parts[2]="v=19"  parts[3]="m=65536,t=3,p=1"  parts[4]=salt  parts[5]=hash
-    const params = parts[3].split(",");
-    const m = parseInt(params.find(p => p.startsWith("m="))?.split("=")[1] || "65536");
-    const t = parseInt(params.find(p => p.startsWith("t="))?.split("=")[1] || "3");
-    const pVal = parseInt(params.find(p => p.startsWith("p="))?.split("=")[1] || "1");
-    const salt = parts[4];
-
-    const verified = await argon2id({
-        password,
-        salt,
-        parallelism: pVal,
-        iterations: t,
-        memorySize: m,
-        hashLength: 32,
-        outputType: "encoded",
-    });
-    return verified === storedHash;
+    // Use hash-wasm's built-in argon2Verify — handles PHC string parsing correctly
+    try {
+        return await argon2Verify({ password, hash: storedHash });
+    } catch {
+        return false;
+    }
 }
 
 // ═══════════════════════════════════════════════════════════════════════

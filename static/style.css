@@ -522,7 +522,7 @@ body {
     text-align: center;
     cursor: pointer;
     background: var(--color-white);
-    border: 2px dashed var(--color-gray-200);
+    border: none;
     border-radius: 22px;
     padding: 32px 14px 22px;
     position: relative;
@@ -2586,9 +2586,6 @@ body:has(.camera-modal.is-shown) .app-header,
 }
 
 /* ── Dark mode: upload zone ───────────────────────────────────────── */
-[data-theme="dark"] .upload-zone {
-    border-color: var(--color-gray-200);
-}
 [data-theme="dark"] .upload-zone.drag-over {
     background-color: rgba(74, 154, 91, 0.15);
     box-shadow: 0 0 0 6px rgba(74, 154, 91, 0.12);

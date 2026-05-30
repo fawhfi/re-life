@@ -220,7 +220,7 @@ async def register_page(request: Request):
 @app.post("/api/send-verification")
 async def send_verification(request: Request, data: dict):
     """Generate 6-digit code and send to email via SMTP."""
-    check_rate_limit(request, max_requests=3, window_sec=120)
+    check_rate_limit(request, max_requests=5, window_sec=60)
     email = (data.get("email") or "").strip().lower()
     if not email or "@" not in email or "." not in email:
         return JSONResponse({"error": "Valid email required"}, status_code=400)

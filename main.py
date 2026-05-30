@@ -51,23 +51,19 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 
 app.add_middleware(SecurityHeadersMiddleware)
 
-# ── Rate Limiter (in-memory, per-IP, 30 req / 60s) ──────────────────────────
-RATE_LIMIT_WINDOW = 60
-RATE_LIMIT_MAX    = 30
+# ── Rate Limiter (in-memory, per-IP) ────────────────────────────────────────
 _ratelimit_store: dict[str, list[float]] = defaultdict(list)
 
-class RateLimitMiddleware(BaseHTTPMiddleware):
-    async def dispatch(self, request: Request, call_next):
-        ip = request.client.host if request.client else "unknown"
-        now = time.time()
-        window = now - RATE_LIMIT_WINDOW
-        _ratelimit_store[ip] = [t for t in _ratelimit_store[ip] if t > window]
-        if len(_ratelimit_store[ip]) >= RATE_LIMIT_MAX:
-            return JSONResponse({"error": "Too many requests"}, status_code=429)
-        _ratelimit_store[ip].append(now)
-        return await call_next(request)
-
-app.add_middleware(RateLimitMiddleware)
+def check_rate_limit(request: Request, max_requests: int = 5, window_sec: int = 60) -> None:
+    """Raise HTTPException(429) if rate limit exceeded. Returns None if OK."""
+    from fastapi import HTTPException
+    ip = request.client.host if request.client else "unknown"
+    now = time.time()
+    cutoff = now - window_sec
+    _ratelimit_store[ip] = [t for t in _ratelimit_store[ip] if t > cutoff]
+    if len(_ratelimit_store[ip]) >= max_requests:
+        raise HTTPException(status_code=429, detail="Too many requests — slow down")
+    _ratelimit_store[ip].append(now)
 
 # ── Upload size limit ───────────────────────────────────────────────────────
 MAX_UPLOAD_BYTES = 10 * 1024 * 1024  # 10 MB
@@ -200,11 +196,13 @@ async def root():
     return (root_dir / "templates/index.html").read_text(encoding="utf-8")
 
 @app.get("/login", response_class=HTMLResponse)
-async def login_page():
+async def login_page(request: Request):
+    check_rate_limit(request, max_requests=5, window_sec=60)
     return (root_dir / "templates/login.html").read_text(encoding="utf-8")
 
 @app.get("/register", response_class=HTMLResponse)
-async def register_page():
+async def register_page(request: Request):
+    check_rate_limit(request, max_requests=5, window_sec=60)
     return (root_dir / "templates/register.html").read_text(encoding="utf-8")
 
 @app.post("/api/scan")

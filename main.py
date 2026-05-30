@@ -198,12 +198,12 @@ async def root(request: Request):
 
 @app.get("/login", response_class=HTMLResponse)
 async def login_page(request: Request):
-    check_rate_limit(request, max_requests=5, window_sec=60)
+    check_rate_limit(request, max_requests=10, window_sec=60)
     return (root_dir / "templates/login.html").read_text(encoding="utf-8")
 
 @app.get("/register", response_class=HTMLResponse)
 async def register_page(request: Request):
-    check_rate_limit(request, max_requests=5, window_sec=60)
+    check_rate_limit(request, max_requests=10, window_sec=60)
     return (root_dir / "templates/register.html").read_text(encoding="utf-8")
 
 @app.post("/api/scan")

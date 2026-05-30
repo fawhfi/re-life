@@ -2,7 +2,7 @@
    Re-Life — Firebase Realtime Database Helpers
    Attached to window.FB for use by app.js (non-module).
    Schema: users | items | suggestions | itemSuggestions
-   Passwords hashed client-side with SHA-256 + username salt.
+   Passwords hashed with Argon2id + random salt via hash-wasm.
    ═══════════════════════════════════════════════════════════════════════ */
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-app.js";
@@ -10,6 +10,9 @@ import {
     getDatabase, ref, push, set, get, update, remove,
     query, orderByChild, equalTo, limitToFirst,
 } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-database.js";
+
+// argon2id via hash-wasm (WASM, ~20KB gzipped)
+import { argon2id } from "https://cdn.jsdelivr.net/npm/hash-wasm@4/dist/hash-wasm.esm.min.js";
 
 const firebaseConfig = {
     apiKey: "AIzaSyCgks1-HcpZVFpjJX6CVlNb-JCKCg9Y6q8",
@@ -25,15 +28,49 @@ const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 
 // ═══════════════════════════════════════════════════════════════════════
-// PASSWORD HASHING  (SHA-256 + username as salt)
+// PASSWORD HASHING  (Argon2id + random salt)
 // ═══════════════════════════════════════════════════════════════════════
 
+function randomSalt(length = 16) {
+    const bytes = new Uint8Array(length);
+    crypto.getRandomValues(bytes);
+    return Array.from(bytes, b => b.toString(16).padStart(2, "0")).join("");
+}
+
 async function hashPassword(password, salt) {
-    const encoder = new TextEncoder();
-    const data = encoder.encode(password + ":" + salt);
-    const hashBuffer = await crypto.subtle.digest("SHA-256", data);
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    return hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
+    // argon2id(t) memory=64MB, parallelism=1, iterations=3, hashLen=32
+    return await argon2id({
+        password,
+        salt,
+        parallelism: 1,
+        iterations: 3,
+        memorySize: 65536,  // 64 MB
+        hashLength: 32,
+        outputType: "encoded",  // $argon2id$v=19$m=65536,t=3,p=1$salt$hash
+    });
+}
+
+async function verifyPassword(password, storedHash) {
+    // Parse the argon2id encoded string: $argon2id$v=19$m=65536,t=3,p=1$<salt>$<hash>
+    const parts = storedHash.split("$");
+    if (parts.length < 6) return false;
+    // parts[0]=""  parts[1]="argon2id"  parts[2]="v=19"  parts[3]="m=65536,t=3,p=1"  parts[4]=salt  parts[5]=hash
+    const params = parts[3].split(",");
+    const m = parseInt(params.find(p => p.startsWith("m="))?.split("=")[1] || "65536");
+    const t = parseInt(params.find(p => p.startsWith("t="))?.split("=")[1] || "3");
+    const pVal = parseInt(params.find(p => p.startsWith("p="))?.split("=")[1] || "1");
+    const salt = parts[4];
+
+    const verified = await argon2id({
+        password,
+        salt,
+        parallelism: pVal,
+        iterations: t,
+        memorySize: m,
+        hashLength: 32,
+        outputType: "encoded",
+    });
+    return verified === storedHash;
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -50,11 +87,12 @@ const FB = {
         const snap = await get(q);
         if (snap.exists()) throw new Error("USERNAME_TAKEN");
 
-        const passwordHash = await hashPassword(password, displayName);
+        const salt = randomSalt();
+        const passwordHash = await hashPassword(password, salt);
         const userRef = push(ref(db, "users"));
         await set(userRef, {
             displayName,
-            passwordHash,
+            passwordHash,  // argon2id encoded string: includes salt + params
             email: null,
             createdAt: Date.now(),
             photoUrl: null,
@@ -66,7 +104,6 @@ const FB = {
         const q = query(ref(db, "users"), orderByChild("displayName"), equalTo(displayName), limitToFirst(1));
         const snap = await get(q);
         if (!snap.exists()) return null;
-        // snap is { pushKey: { ... } }
         const entries = Object.entries(snap.val());
         if (entries.length === 0) return null;
         const [id, data] = entries[0];
@@ -76,8 +113,8 @@ const FB = {
     async loginUser(displayName, password) {
         const user = await FB.getUserByName(displayName);
         if (!user) throw new Error("USER_NOT_FOUND");
-        const expectedHash = await hashPassword(password, displayName);
-        if (user.passwordHash !== expectedHash) throw new Error("WRONG_PASSWORD");
+        const ok = await verifyPassword(password, user.passwordHash);
+        if (!ok) throw new Error("WRONG_PASSWORD");
         return { id: user.id, displayName: user.displayName, photoUrl: user.photoUrl };
     },
 
@@ -134,7 +171,6 @@ const FB = {
         const snap = await get(query(ref(db, "items"), orderByChild("createdAt")));
         if (!snap.exists()) return [];
         const val = snap.val();
-        // Realtime DB returns oldest-first; reverse for newest-first
         return Object.entries(val)
             .map(([id, data]) => ({ id, ...data }))
             .reverse();

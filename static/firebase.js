@@ -2,6 +2,7 @@
    Re-Life — Firebase / Firestore Helpers
    Attached to window.FB for use by app.js (non-module).
    Schema: users | items | suggestions | itemSuggestions
+   Passwords hashed client-side with SHA-256 + username salt.
    ═══════════════════════════════════════════════════════════════════════ */
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-app.js";
@@ -23,15 +24,33 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
+// ═══════════════════════════════════════════════════════════════════════
+// PASSWORD HASHING  (SHA-256 + username as salt)
+// ═══════════════════════════════════════════════════════════════════════
+
+async function hashPassword(password, salt) {
+    const encoder = new TextEncoder();
+    const data = encoder.encode(password + ":" + salt);
+    const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// PUBLIC API
+// ═══════════════════════════════════════════════════════════════════════
+
 const FB = {
 
     // ── Users ──────────────────────────────────────────────────────────
 
-    async createUser(displayName) {
+    async createUser(displayName, password) {
         const existing = await FB.getUserByName(displayName);
-        if (existing) throw new Error("Username already taken");
+        if (existing) throw new Error("USERNAME_TAKEN");
+        const passwordHash = await hashPassword(password, displayName);
         const ref = await addDoc(collection(db, "users"), {
             displayName,
+            passwordHash,
             email: null,
             createdAt: serverTimestamp(),
             photoUrl: null,
@@ -47,15 +66,30 @@ const FB = {
         return { id: d.id, ...d.data() };
     },
 
+    async loginUser(displayName, password) {
+        const user = await FB.getUserByName(displayName);
+        if (!user) throw new Error("USER_NOT_FOUND");
+        const expectedHash = await hashPassword(password, displayName);
+        if (user.passwordHash !== expectedHash) throw new Error("WRONG_PASSWORD");
+        return { id: user.id, displayName: user.displayName, photoUrl: user.photoUrl };
+    },
+
     async getAllUsers() {
         const snap = await getDocs(collection(db, "users"));
-        return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        return snap.docs.map(d => {
+            const data = d.data();
+            // Never expose passwordHash to client
+            const { passwordHash, ...safe } = data;
+            return { id: d.id, ...safe };
+        });
     },
 
     async getUser(userId) {
         const d = await getDoc(doc(db, "users", userId));
         if (!d.exists()) return null;
-        return { id: d.id, ...d.data() };
+        const data = d.data();
+        const { passwordHash, ...safe } = data;
+        return { id: d.id, ...safe };
     },
 
     async saveUserData(userId, data) {

@@ -1563,22 +1563,29 @@ async function handleLogin(e) {
     const btn = document.getElementById('login-submit-btn');
     errorEl.textContent = '';
     const username = document.getElementById('login-username').value.trim();
+    const password = document.getElementById('login-password').value;
     if (!username) {
         errorEl.textContent = loginLang === 'zh' ? '請輸入用戶名' : 'Please enter a username';
         return;
     }
+    if (!password) {
+        errorEl.textContent = loginLang === 'zh' ? '請輸入密碼' : 'Please enter a password';
+        return;
+    }
     btn.textContent = '...';
     try {
-        const user = await FB.getUserByName(username);
-        if (user) {
-            safeStorage.set('RE_LIFE_CURRENT_USER', user.displayName);
-            safeStorage.set('RE_LIFE_USER_AVATAR', user.photoUrl || '👤');
-            window.location.replace('/');
-        } else {
+        const user = await FB.loginUser(username, password);
+        safeStorage.set('RE_LIFE_CURRENT_USER', user.displayName);
+        safeStorage.set('RE_LIFE_USER_AVATAR', user.photoUrl || '👤');
+        window.location.replace('/');
+    } catch (err) {
+        if (err.message === 'USER_NOT_FOUND') {
             errorEl.textContent = loginLang === 'zh' ? '用戶不存在，請先註冊' : 'User not found. Please register first.';
+        } else if (err.message === 'WRONG_PASSWORD') {
+            errorEl.textContent = loginLang === 'zh' ? '密碼錯誤' : 'Wrong password.';
+        } else {
+            errorEl.textContent = STRINGS[loginLang].loginError;
         }
-    } catch (_) {
-        errorEl.textContent = STRINGS[loginLang].loginError;
     }
     btn.innerHTML = '<span>' + STRINGS[loginLang].loginBtn + '</span>';
 }
@@ -1589,20 +1596,29 @@ async function handleRegister(e) {
     const btn = document.getElementById('register-submit-btn');
     errorEl.textContent = '';
     const username = document.getElementById('reg-username').value.trim();
+    const password = document.getElementById('reg-password').value;
     if (!username || username.length < 2) {
         errorEl.textContent = loginLang === 'zh' ? '用戶名至少需要2個字符' : 'Username must be at least 2 characters';
         return;
     }
+    if (!password || password.length < 4) {
+        errorEl.textContent = loginLang === 'zh' ? '密碼至少需要4個字符' : 'Password must be at least 4 characters';
+        return;
+    }
     btn.textContent = '...';
     try {
-        const user = await FB.createUser(username);
+        const user = await FB.createUser(username, password);
         safeStorage.set('RE_LIFE_CURRENT_USER', user.displayName);
         safeStorage.set('RE_LIFE_USER_AVATAR', '👤');
         window.location.replace('/');
     } catch (err) {
-        errorEl.textContent = err.message === 'Username already taken'
-            ? (loginLang === 'zh' ? '用戶名已被使用' : 'Username already taken')
-            : STRINGS[loginLang].registerError;
+        if (err.message === 'USERNAME_TAKEN') {
+            errorEl.textContent = loginLang === 'zh' ? '用戶名已被使用' : 'Username already taken';
+        } else if (err.message && err.message.includes('permission')) {
+            errorEl.textContent = 'Firestore permissions error — check security rules';
+        } else {
+            errorEl.textContent = (err.message || STRINGS[loginLang].registerError);
+        }
     }
     btn.innerHTML = '<span>' + STRINGS[loginLang].createAccountBtn + '</span>';
 }

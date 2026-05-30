@@ -435,7 +435,8 @@ async def get_schemas(request: Request):
 
 @app.get("/api/rewards")
 async def get_rewards(request: Request):
-    check_rate_limit(request, max_requests=60, window_sec=60) return REWARDS_CATALOG
+    check_rate_limit(request, max_requests=60, window_sec=60) 
+    return REWARDS_CATALOG
 
 @app.post("/api/rewards/redeem")
 async def redeem_reward(request: Request, data: dict):

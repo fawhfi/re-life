@@ -41,7 +41,6 @@
   <div class="login-card">
     <div class="login-brand">
       <div class="login-logo"><img src="/static/assets/Logo.png" alt="Re-Life" style="width:128px;height:128px"></div>
-      <div class="login-sub" id="step-title">Create your eco account</div>
     </div>
 
     <!-- STEP 1: Register form -->
@@ -58,6 +57,10 @@
         <div class="login-field">
           <label class="login-label" for="reg-password">Choose Password</label>
           <input class="login-input" type="password" id="reg-password" placeholder="••••••••" autocomplete="new-password" required minlength="4">
+        </div>
+        <div class="login-field">
+          <label class="login-label" for="reg-password-confirm">Confirm Password</label>
+          <input class="login-input" type="password" id="reg-password-confirm" placeholder="••••••••" autocomplete="new-password" required minlength="4">
         </div>
         <div class="login-error" id="register-error"></div>
         <button class="login-btn login-btn--primary" type="submit" id="register-submit-btn">
@@ -164,9 +167,14 @@ async function handleRegister(e) {
     const username = document.getElementById('reg-username').value.trim();
     const email = document.getElementById('reg-email').value.trim();
     const password = document.getElementById('reg-password').value;
+    const passwordConfirm = document.getElementById('reg-password-confirm').value;
 
     if (!username || username.length < 2) {
         errorEl.textContent = registerLang === 'zh' ? '用戶名至少需要2個字符' : 'Username must be at least 2 characters';
+        return;
+    }
+    if (password !== passwordConfirm) {
+        errorEl.textContent = registerLang === 'zh' ? '兩次輸入的密碼不一致' : 'Passwords do not match';
         return;
     }
     if (!email || !email.includes('@') || !email.includes('.')) {

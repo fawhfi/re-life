@@ -868,10 +868,9 @@ function showScanResult(item) {
         document.getElementById('alt-name').textContent = item.alternative.name;
         renderStars('alt-eco-stars', item.alternative.eco_rate);
         renderStars('alt-recycle-stars', item.alternative.recycle_rate);
-        // Reset prove button for new scan (hide until "Add to Record" clicked)
+        // Reset prove button for new scan
         const proveBtn = document.getElementById('lbl-prove-swap');
         if (proveBtn) {
-            proveBtn.classList.add('hidden');
             proveBtn.textContent = '📸 Prove You Swapped → Earn +50 Pts';
             proveBtn.style.background = '';
             proveBtn.disabled = false;
@@ -968,12 +967,6 @@ function addScanToRecord() {
 
     record.userId = state.userId || null;
 
-    // Reveal prove button immediately (don't wait for FB)
-    const proveBtn = document.getElementById('lbl-prove-swap');
-    if (proveBtn && state.lastScanResult?.alternative) {
-        proveBtn.classList.remove('hidden');
-    }
-
     // Disable add button
     const addBtn = document.getElementById('lbl-add-record');
     if (addBtn) {
@@ -983,7 +976,7 @@ function addScanToRecord() {
     }
     playBeep('success');
 
-    // Fire-and-forget: save to Firebase
+    // Save to Firebase
     FB.addItem(record).catch(err => console.error('Failed to save item:', err));
 }
 
@@ -1007,6 +1000,15 @@ async function handleSwapProof(e) {
     const file = e.target.files[0];
     if (!file) return;
     e.target.value = '';
+
+    // Only award points if item was added to record first
+    const addBtn = document.getElementById('lbl-add-record');
+    if (!addBtn || !addBtn.disabled) {
+        const btn = document.getElementById('lbl-prove-swap');
+        if (btn) btn.textContent = '⚠️ Add to Record first';
+        setTimeout(() => { if (btn) btn.textContent = '📸 Prove You Swapped → Earn +50 Pts'; }, 2000);
+        return;
+    }
 
     // Simulated proof — any photo earns points
     const points = 50;

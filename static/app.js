@@ -868,7 +868,7 @@ function showScanResult(item) {
         document.getElementById('alt-name').textContent = item.alternative.name;
         renderStars('alt-eco-stars', item.alternative.eco_rate);
         renderStars('alt-recycle-stars', item.alternative.recycle_rate);
-        // Hide prove button until item is added to record
+        // Reset prove button for new scan (hide until "Add to Record" clicked)
         const proveBtn = document.getElementById('lbl-prove-swap');
         if (proveBtn) {
             proveBtn.classList.add('hidden');
@@ -967,20 +967,24 @@ function addScanToRecord() {
     }
 
     record.userId = state.userId || null;
-    FB.addItem(record).then(() => {
-        // Item added — disable add button, reveal prove button
-        const addBtn = document.getElementById('lbl-add-record');
-        if (addBtn) {
-            addBtn.textContent = '✓ Added to Record';
-            addBtn.disabled = true;
-            addBtn.style.opacity = '0.6';
-        }
-        const proveBtn = document.getElementById('lbl-prove-swap');
-        if (proveBtn && state.lastScanResult?.alternative) {
-            proveBtn.classList.remove('hidden');
-        }
-        playBeep('success');
-    }).catch(err => console.error('Failed to save item:', err));
+
+    // Reveal prove button immediately (don't wait for FB)
+    const proveBtn = document.getElementById('lbl-prove-swap');
+    if (proveBtn && state.lastScanResult?.alternative) {
+        proveBtn.classList.remove('hidden');
+    }
+
+    // Disable add button
+    const addBtn = document.getElementById('lbl-add-record');
+    if (addBtn) {
+        addBtn.textContent = '✓ Added to Record';
+        addBtn.disabled = true;
+        addBtn.style.opacity = '0.6';
+    }
+    playBeep('success');
+
+    // Fire-and-forget: save to Firebase
+    FB.addItem(record).catch(err => console.error('Failed to save item:', err));
 }
 
 function swapAlternative() {

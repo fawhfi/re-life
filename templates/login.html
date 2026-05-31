@@ -58,6 +58,8 @@
     </form>
 
     <div class="login-footer">
+      <button class="login-footer-link" onclick="toggleTheme()" id="theme-btn">🌙</button>
+      <span class="login-footer-dot">·</span>
       <button class="login-footer-link" onclick="toggleLoginLang()">🌐 EN</button>
       <span class="login-footer-dot">·</span>
       <span class="login-footer-text">v4.2.0 HK</span>
@@ -68,6 +70,21 @@
 
 <script type="module" src="/static/firebase.js"></script>
 <script>
+// ── Theme ────────────────────────────────────────────────────────────
+(function initTheme() {
+    const saved = localStorage.getItem('RE_LIFE_THEME') || 'light';
+    document.documentElement.setAttribute('data-theme', saved);
+    const btn = document.getElementById('theme-btn');
+    if (btn) btn.textContent = saved === 'dark' ? '☀️' : '🌙';
+})();
+function toggleTheme() {
+    const c = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', c);
+    localStorage.setItem('RE_LIFE_THEME', c);
+    const btn = document.getElementById('theme-btn');
+    if (btn) btn.textContent = c === 'dark' ? '☀️' : '🌙';
+}
+
 // Wait for Firebase module to initialize window.FB
 function waitForFB(cb) {
     if (window.FB) { cb(); return; }

@@ -94,6 +94,7 @@ const FB = {
             createdAt: Date.now(),
             photoUrl: null,
             spent_points: 0,
+            earned_points: 0,
             claimed_coupons: [],
         });
         return { id: userId, displayName };

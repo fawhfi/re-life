@@ -255,6 +255,7 @@ const state = {
     userAvatar: '👤',
     records: [],
     spentPoints: 0,
+    earnedPoints: 0,
     claimedCoupons: [],
     rewards: [],
     clockInterval: null,
@@ -1005,6 +1006,7 @@ async function handleSwapProof(e) {
 
     // Simulated proof — any photo earns points
     const points = 50;
+    state.earnedPoints = (state.earnedPoints || 0) + points;
     state.claimedCoupons.push({
         code: 'SWAP-' + Date.now().toString(36).toUpperCase(),
         title: '📸 Swapped to ' + (state.lastScanResult?.alternative?.name || 'eco alternative'),
@@ -1319,16 +1321,8 @@ async function loadRewards() {
 }
 
 function renderRewards() {
-    // Calculate points balance (purchase mode only)
-    const earned = state.records
-        .filter(r => r.mode === 'purchase')
-        .reduce((s, r) =>
-            s + (r.overall_score ||
-                calcWeighted(r.weighted_scores || { a: 50, b: 50, c: 50, d: 50, e: 50 },
-                    r.schema_id || 'food_new')),
-            0
-        );
-    const balance = Math.max(0, earned - state.spentPoints);
+    // Points come only from proving swaps, not from adding records
+    const balance = Math.max(0, (state.earnedPoints || 0) - (state.spentPoints || 0));
     const oldPoints = parseInt(document.getElementById('rew-pts').textContent) || 0;
     animateNumber('rew-pts', oldPoints, balance, 1000);
 
@@ -1482,6 +1476,7 @@ async function initAccounts() {
             if (user) {
                 state.userId = user.id;
                 state.spentPoints = user.spent_points || 0;
+                state.earnedPoints = user.earned_points || 0;
                 state.claimedCoupons = user.claimed_coupons || [];
             }
         } catch (_) { /* offline */ }
@@ -1559,6 +1554,7 @@ async function loginAs(name, avatar, userId) {
         if (user) {
             state.userId = user.id;
             state.spentPoints = user.spent_points || 0;
+            state.earnedPoints = user.earned_points || 0;
             state.claimedCoupons = user.claimed_coupons || [];
         }
     } catch (_) { /* offline */ }
@@ -1572,6 +1568,7 @@ async function saveUserData() {
     try {
         await FB.saveUserData(state.userId, {
             spent_points: state.spentPoints,
+            earned_points: state.earnedPoints,
             claimed_coupons: state.claimedCoupons,
         });
     } catch (_) { /* offline */ }

@@ -587,40 +587,43 @@ def _mock(mode):
         return {"name": "Scanned Product", "eco_rate": r(), "recycle_rate": r(), "alternative": {"name": "Eco-Friendly Alternative", "eco_rate": 5, "recycle_rate": 4}, "description": "Mock analysis.", "weighted_scores": s(), "material": random.choice(["plastic", "paper", "glass"]), "disposal_guide": "Rinse and recycle.", "precaution": "Remove caps and labels."}
     return {"name": "Scanned Item", "eco_rate": r(), "recycle_rate": r(), "alternative": None, "description": "Mock analysis.", "weighted_scores": s(), "material": random.choice(["plastic", "pp_plastic", "metal", "wood"]), "disposal_guide": "Drop at GREEN@COMMUNITY.", "precaution": "Separate materials."}
 
-import xml.etree.ElementTree as ET
+SERPAPI_KEY = os.getenv("SERPAPI_KEY", "")
 
 @app.get("/api/news")
 async def get_news(request: Request):
-    """Fetch environmental news from Google News RSS."""
+    """Fetch environmental news via SerpAPI Google News."""
     await check_rate_limit(request, max_requests=30, window_sec=120)
-    query = "environmental+protection+OR+climate+OR+recycling+OR+sustainability"
-    url = f"https://news.google.com/rss/search?q={query}&hl=en&gl=HK&ceid=HK:en"
+    if not SERPAPI_KEY:
+        return _fallback_news()
+
+    query = "environmental+protection+climate+recycling+sustainability"
+    url = f"https://serpapi.com/search?engine=google_news&q={query}&hl=en&gl=hk&api_key={SERPAPI_KEY}"
     try:
         async with httpx.AsyncClient(timeout=15) as client:
-            res = await client.get(url, headers={"User-Agent": "Re-Life/1.0"})
+            res = await client.get(url)
             res.raise_for_status()
-        root = ET.fromstring(res.text)
+        data = res.json()
+        results = data.get("news_results", [])
         items = []
-        for item in root.findall(".//item"):
-            title = item.findtext("title", "")
-            link  = item.findtext("link", "")
-            source = item.findtext("source", "")
+        for r in results[:8]:
             items.append({
-                "title": title,
-                "source": source or "Google News",
-                "link": link,
-                "snippet": "",
+                "title": r.get("title", ""),
+                "source": r.get("source", {}).get("name", "Google News") if isinstance(r.get("source"), dict) else "Google News",
+                "link": r.get("link", ""),
+                "snippet": r.get("snippet", "")[:120] if r.get("snippet") else "",
             })
-        return items[:8] if items else _fallback_news()
+        return items if items else _fallback_news()
     except Exception as e:
-        print(f"[News] Failed: {e}")
+        print(f"[News] SerpAPI failed: {e}")
         return _fallback_news()
 
 def _fallback_news():
     return [
-        {"title": "Global push for plastic treaty gains momentum", "source": "Reuters", "link": "", "snippet": ""},
-        {"title": "New recycling technology triples plastic recovery rate", "source": "BBC News", "link": "", "snippet": ""},
-        {"title": "HK expands GREEN@COMMUNITY recycling network", "source": "SCMP", "link": "", "snippet": ""},
+        {"title": "Global push for plastic treaty gains momentum", "source": "Reuters", "link": "", "snippet": "UN members advance negotiations on legally binding plastic pollution treaty."},
+        {"title": "New recycling technology triples plastic recovery rate", "source": "BBC News", "link": "", "snippet": "AI-powered sorting system can identify and separate 12 types of plastic."},
+        {"title": "HK expands GREEN@COMMUNITY recycling network", "source": "SCMP", "link": "", "snippet": "11 new collection points added across Kowloon and New Territories."},
+        {"title": "Global temperatures set to break records again in 2026", "source": "The Guardian", "link": "", "snippet": "Scientists warn of accelerating climate impacts as emissions continue to rise."},
+        {"title": "Ocean cleanup removes 100,000kg of plastic from Great Pacific Garbage Patch", "source": "CNN", "link": "", "snippet": "Largest single extraction in the project's history achieved this month."},
     ]
 
 @app.get("/api/schemas")

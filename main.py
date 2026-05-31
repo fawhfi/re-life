@@ -111,19 +111,29 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 
 app.add_middleware(SecurityHeadersMiddleware)
 
-# ── Rate Limiter (in-memory, per-IP) ────────────────────────────────────────
+# ── Rate Limiter (Vercel KV with in-memory fallback) ────────────────────────
 _ratelimit_store: dict[str, list[float]] = defaultdict(list)
 
-def check_rate_limit(request: Request, max_requests: int = 5, window_sec: int = 60) -> None:
+async def check_rate_limit(request: Request, max_requests: int = 5, window_sec: int = 60) -> None:
     """Raise HTTPException(429) if rate limit exceeded. Returns None if OK."""
     from fastapi import HTTPException
     ip = request.client.host if request.client else "unknown"
-    now = time.time()
-    cutoff = now - window_sec
-    _ratelimit_store[ip] = [t for t in _ratelimit_store[ip] if t > cutoff]
-    if len(_ratelimit_store[ip]) >= max_requests:
-        raise HTTPException(status_code=429, detail="Too many requests — slow down")
-    _ratelimit_store[ip].append(now)
+    route = request.url.path
+    key = f"rl:{ip}:{route}"
+
+    if KV_URL and KV_TOKEN:
+        count = await _kv_get(key)
+        count = int(count) if count else 0
+        if count >= max_requests:
+            raise HTTPException(status_code=429, detail="Too many requests — slow down")
+        await _kv_set(key, str(count + 1), window_sec)
+    else:
+        now = time.time()
+        cutoff = now - window_sec
+        _ratelimit_store[key] = [t for t in _ratelimit_store.get(key, []) if t > cutoff]
+        if len(_ratelimit_store[key]) >= max_requests:
+            raise HTTPException(status_code=429, detail="Too many requests — slow down")
+        _ratelimit_store[key].append(now)
 
 # ── Upload size limit ───────────────────────────────────────────────────────
 MAX_UPLOAD_BYTES = 10 * 1024 * 1024  # 10 MB
@@ -253,23 +263,23 @@ def get_grade(score):
 # Routes
 @app.get("/", response_class=HTMLResponse)
 async def root(request: Request):
-    check_rate_limit(request, max_requests=60, window_sec=60)
+    await check_rate_limit(request, max_requests=60, window_sec=60)
     return (root_dir / "templates/index.html").read_text(encoding="utf-8")
 
 @app.get("/login", response_class=HTMLResponse)
 async def login_page(request: Request):
-    check_rate_limit(request, max_requests=10, window_sec=60)
+    await check_rate_limit(request, max_requests=10, window_sec=60)
     return (root_dir / "templates/login.html").read_text(encoding="utf-8")
 
 @app.get("/register", response_class=HTMLResponse)
 async def register_page(request: Request):
-    check_rate_limit(request, max_requests=10, window_sec=60)
+    await check_rate_limit(request, max_requests=10, window_sec=60)
     return (root_dir / "templates/register.html").read_text(encoding="utf-8")
 
 @app.post("/api/send-verification")
 async def send_verification(request: Request, data: dict):
     """Generate 6-digit code and send to email via SMTP."""
-    check_rate_limit(request, max_requests=5, window_sec=60)
+    await check_rate_limit(request, max_requests=5, window_sec=60)
     email = (data.get("email") or "").strip().lower()
     if not email or "@" not in email or "." not in email:
         return JSONResponse({"error": "Valid email required"}, status_code=400)
@@ -322,7 +332,7 @@ async def send_verification(request: Request, data: dict):
 @app.post("/api/verify-code")
 async def verify_code(request: Request, data: dict):
     """Check verification code and return success if valid."""
-    check_rate_limit(request, max_requests=5, window_sec=60)
+    await check_rate_limit(request, max_requests=5, window_sec=60)
     email = (data.get("email") or "").strip().lower()
     code  = (data.get("code") or "").strip()
     if not email or not code:
@@ -354,7 +364,7 @@ async def verify_code(request: Request, data: dict):
 
 @app.post("/api/scan")
 async def scan_item(request: Request, file: UploadFile = File(...), mode: str = Form("dispose")):
-    check_rate_limit(request, max_requests=20, window_sec=60)
+    await check_rate_limit(request, max_requests=20, window_sec=60)
     contents = await file.read()
     if len(contents) > MAX_UPLOAD_BYTES:
         return JSONResponse({"error": f"File too large (max {MAX_UPLOAD_BYTES // (1024*1024)} MB)"}, status_code=413)
@@ -370,7 +380,7 @@ async def scan_item(request: Request, file: UploadFile = File(...), mode: str = 
 
 @app.post("/api/scan/ai")
 async def scan_item_ai(request: Request, file: UploadFile = File(...), mode: str = Form("dispose"), item_type: str = Form("food"), item_state: str = Form("new"), debug: str = Form("false")):
-    check_rate_limit(request, max_requests=15, window_sec=60)
+    await check_rate_limit(request, max_requests=15, window_sec=60)
     contents = await file.read()
     if len(contents) > MAX_UPLOAD_BYTES:
         return JSONResponse({"error": f"File too large (max {MAX_UPLOAD_BYTES // (1024*1024)} MB)"}, status_code=413)
@@ -571,22 +581,22 @@ def _mock(mode):
 
 @app.get("/api/tips")
 async def get_tips(request: Request):
-    check_rate_limit(request, max_requests=60, window_sec=60)
+    await check_rate_limit(request, max_requests=60, window_sec=60)
     return [{"title": "Energy saving tips to save money", "source": "From HSBC SG", "snippet": "More and more people are making a conscious effort to use less energy."}, {"title": "How to recycle electronics properly", "source": "From NEA", "snippet": "E-waste contains valuable materials but also hazardous substances."}, {"title": "Zero waste grocery shopping", "source": "From WWF", "snippet": "Simple swaps can dramatically cut your household plastic waste."}]
 
 @app.get("/api/schemas")
 async def get_schemas(request: Request):
-    check_rate_limit(request, max_requests=60, window_sec=60)
+    await check_rate_limit(request, max_requests=60, window_sec=60)
     return {"item_types": [{"value": "food", "label": "Food Items"}, {"value": "general", "label": "General Items"}], "item_states": [{"value": "new", "label": "New Purchase"}, {"value": "expire", "label": "About to Expire"}], "weights": SCHEMA_WEIGHTS, "criteria_labels": CRITERIA_LABELS}
 
 @app.get("/api/rewards")
 async def get_rewards(request: Request):
-    check_rate_limit(request, max_requests=60, window_sec=60) 
+    await check_rate_limit(request, max_requests=60, window_sec=60)
     return REWARDS_CATALOG
 
 @app.post("/api/rewards/redeem")
 async def redeem_reward(request: Request, data: dict):
-    check_rate_limit(request, max_requests=30, window_sec=60)
+    await check_rate_limit(request, max_requests=30, window_sec=60)
     reward = next((r for r in REWARDS_CATALOG if r["id"] == data.get("reward_id")), None)
     if not reward: return JSONResponse({"error": "Not found"}, 404)
     code = "RL-" + uuid.uuid4().hex[:6].upper() + "-" + str(reward["cost"])
@@ -594,7 +604,7 @@ async def redeem_reward(request: Request, data: dict):
 
 @app.get("/api/fact")
 async def get_fact(request: Request):
-    check_rate_limit(request, max_requests=60, window_sec=60)
+    await check_rate_limit(request, max_requests=60, window_sec=60)
     facts = ["Recycling a single aluminum can saves enough energy to power a TV for 3 hours.", "Hong Kong generates over 15,000 tonnes of municipal solid waste every day.", "One tree can absorb up to 22kg of CO2 per year.", "Plastic bottles take up to 450 years to decompose.", "Food waste accounts for 30% of HK municipal solid waste.", "Glass is 100% recyclable endlessly without quality loss."]
     return {"fact": random.choice(facts)}
 

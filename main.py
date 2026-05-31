@@ -138,14 +138,20 @@ async def _upload_image(contents: bytes, filename: str) -> str:
     """Upload to Vercel Blob (production) or local disk (dev). Returns public URL."""
     if BLOB_TOKEN:
         try:
-            # Use multipart form upload — more reliable across Vercel Blob API versions
+            ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else "png"
+            mime_map = {"jpg": "image/jpeg", "jpeg": "image/jpeg", "png": "image/png", "webp": "image/webp", "gif": "image/gif"}
+            mime = mime_map.get(ext, "image/jpeg")
+
             async with httpx.AsyncClient(timeout=30) as client:
-                res = await client.post(
+                res = await client.put(
                     "https://blob.vercel-storage.com",
                     headers={
                         "Authorization": f"Bearer {BLOB_TOKEN}",
+                        "x-api-version": "1",
+                        "x-content-type": mime,
+                        "x-content-disposition": f'inline; filename="{filename}"',
                     },
-                    files={"file": (filename, contents, "application/octet-stream")},
+                    content=contents,
                 )
                 if res.status_code in (200, 201):
                     data = res.json()

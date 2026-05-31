@@ -839,6 +839,14 @@ function showScanResult(item) {
     document.getElementById('result-desc').textContent = item.description || '';
     document.getElementById('result-brand').textContent = item.brand || item.category || '';
 
+    // Reset Add to Record button for new scan
+    const addBtn = document.getElementById('lbl-add-record');
+    if (addBtn) {
+        addBtn.textContent = 'Add to Record';
+        addBtn.disabled = false;
+        addBtn.style.opacity = '';
+    }
+
     // AI error
     const errEl = document.getElementById('gemini-error');
     if (item.ai_error || item.gemini_error) {
@@ -859,9 +867,10 @@ function showScanResult(item) {
         document.getElementById('alt-name').textContent = item.alternative.name;
         renderStars('alt-eco-stars', item.alternative.eco_rate);
         renderStars('alt-recycle-stars', item.alternative.recycle_rate);
-        // Reset prove button
+        // Hide prove button until item is added to record
         const proveBtn = document.getElementById('lbl-prove-swap');
         if (proveBtn) {
+            proveBtn.classList.add('hidden');
             proveBtn.textContent = '📸 Prove You Swapped → Earn +50 Pts';
             proveBtn.style.background = '';
             proveBtn.disabled = false;
@@ -958,8 +967,18 @@ function addScanToRecord() {
 
     record.userId = state.userId || null;
     FB.addItem(record).then(() => {
-        resetScan();
-        navigateTo('record');
+        // Item added — disable add button, reveal prove button
+        const addBtn = document.getElementById('lbl-add-record');
+        if (addBtn) {
+            addBtn.textContent = '✓ Added to Record';
+            addBtn.disabled = true;
+            addBtn.style.opacity = '0.6';
+        }
+        const proveBtn = document.getElementById('lbl-prove-swap');
+        if (proveBtn && state.lastScanResult?.alternative) {
+            proveBtn.classList.remove('hidden');
+        }
+        playBeep('success');
     }).catch(err => console.error('Failed to save item:', err));
 }
 

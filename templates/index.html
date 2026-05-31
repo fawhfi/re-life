@@ -27,12 +27,6 @@
     <section id="tab-home" class="tab active">
       <div class="card">
         <h2 class="card-header" id="lbl-scan-title">SCAN YOUR ITEMS</h2>
-        <div class="ai-row" style="margin-bottom:12px">
-          <span class="ai-row-label">🤖 AI Model</span>
-          <select class="select-field" id="ai-model-select" onchange="state.aiModel = this.value" style="width:auto;min-width:100px">
-            <option value="">Loading...</option>
-          </select>
-        </div>
         <div class="scan-grid">
           <button class="scan-btn scan-btn--dispose" onclick="startScanningMode('dispose')">
             <div class="scan-btn-icon"><img src="/static/assets/to_dispose.png" alt="Dispose" class="img-cover"></div>

@@ -248,7 +248,6 @@ const state = {
     tips: [],
     lang: 'en',
     aiMode: true,
-    aiModel: '',
     itemType: 'food',
     itemState: 'new',
     lastScanResult: null,
@@ -423,7 +422,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     startClock();
     await initAccounts();
-    await loadModels();
     await loadRecords();
     loadTips();
     loadRewards();
@@ -713,7 +711,6 @@ async function doScan() {
         const fd = new FormData();
         fd.append('file', state.selectedFile);
         fd.append('mode', state.scanMode);
-        fd.append('model', state.aiModel);
         fd.append('item_type', state.itemType);
         fd.append('item_state', state.itemState);
         if (state.debugMode) fd.append('debug', 'true');
@@ -1034,29 +1031,6 @@ function resetScan() {
     state.lastScanResult = null;
 }
 
-
-// ═══════════════════════════════════════════════════════════════════════
-// 9.5 AI MODELS
-// ═══════════════════════════════════════════════════════════════════════
-
-const MODEL_LABELS = {
-    nvidia: 'NVIDIA', openai: 'OpenAI', gemini: 'Gemini',
-    deepseek: 'DeepSeek', claude: 'Claude',
-};
-
-async function loadModels() {
-    try {
-        const res = await fetch('/api/models');
-        const data = await res.json();
-        const select = document.getElementById('ai-model-select');
-        if (!select || !data.models.length) return;
-        select.innerHTML = data.models.map(m =>
-            `<option value="${m}">${MODEL_LABELS[m] || m}</option>`
-        ).join('');
-        state.aiModel = data.models[0];
-        select.value = state.aiModel;
-    } catch (_) {}
-}
 
 // ═══════════════════════════════════════════════════════════════════════
 // 10. RECORDS

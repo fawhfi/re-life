@@ -37,6 +37,8 @@ if CLAUDE_API_KEY:   AVAILABLE_MODELS.append("claude")
 if not AVAILABLE_MODELS:
     AVAILABLE_MODELS.append("nvidia")  # fallback (will use CNN)
 
+DEFAULT_AI_MODEL = os.getenv("DEFAULT_AI_MODEL", AVAILABLE_MODELS[0] if AVAILABLE_MODELS else "nvidia")
+
 # ── Firebase config (served to client via /api/config) ──────────────────────
 FIREBASE_CONFIG = {
     "apiKey": os.getenv("FIREBASE_API_KEY", ""),
@@ -512,7 +514,7 @@ async def get_models():
     return {"models": AVAILABLE_MODELS}
 
 @app.post("/api/scan/ai")
-async def scan_item_ai(request: Request, file: UploadFile = File(...), mode: str = Form("dispose"), item_type: str = Form("food"), item_state: str = Form("new"), debug: str = Form("false"), model: str = Form("nvidia")):
+async def scan_item_ai(request: Request, file: UploadFile = File(...), mode: str = Form("dispose"), item_type: str = Form("food"), item_state: str = Form("new"), debug: str = Form("false")):
     await check_rate_limit(request, max_requests=15, window_sec=60)
     contents = await file.read()
     if len(contents) > MAX_UPLOAD_BYTES:
@@ -523,12 +525,12 @@ async def scan_item_ai(request: Request, file: UploadFile = File(...), mode: str
     if debug.lower() == "true":
         ai_error = "Debug mode — skipping AI"
         print("[Debug] Skipping AI, using classifier directly")
-    elif model not in AVAILABLE_MODELS:
-        ai_error = f"Model '{model}' not available. Add its API key."
+    elif DEFAULT_AI_MODEL not in AVAILABLE_MODELS:
+        ai_error = f"Model '{DEFAULT_AI_MODEL}' not available. Check API keys."
     else:
         for attempt in range(3):
             try:
-                ai = await _ai_analyze(contents, sid, model)
+                ai = await _ai_analyze(contents, sid, DEFAULT_AI_MODEL)
                 break
             except Exception as e:
                 ai_error = traceback.format_exc()

@@ -131,50 +131,16 @@ async def check_rate_limit(request: Request, max_requests: int = 5, window_sec: 
 # ── Upload size limit ───────────────────────────────────────────────────────
 MAX_UPLOAD_BYTES = 10 * 1024 * 1024  # 10 MB
 
-# ── Image upload storage ────────────────────────────────────────────────────
-BLOB_TOKEN = os.getenv("BLOB_READ_WRITE_TOKEN", "")
+# ── Image upload storage (base64 data URLs — no external deps) ──────────────
 
 async def _upload_image(contents: bytes, filename: str) -> str:
-    """Upload to Vercel Blob (production) or local disk (dev). Returns public URL."""
-    if BLOB_TOKEN:
-        try:
-            ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else "png"
-            mime_map = {"jpg": "image/jpeg", "jpeg": "image/jpeg", "png": "image/png", "webp": "image/webp", "gif": "image/gif"}
-            mime = mime_map.get(ext, "image/jpeg")
-
-            async with httpx.AsyncClient(timeout=30) as client:
-                res = await client.put(
-                    "https://blob.vercel-storage.com",
-                    headers={
-                        "Authorization": f"Bearer {BLOB_TOKEN}",
-                        "x-api-version": "1",
-                        "x-content-type": mime,
-                        "x-content-disposition": f'inline; filename="{filename}"',
-                    },
-                    content=contents,
-                )
-                if res.status_code in (200, 201):
-                    data = res.json()
-                    url = data.get("url", "")
-                    print(f"[Blob] Uploaded {filename} → {url}")
-                    return url
-                print(f"[Blob] Upload error {res.status_code}: {res.text[:200]}")
-        except Exception as e:
-            print(f"[Blob] Upload failed: {e}")
-    # Fallback: local disk (dev only — uses /tmp on Vercel)
-    import tempfile
-    tmp_upload = Path(tempfile.gettempdir()) / "re-life-uploads"
-    tmp_upload.mkdir(exist_ok=True)
-    with open(tmp_upload / filename, "wb") as f:
-        f.write(contents)
-    return f"/tmp-uploads/{filename}"
-
-# Only mount local uploads in dev (Vercel uses Blob URLs directly)
-if not BLOB_TOKEN:
-    import tempfile
-    _tmp_upload_dir = Path(tempfile.gettempdir()) / "re-life-uploads"
-    _tmp_upload_dir.mkdir(exist_ok=True)
-    app.mount("/tmp-uploads", StaticFiles(directory=_tmp_upload_dir), name="tmp-uploads")
+    """Return a base64 data URL for the image. Works everywhere, no external storage needed."""
+    ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else "png"
+    mime_map = {"jpg": "image/jpeg", "jpeg": "image/jpeg", "png": "image/png", "webp": "image/webp", "gif": "image/gif"}
+    mime = mime_map.get(ext, "image/jpeg")
+    b64 = base64.b64encode(contents).decode()
+    print(f"[Image] Encoded {filename} — {len(b64)} chars base64")
+    return f"data:{mime};base64,{b64}"
 
 app.mount("/static", StaticFiles(directory=root_dir / "static"), name="static")
 

@@ -859,6 +859,13 @@ function showScanResult(item) {
         document.getElementById('alt-name').textContent = item.alternative.name;
         renderStars('alt-eco-stars', item.alternative.eco_rate);
         renderStars('alt-recycle-stars', item.alternative.recycle_rate);
+        // Reset prove button
+        const proveBtn = document.getElementById('lbl-prove-swap');
+        if (proveBtn) {
+            proveBtn.textContent = '📸 Prove You Swapped → Earn +50 Pts';
+            proveBtn.style.background = '';
+            proveBtn.disabled = false;
+        }
     } else {
         alt.classList.add('hidden');
     }
@@ -966,6 +973,36 @@ function swapAlternative() {
     state.lastScanResult.description = 'Swapped to eco-friendly alternative.';
     showScanResult(state.lastScanResult);
     playBeep('beep');
+}
+
+function triggerSwapProof() {
+    document.getElementById('swap-proof-input').click();
+}
+
+async function handleSwapProof(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    e.target.value = '';
+
+    // Simulated proof — any photo earns points
+    const points = 50;
+    state.claimedCoupons.push({
+        code: 'SWAP-' + Date.now().toString(36).toUpperCase(),
+        title: '📸 Swapped to ' + (state.lastScanResult?.alternative?.name || 'eco alternative'),
+        image: '✅',
+        cost: 0,
+        claimed_date: new Date().toLocaleDateString(),
+        expiry: 'Earned +' + points + ' eco pts',
+    });
+    saveUserData();
+
+    const btn = document.getElementById('lbl-prove-swap');
+    if (btn) {
+        btn.textContent = '✅ +' + points + ' Points Earned!';
+        btn.style.background = 'var(--color-emerald-700)';
+        btn.disabled = true;
+    }
+    playBeep('success');
 }
 
 function resetScan() {

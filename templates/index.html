@@ -87,6 +87,8 @@
             <div class="rating-item"><span class="rating-label">Recycle Rate:</span><div class="star-rating" id="alt-recycle-stars"></div></div>
           </div>
           <button class="btn btn--outline btn--small btn--full mt-2" id="lbl-swap" onclick="swapAlternative()">SWAP ME</button>
+          <button class="btn btn--primary btn--small btn--full mt-2" id="lbl-prove-swap" onclick="triggerSwapProof()">📸 Prove You Swapped → Earn +50 Pts</button>
+          <input type="file" id="swap-proof-input" accept="image/*" capture="environment" onchange="handleSwapProof(event)" class="hidden">
         </div>
 
         <!-- Weighted Score -->

@@ -1,8 +1,7 @@
 /* ═══════════════════════════════════════════════════════════════════════
    Re-Life — Firebase Realtime Database Helpers
    Attached to window.FB for use by app.js (non-module).
-   Schema: users | items | suggestions | itemSuggestions
-   Passwords hashed with Argon2id + random salt via hash-wasm.
+   Config fetched from server (/api/config) — set via Vercel env vars.
    ═══════════════════════════════════════════════════════════════════════ */
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-app.js";
@@ -11,21 +10,22 @@ import {
     query, orderByChild, equalTo, limitToFirst,
 } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-database.js";
 
-// argon2id via hash-wasm (WASM, ~20KB gzipped)
 import { argon2id, argon2Verify } from "https://cdn.jsdelivr.net/npm/hash-wasm@4/+esm";
 
-const firebaseConfig = {
-    apiKey: "AIzaSyCgks1-HcpZVFpjJX6CVlNb-JCKCg9Y6q8",
-    authDomain: "re-life-9123f.firebaseapp.com",
-    projectId: "re-life-9123f",
-    storageBucket: "re-life-9123f.firebasestorage.app",
-    messagingSenderId: "246213132121",
-    appId: "1:246213132121:web:b2a4580f2582f825ff1648",
-    databaseURL: "https://re-life-9123f-default-rtdb.asia-southeast1.firebasedatabase.app",
-};
+// ═══════════════════════════════════════════════════════════════════════
+// INIT  (async — fetches config from server)
+// ═══════════════════════════════════════════════════════════════════════
 
-const app = initializeApp(firebaseConfig);
-const db = getDatabase(app);
+let db = null;
+
+async function initFB() {
+    if (db) return;
+    const res = await fetch("/api/config");
+    const config = await res.json();
+    const app = initializeApp(config);
+    db = getDatabase(app);
+    console.log("[FB] Initialized with server config");
+}
 
 // ═══════════════════════════════════════════════════════════════════════
 // PASSWORD HASHING  (Argon2id + random salt)
@@ -38,25 +38,16 @@ function randomSalt(length = 16) {
 }
 
 async function hashPassword(password, salt) {
-    // argon2id(t) memory=64MB, parallelism=1, iterations=3, hashLen=32
     return await argon2id({
-        password,
-        salt,
-        parallelism: 1,
-        iterations: 3,
-        memorySize: 65536,  // 64 MB
-        hashLength: 32,
-        outputType: "encoded",  // $argon2id$v=19$m=65536,t=3,p=1$salt$hash
+        password, salt,
+        parallelism: 1, iterations: 3, memorySize: 65536, hashLength: 32,
+        outputType: "encoded",
     });
 }
 
 async function verifyPassword(password, storedHash) {
-    // Use hash-wasm's built-in argon2Verify — handles PHC string parsing correctly
-    try {
-        return await argon2Verify({ password, hash: storedHash });
-    } catch {
-        return false;
-    }
+    try { return await argon2Verify({ password, hash: storedHash }); }
+    catch { return false; }
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -65,42 +56,35 @@ async function verifyPassword(password, storedHash) {
 
 const FB = {
 
+    async _ensure() { if (!db) await initFB(); },
+
     // ── Users ──────────────────────────────────────────────────────────
 
     async createUser(displayName, password, email = null) {
-        // Check if username already taken
+        await FB._ensure();
         const qName = query(ref(db, "users"), orderByChild("displayName"), equalTo(displayName), limitToFirst(1));
         const snapName = await get(qName);
         if (snapName.exists()) throw new Error("USERNAME_TAKEN");
-
-        // Check if email already registered
         if (email) {
             const qEmail = query(ref(db, "users"), orderByChild("email"), equalTo(email), limitToFirst(1));
             const snapEmail = await get(qEmail);
             if (snapEmail.exists()) throw new Error("EMAIL_TAKEN");
         }
-
         const salt = randomSalt();
         const passwordHash = await hashPassword(password, salt);
-        // Short unique user ID: "usr_" + 8 hex chars from UUID v4
         const userId = "usr_" + crypto.randomUUID().split("-")[0];
         const userRef = push(ref(db, "users"));
         await set(userRef, {
-            userId,
-            displayName,
-            passwordHash,
-            email: email || null,
-            emailVerified: !!email,
-            createdAt: Date.now(),
-            photoUrl: null,
-            spent_points: 0,
-            earned_points: 0,
-            claimed_coupons: [],
+            userId, displayName, passwordHash,
+            email: email || null, emailVerified: !!email,
+            createdAt: Date.now(), photoUrl: null,
+            spent_points: 0, earned_points: 0, claimed_coupons: [],
         });
         return { id: userId, displayName };
     },
 
     async getUserById(userId) {
+        await FB._ensure();
         const q = query(ref(db, "users"), orderByChild("userId"), equalTo(userId), limitToFirst(1));
         const snap = await get(q);
         if (!snap.exists()) return null;
@@ -111,6 +95,7 @@ const FB = {
     },
 
     async getUserByName(displayName) {
+        await FB._ensure();
         const q = query(ref(db, "users"), orderByChild("displayName"), equalTo(displayName), limitToFirst(1));
         const snap = await get(q);
         if (!snap.exists()) return null;
@@ -121,6 +106,7 @@ const FB = {
     },
 
     async loginUser(displayName, password) {
+        await FB._ensure();
         const user = await FB.getUserByName(displayName);
         if (!user) throw new Error("USER_NOT_FOUND");
         const ok = await verifyPassword(password, user.passwordHash);
@@ -129,19 +115,21 @@ const FB = {
     },
 
     async resetPasswordByEmail(email, newPassword) {
+        await FB._ensure();
         const q = query(ref(db, "users"), orderByChild("email"), equalTo(email), limitToFirst(1));
         const snap = await get(q);
         if (!snap.exists()) throw new Error("USER_NOT_FOUND");
         const entries = Object.entries(snap.val());
         if (entries.length === 0) throw new Error("USER_NOT_FOUND");
         const [key, userData] = entries[0];
-        const salt = userData.displayName; // use displayName as salt for consistency
+        const salt = userData.displayName;
         const passwordHash = await hashPassword(newPassword, salt);
         await update(ref(db, `users/${key}`), { passwordHash });
         return true;
     },
 
     async getAllUsers() {
+        await FB._ensure();
         const snap = await get(ref(db, "users"));
         if (!snap.exists()) return [];
         const val = snap.val();
@@ -152,6 +140,7 @@ const FB = {
     },
 
     async getUser(userId) {
+        await FB._ensure();
         const snap = await get(ref(db, "users/" + userId));
         if (!snap.exists()) return null;
         const data = snap.val();
@@ -160,58 +149,48 @@ const FB = {
     },
 
     async saveUserData(userId, data) {
+        await FB._ensure();
         await update(ref(db, "users/" + userId), data);
     },
 
     // ── Items ──────────────────────────────────────────────────────────
 
     async addItem(item) {
+        await FB._ensure();
         const itemRef = push(ref(db, "items"));
         await set(itemRef, {
-            name: item.name || "Scanned Item",
-            createdAt: Date.now(),
-            status: item.mode || "dispose",
-            description: item.description || "",
-            photoUrl: item.image_url || "",
-            dealtWithMethod: item.disposal_guide || "",
-            dealtWithDate: null,
-            userId: item.userId || null,
-            eco_rate: item.eco_rate || 3,
-            recycle_rate: item.recycle_rate || 4,
-            overall_score: item.overall_score || 50,
-            material: item.material || "",
-            grade: item.grade || "",
-            brand: item.brand || "",
-            category: item.category || "",
-            weighted_scores: item.weighted_scores || {},
-            schema_id: item.schema_id || "",
+            name: item.name || "Scanned Item", createdAt: Date.now(),
+            status: item.mode || "dispose", description: item.description || "",
+            photoUrl: item.image_url || "", dealtWithMethod: item.disposal_guide || "",
+            dealtWithDate: null, userId: item.userId || null,
+            eco_rate: item.eco_rate || 3, recycle_rate: item.recycle_rate || 4,
+            overall_score: item.overall_score || 50, material: item.material || "",
+            grade: item.grade || "", brand: item.brand || "", category: item.category || "",
+            weighted_scores: item.weighted_scores || {}, schema_id: item.schema_id || "",
             alternative: item.alternative || null,
         });
         return { id: itemRef.key };
     },
 
     async getItems(userId = null) {
+        await FB._ensure();
         const snap = await get(query(ref(db, "items"), orderByChild("createdAt")));
         if (!snap.exists()) return [];
-        const val = snap.val();
-        let items = Object.entries(val)
-            .map(([id, data]) => ({ id, ...data }))
-            .reverse();
-        if (userId) {
-            items = items.filter(it => it.userId === userId);
-        }
+        let items = Object.entries(snap.val()).map(([id, data]) => ({ id, ...data })).reverse();
+        if (userId) items = items.filter(it => it.userId === userId);
         return items;
     },
 
     async deleteItem(itemId) {
+        await FB._ensure();
         await remove(ref(db, "items/" + itemId));
     },
 
     async clearAllItems() {
+        await FB._ensure();
         const snap = await get(ref(db, "items"));
         if (snap.exists()) {
-            const val = snap.val();
-            await Promise.all(Object.keys(val).map(id => remove(ref(db, "items/" + id))));
+            await Promise.all(Object.keys(snap.val()).map(id => remove(ref(db, "items/" + id))));
         }
     },
 

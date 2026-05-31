@@ -22,6 +22,17 @@ NVIDIA_API_KEY = os.getenv("NVIDIA_API")
 NVIDIA_BASE_URL = "https://integrate.api.nvidia.com/v1/chat/completions"
 NVIDIA_MODEL = "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning"
 
+# ── Firebase config (served to client via /api/config) ──────────────────────
+FIREBASE_CONFIG = {
+    "apiKey": os.getenv("FIREBASE_API_KEY", ""),
+    "authDomain": os.getenv("FIREBASE_AUTH_DOMAIN", ""),
+    "projectId": os.getenv("FIREBASE_PROJECT_ID", ""),
+    "storageBucket": os.getenv("FIREBASE_STORAGE_BUCKET", ""),
+    "messagingSenderId": os.getenv("FIREBASE_MESSAGING_SENDER_ID", ""),
+    "appId": os.getenv("FIREBASE_APP_ID", ""),
+    "databaseURL": os.getenv("FIREBASE_DATABASE_URL", "https://re-life-9123f-default-rtdb.asia-southeast1.firebasedatabase.app"),
+}
+
 # ── Email verification config ───────────────────────────────────────────────
 SMTP_HOST = os.getenv("SMTP_HOST", "smtp.gmail.com")
 SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
@@ -30,11 +41,8 @@ SMTP_PASS = os.getenv("SMTP_PASS", "")
 SMTP_FROM = os.getenv("SMTP_FROM", SMTP_USER)
 VERIFICATION_CODE_EXPIRY = 300  # 5 minutes
 
-# Firebase Realtime Database config (for server-side storage)
-FIREBASE_DB_URL = os.getenv(
-    "FIREBASE_DB_URL",
-    "https://re-life-9123f-default-rtdb.asia-southeast1.firebasedatabase.app",
-)
+# Firebase Realtime Database URL (for server-side storage)
+FIREBASE_DB_URL = FIREBASE_CONFIG.get("databaseURL", "")
 
 async def _db_put(path: str, data):
     """Write data to Firebase Realtime Database at path."""
@@ -762,6 +770,10 @@ async def redeem_reward(request: Request, data: dict):
     if not reward: return JSONResponse({"error": "Not found"}, 404)
     code = "RL-" + uuid.uuid4().hex[:6].upper() + "-" + str(reward["cost"])
     return {"ok": True, "coupon": {"code": code, "title": reward["title"], "image": reward["image"], "cost": reward["cost"], "claimed_date": "Just now", "expiry": "Valid 30 days"}}
+
+@app.get("/api/config")
+async def get_config():
+    return FIREBASE_CONFIG
 
 @app.get("/api/fact")
 async def get_fact(request: Request):

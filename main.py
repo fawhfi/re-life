@@ -138,15 +138,14 @@ async def _upload_image(contents: bytes, filename: str) -> str:
     """Upload to Vercel Blob (production) or local disk (dev). Returns public URL."""
     if BLOB_TOKEN:
         try:
+            # Use multipart form upload — more reliable across Vercel Blob API versions
             async with httpx.AsyncClient(timeout=30) as client:
-                res = await client.put(
-                    f"https://blob.vercel-storage.com/{filename}",
+                res = await client.post(
+                    "https://blob.vercel-storage.com",
                     headers={
                         "Authorization": f"Bearer {BLOB_TOKEN}",
-                        "x-api-version": "1",
-                        "Content-Type": "application/octet-stream",
                     },
-                    content=contents,
+                    files={"file": (filename, contents, "application/octet-stream")},
                 )
                 if res.status_code in (200, 201):
                     data = res.json()

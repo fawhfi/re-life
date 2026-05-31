@@ -551,13 +551,38 @@ function processFile(file) {
 }
 
 function showPreview(dataUrl) {
+    const zone = document.getElementById('upload-zone');
+    const preview = document.getElementById('upload-preview');
+    const icon = zone.querySelector('.upload-zone-icon');
+    const text = zone.querySelector('.upload-zone-text');
+    const sub = zone.querySelector('.upload-zone-sub');
+
+    // Hide the placeholder icon + text
+    if (icon) icon.style.display = 'none';
+    if (text) text.style.display = 'none';
+    if (sub) sub.style.display = 'none';
+
+    // Show the image in the upload zone
     document.getElementById('upload-preview-img').src = dataUrl;
-    document.getElementById('upload-preview').classList.add('is-shown');
+    preview.classList.add('is-shown');
+    zone.classList.add('has-image');
 }
 
 function clearPreview() {
     state.selectedFile = null;
-    document.getElementById('upload-preview').classList.remove('is-shown');
+    const zone = document.getElementById('upload-zone');
+    const preview = document.getElementById('upload-preview');
+    const icon = zone.querySelector('.upload-zone-icon');
+    const text = zone.querySelector('.upload-zone-text');
+    const sub = zone.querySelector('.upload-zone-sub');
+
+    // Restore the placeholder
+    if (icon) icon.style.display = '';
+    if (text) text.style.display = '';
+    if (sub) sub.style.display = '';
+
+    preview.classList.remove('is-shown');
+    zone.classList.remove('has-image');
     document.getElementById('file-input').value = '';
 }
 

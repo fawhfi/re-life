@@ -1013,14 +1013,6 @@ async function handleSwapProof(e) {
     // Simulated proof — any photo earns points
     const points = 50;
     state.earnedPoints = (state.earnedPoints || 0) + points;
-    state.claimedCoupons.push({
-        code: 'SWAP-' + Date.now().toString(36).toUpperCase(),
-        title: '📸 Swapped to ' + (state.lastScanResult?.alternative?.name || 'eco alternative'),
-        image: '✅',
-        cost: 0,
-        claimed_date: new Date().toLocaleDateString(),
-        expiry: 'Earned +' + points + ' eco pts',
-    });
     saveUserData();
 
     const btn = document.getElementById('lbl-prove-swap');

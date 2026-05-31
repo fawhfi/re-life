@@ -591,9 +591,23 @@ SERPAPI_KEY = os.getenv("SERPAPI_KEY", "")
 
 @app.get("/api/news")
 async def get_news(request: Request):
-    """Fetch environmental news via SerpAPI Google News."""
+    """Fetch environmental news via SerpAPI, cached for 24h in Firebase."""
     await check_rate_limit(request, max_requests=30, window_sec=120)
+
+    # Return cached news if fresh (< 24h)
+    if FIREBASE_DB_URL:
+        cache = await _db_get("news_cache")
+        if cache and isinstance(cache, dict):
+            cached_at = cache.get("fetched_at", 0)
+            if time.time() - cached_at < 86400:  # 24 hours
+                items = cache.get("data", [])
+                if items:
+                    return items
+
     if not SERPAPI_KEY:
+        cached = await _db_get("news_cache")
+        if cached and isinstance(cached, dict) and cached.get("data"):
+            return cached["data"]
         return _fallback_news()
 
     query = "environmental+protection+climate+recycling+sustainability"
@@ -612,9 +626,16 @@ async def get_news(request: Request):
                 "link": r.get("link", ""),
                 "snippet": r.get("snippet", "")[:120] if r.get("snippet") else "",
             })
-        return items if items else _fallback_news()
+        if items:
+            # Cache in Firebase for 24h
+            await _db_put("news_cache", {"data": items, "fetched_at": time.time()})
+            return items
+        return _fallback_news()
     except Exception as e:
         print(f"[News] SerpAPI failed: {e}")
+        cached = await _db_get("news_cache")
+        if cached and isinstance(cached, dict) and cached.get("data"):
+            return cached["data"]
         return _fallback_news()
 
 def _fallback_news():

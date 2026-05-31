@@ -248,6 +248,7 @@ const state = {
     tips: [],
     lang: 'en',
     aiMode: true,
+    aiModel: 'nvidia',
     itemType: 'food',
     itemState: 'new',
     lastScanResult: null,
@@ -711,6 +712,7 @@ async function doScan() {
         const fd = new FormData();
         fd.append('file', state.selectedFile);
         fd.append('mode', state.scanMode);
+        fd.append('model', state.aiModel);
         fd.append('item_type', state.itemType);
         fd.append('item_state', state.itemState);
         if (state.debugMode) fd.append('debug', 'true');

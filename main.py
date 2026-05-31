@@ -18,9 +18,24 @@ root_dir = Path(__file__).parent
 if os.path.exists(root_dir / ".env"):
     load_dotenv()
 
-NVIDIA_API_KEY = os.getenv("NVIDIA_API")
-NVIDIA_BASE_URL = "https://integrate.api.nvidia.com/v1/chat/completions"
-NVIDIA_MODEL = "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning"
+# ── Multi-model AI config ───────────────────────────────────────────────────
+NVIDIA_API_KEY = os.getenv("NVIDIA_API", "")
+NVIDIA_MODEL   = os.getenv("NVIDIA_MODEL",  "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning")
+OPENAI_API_KEY = os.getenv("OPENAI_API", "")
+OPENAI_MODEL   = os.getenv("OPENAI_MODEL",  "gpt-4o-mini")
+GEMINI_API_KEY = os.getenv("GEMINI_API", "")
+GEMINI_MODEL   = os.getenv("GEMINI_MODEL",  "gemini-2.0-flash")
+DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API", "")
+CLAUDE_API_KEY   = os.getenv("CLAUDE_API", "")
+
+AVAILABLE_MODELS = []
+if NVIDIA_API_KEY:  AVAILABLE_MODELS.append("nvidia")
+if OPENAI_API_KEY:  AVAILABLE_MODELS.append("openai")
+if GEMINI_API_KEY:  AVAILABLE_MODELS.append("gemini")
+if DEEPSEEK_API_KEY: AVAILABLE_MODELS.append("deepseek")
+if CLAUDE_API_KEY:   AVAILABLE_MODELS.append("claude")
+if not AVAILABLE_MODELS:
+    AVAILABLE_MODELS.append("nvidia")  # fallback (will use CNN)
 
 # ── Firebase config (served to client via /api/config) ──────────────────────
 FIREBASE_CONFIG = {
@@ -492,8 +507,12 @@ async def scan_item(request: Request, file: UploadFile = File(...), mode: str = 
     result["timestamp"] = datetime.now().isoformat()
     return JSONResponse(result)
 
+@app.get("/api/models")
+async def get_models():
+    return {"models": AVAILABLE_MODELS}
+
 @app.post("/api/scan/ai")
-async def scan_item_ai(request: Request, file: UploadFile = File(...), mode: str = Form("dispose"), item_type: str = Form("food"), item_state: str = Form("new"), debug: str = Form("false")):
+async def scan_item_ai(request: Request, file: UploadFile = File(...), mode: str = Form("dispose"), item_type: str = Form("food"), item_state: str = Form("new"), debug: str = Form("false"), model: str = Form("nvidia")):
     await check_rate_limit(request, max_requests=15, window_sec=60)
     contents = await file.read()
     if len(contents) > MAX_UPLOAD_BYTES:
@@ -502,15 +521,14 @@ async def scan_item_ai(request: Request, file: UploadFile = File(...), mode: str
     ai = None
     ai_error = None
     if debug.lower() == "true":
-        # Debug mode: skip AI, go straight to CNN classifier
-        ai_error = "Debug mode — skipping NVIDIA API"
+        ai_error = "Debug mode — skipping AI"
         print("[Debug] Skipping AI, using classifier directly")
-    elif not NVIDIA_API_KEY:
-        ai_error = "No API key configured. Set NVIDIA_API in .env or enter it in Settings."
+    elif model not in AVAILABLE_MODELS:
+        ai_error = f"Model '{model}' not available. Add its API key."
     else:
         for attempt in range(3):
             try:
-                ai = await _ai_analyze(contents, sid)
+                ai = await _ai_analyze(contents, sid, model)
                 break
             except Exception as e:
                 ai_error = traceback.format_exc()
@@ -586,12 +604,11 @@ def _extract_json(text):
                 pass
     return None
 
-async def _ai_analyze(image_bytes, sid):
-    prompt = f"""Look at this image carefully. Identify the product shown, its packaging material, and rate its environmental impact for Hong Kong.
+_AI_PROMPT = """Look at this image carefully. Identify the product shown, its packaging material, and rate its environmental impact for Hong Kong.
 
 Respond with ONLY a JSON object (no markdown, no explanation, no text outside):
 
-{{
+{
   "name": "Product name you see",
   "brand": "Brand name or empty",
   "category": "Category like beverage/snack/dairy/electronics/household",
@@ -602,78 +619,64 @@ Respond with ONLY a JSON object (no markdown, no explanation, no text outside):
   "precaution": "Safety note",
   "ecoRate": 1-5,
   "recycleRate": 1-5,
-  "weightedScores": {{"a":0-100,"b":0-100,"c":0-100,"d":0-100,"e":0-100}},
-  "alternative": {{
+  "weightedScores": {"a":0-100,"b":0-100,"c":0-100,"d":0-100,"e":0-100},
+  "alternative": {
     "name": "A more eco-friendly alternative product name",
     "ecoRate": 5,
     "recycleRate": 5
-  }}
-}}
+  }
+}
 
 Rate honestly based on what you see. Give varied, realistic scores — not all zeros or middle values.
 For "alternative", suggest a more sustainable replacement product that achieves the same purpose."""
-    # Compress image to keep base64 under ~500KB (NVIDIA has request size limits)
+
+def _compress_image(image_bytes: bytes) -> tuple[bytes, str]:
+    """Compress and return (bytes, mime_type)."""
     try:
-        from PIL import Image
-        import io
         img = Image.open(io.BytesIO(image_bytes))
         img.thumbnail((1024, 1024))
         buf = io.BytesIO()
         img.save(buf, format="JPEG", quality=75)
-        compressed = buf.getvalue()
-        print(f"[AI] Image: {len(image_bytes)} -> {len(compressed)} bytes (compressed)")
+        return buf.getvalue(), "image/jpeg"
     except Exception:
-        compressed = image_bytes
-        print(f"[AI] Image: {len(image_bytes)} bytes (no PIL, sent raw)")
+        return image_bytes, "image/png"
 
+async def _ai_analyze(image_bytes: bytes, sid: str, model: str):
+    compressed, mime = _compress_image(image_bytes)
     b64 = base64.b64encode(compressed).decode()
-    mime = "image/jpeg" if compressed != image_bytes else "image/png"
-    payload = {
-        "model": NVIDIA_MODEL,
-        "messages": [
-            {"role": "system", "content": "You are an environmental packaging evaluator. You MUST respond with ONLY a single JSON object. No markdown, no explanation, no reasoning in the output — just the JSON object."},
-            {"role": "user", "content": [
-                {"type": "text", "text": prompt},
-                {"type": "image_url", "image_url": {"url": f"data:{mime};base64,{b64}"}},
-            ]},
-        ],
-        "max_tokens": 65536,
-        "temperature": 0.6,
-        "top_p": 0.95,
-        "stream": False,
-    }
-    headers = {
-        "Authorization": f"Bearer {NVIDIA_API_KEY}",
-        "Content-Type": "application/json",
-    }
-    async with httpx.AsyncClient(timeout=120) as client:
-        try:
-            r = await client.post(NVIDIA_BASE_URL, json=payload, headers=headers)
-            r.raise_for_status()
-        except httpx.HTTPStatusError as e:
-            body = e.response.text[:500] if e.response else ""
-            raise Exception(f"API error {e.response.status_code}: {body}") from e
-        d = r.json()
+    print(f"[AI:{model}] Image: {len(image_bytes)} -> {len(compressed)} bytes")
 
-    print(f"[AI] Raw response keys: {list(d.keys())}")
-    choice = (d.get("choices") or [{}])[0]
-    msg = choice.get("message", {})
-    content = msg.get("content", "")
-    reasoning = msg.get("reasoning_content", "")
-    finish = choice.get("finish_reason", "")
+    if model == "nvidia":
+        content = await _call_openai_compat(
+            api_key=NVIDIA_API_KEY,
+            base_url="https://integrate.api.nvidia.com/v1",
+            model_id=NVIDIA_MODEL,
+            prompt=_AI_PROMPT, b64=b64, mime=mime,
+        )
+    elif model == "openai":
+        content = await _call_openai_compat(
+            api_key=OPENAI_API_KEY,
+            base_url="https://api.openai.com/v1",
+            model_id=OPENAI_MODEL,
+            prompt=_AI_PROMPT, b64=b64, mime=mime,
+        )
+    elif model == "deepseek":
+        content = await _call_openai_compat(
+            api_key=DEEPSEEK_API_KEY,
+            base_url="https://api.deepseek.com/v1",
+            model_id="deepseek-chat",
+            prompt=_AI_PROMPT, b64=b64, mime=mime,
+        )
+    elif model == "gemini":
+        content = await _call_gemini(_AI_PROMPT, b64, mime)
+    elif model == "claude":
+        content = await _call_claude(_AI_PROMPT, b64, mime)
+    else:
+        raise Exception(f"Unknown model: {model}")
 
-    if finish and finish != "stop":
-        raise Exception(f"AI call stopped early (finish_reason={finish})")
-
-    print(f"[AI] content[:200]: {(content or '')[:200]}")
-    print(f"[AI] reasoning_content[:200]: {(reasoning or '')[:200]}")
-
-    j = _extract_json(content) or _extract_json(reasoning)
+    j = _extract_json(content)
     if not j:
-        preview = (content or reasoning or "")[:300]
-        raise Exception(f"AI returned non-JSON response: {preview}")
-
-    print(f"[AI] Extracted JSON: {json.dumps(j, ensure_ascii=False)}")
+        raise Exception(f"AI returned non-JSON response: {(content or '')[:200]}")
 
     alt = j.get("alternative")
     alternative = None
@@ -685,6 +688,75 @@ For "alternative", suggest a more sustainable replacement product that achieves 
         }
 
     return {"name": j.get("name", "Scanned"), "brand": j.get("brand", ""), "category": j.get("category", ""), "description": j.get("description", ""), "eco_rate": j.get("ecoRate", 3), "recycle_rate": j.get("recycleRate", 4), "standard_type": j.get("standardType", "food"), "material": j.get("material", "plastic"), "disposal_guide": j.get("disposalGuide", ""), "precaution": j.get("precaution", ""), "weighted_scores": j.get("weightedScores", {"a": 50, "b": 50, "c": 50, "d": 50, "e": 50}), "alternative": alternative}
+
+async def _call_openai_compat(api_key: str, base_url: str, model_id: str, prompt: str, b64: str, mime: str) -> str:
+    """Call any OpenAI-compatible API (NVIDIA, OpenAI, DeepSeek)."""
+    async with httpx.AsyncClient(timeout=120) as client:
+        r = await client.post(
+            f"{base_url}/chat/completions",
+            headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+            json={
+                "model": model_id,
+                "messages": [
+                    {"role": "system", "content": "You are an environmental packaging evaluator. Respond with ONLY a single JSON object. No markdown, no explanation."},
+                    {"role": "user", "content": [
+                        {"type": "text", "text": prompt},
+                        {"type": "image_url", "image_url": {"url": f"data:{mime};base64,{b64}"}},
+                    ]},
+                ],
+                "max_tokens": 4096, "temperature": 0.6, "stream": False,
+            },
+        )
+        r.raise_for_status()
+    d = r.json()
+    content = d["choices"][0]["message"]["content"]
+    print(f"[AI:{model_id}] Response: {(content or '')[:200]}")
+    return content
+
+async def _call_gemini(prompt: str, b64: str, mime: str) -> str:
+    """Call Google Gemini API."""
+    async with httpx.AsyncClient(timeout=60) as client:
+        r = await client.post(
+            f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent?key={GEMINI_API_KEY}",
+            headers={"Content-Type": "application/json"},
+            json={
+                "contents": [{"parts": [
+                    {"text": "You are an environmental packaging evaluator. Respond with ONLY a single JSON object. No markdown, no explanation.\n\n" + prompt},
+                    {"inline_data": {"mime_type": mime, "data": b64}},
+                ]}],
+            },
+        )
+        r.raise_for_status()
+    d = r.json()
+    content = d["candidates"][0]["content"]["parts"][0]["text"]
+    print(f"[AI:gemini] Response: {(content or '')[:200]}")
+    return content
+
+async def _call_claude(prompt: str, b64: str, mime: str) -> str:
+    """Call Anthropic Claude API."""
+    async with httpx.AsyncClient(timeout=60) as client:
+        r = await client.post(
+            "https://api.anthropic.com/v1/messages",
+            headers={
+                "x-api-key": CLAUDE_API_KEY,
+                "anthropic-version": "2023-06-01",
+                "Content-Type": "application/json",
+            },
+            json={
+                "model": "claude-3-haiku-20240307",
+                "max_tokens": 4096,
+                "system": "You are an environmental packaging evaluator. Respond with ONLY a single JSON object. No markdown, no explanation.",
+                "messages": [{"role": "user", "content": [
+                    {"type": "image", "source": {"type": "base64", "media_type": mime, "data": b64}},
+                    {"type": "text", "text": prompt},
+                ]}],
+            },
+        )
+        r.raise_for_status()
+    d = r.json()
+    content = d["content"][0]["text"]
+    print(f"[AI:claude] Response: {(content or '')[:200]}")
+    return content
 
 def _mock(mode):
     r = lambda: random.randint(1, 5)

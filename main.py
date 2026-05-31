@@ -30,56 +30,41 @@ SMTP_PASS = os.getenv("SMTP_PASS", "")
 SMTP_FROM = os.getenv("SMTP_FROM", SMTP_USER)
 VERIFICATION_CODE_EXPIRY = 300  # 5 minutes
 
-# Vercel KV config (auto-injected by Vercel)
-KV_URL   = os.getenv("KV_REST_API_URL", "")
-KV_TOKEN = os.getenv("KV_REST_API_TOKEN", "")
+# Firebase Realtime Database config (for server-side storage)
+FIREBASE_DB_URL = os.getenv(
+    "FIREBASE_DB_URL",
+    "https://re-life-9123f-default-rtdb.asia-southeast1.firebasedatabase.app",
+)
 
-async def _kv_set(key: str, value: str, ttl_sec: int):
-    """Store a value in Vercel KV with TTL."""
-    if not KV_URL or not KV_TOKEN:
-        return
+async def _db_put(path: str, data):
+    """Write data to Firebase Realtime Database at path."""
     try:
         async with httpx.AsyncClient(timeout=10) as client:
-            await client.post(
-                f"{KV_URL}/set/{key}?ex={ttl_sec}",
-                headers={"Authorization": f"Bearer {KV_TOKEN}"},
-                json={"value": value},
-            )
+            await client.put(f"{FIREBASE_DB_URL}/{path}.json", json=data)
     except Exception as e:
-        print(f"[KV] Set failed: {e}")
+        print(f"[DB] Put failed: {e}")
 
-async def _kv_get(key: str) -> str | None:
-    """Retrieve a value from Vercel KV. Returns None if not found."""
-    if not KV_URL or not KV_TOKEN:
-        return None
+async def _db_get(path: str):
+    """Read data from Firebase Realtime Database at path. Returns parsed JSON or None."""
     try:
         async with httpx.AsyncClient(timeout=10) as client:
-            res = await client.get(
-                f"{KV_URL}/get/{key}",
-                headers={"Authorization": f"Bearer {KV_TOKEN}"},
-            )
+            res = await client.get(f"{FIREBASE_DB_URL}/{path}.json")
             if res.status_code == 200:
-                data = res.json()
-                return data.get("result") if isinstance(data, dict) else data
+                return res.json()
             return None
     except Exception as e:
-        print(f"[KV] Get failed: {e}")
+        print(f"[DB] Get failed: {e}")
         return None
 
-async def _kv_del(key: str):
-    """Delete a key from Vercel KV."""
-    if not KV_URL or not KV_TOKEN:
-        return
+async def _db_del(path: str):
+    """Delete data at path in Firebase Realtime Database."""
     try:
         async with httpx.AsyncClient(timeout=10) as client:
-            await client.delete(
-                f"{KV_URL}/del/{key}",
-                headers={"Authorization": f"Bearer {KV_TOKEN}"},
-            )
+            await client.delete(f"{FIREBASE_DB_URL}/{path}.json")
     except Exception as e:
-        print(f"[KV] Del failed: {e}")
+        print(f"[DB] Del failed: {e}")
 
-# In-memory fallback for local dev (when KV env vars not set)
+# In-memory fallback for local dev
 _pending_verifications: dict[str, dict] = {}
 
 app = FastAPI(title="Re-Life API")
@@ -111,7 +96,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 
 app.add_middleware(SecurityHeadersMiddleware)
 
-# ── Rate Limiter (Vercel KV with in-memory fallback) ────────────────────────
+# ── Rate Limiter (Firebase Realtime DB with in-memory fallback) ─────────────
 _ratelimit_store: dict[str, list[float]] = defaultdict(list)
 
 async def check_rate_limit(request: Request, max_requests: int = 5, window_sec: int = 60) -> None:
@@ -120,13 +105,21 @@ async def check_rate_limit(request: Request, max_requests: int = 5, window_sec: 
     ip = request.client.host if request.client else "unknown"
     route = request.url.path
     key = f"rl:{ip}:{route}"
+    safe_key = key.replace(":", "_").replace("/", "_")
 
-    if KV_URL and KV_TOKEN:
-        count = await _kv_get(key)
-        count = int(count) if count else 0
-        if count >= max_requests:
-            raise HTTPException(status_code=429, detail="Too many requests — slow down")
-        await _kv_set(key, str(count + 1), window_sec)
+    if FIREBASE_DB_URL:
+        now = time.time()
+        data = await _db_get(f"rate_limit/{safe_key}")
+        if data and isinstance(data, dict):
+            count = data.get("count", 0)
+            expires = data.get("expires", 0)
+            if now < expires and count >= max_requests:
+                raise HTTPException(status_code=429, detail="Too many requests — slow down")
+            if now >= expires:
+                count = 0
+        else:
+            count = 0
+        await _db_put(f"rate_limit/{safe_key}", {"count": count + 1, "expires": now + window_sec})
     else:
         now = time.time()
         cutoff = now - window_sec
@@ -317,13 +310,16 @@ async def send_verification(request: Request, data: dict):
 
     code = str(random.randint(100000, 999999))
 
-    # Store code in Vercel KV (with in-memory fallback for local dev)
-    if KV_URL and KV_TOKEN:
-        await _kv_set(f"verify:{email}", code, VERIFICATION_CODE_EXPIRY)
+    # Store code in Firebase Realtime DB (with in-memory fallback)
+    if FIREBASE_DB_URL:
+        safe_email = email.replace(".", "_").replace("@", "_")
+        await _db_put(f"verify/{safe_email}", {
+            "code": code,
+            "expires": time.time() + VERIFICATION_CODE_EXPIRY,
+        })
     else:
         now = time.time()
         _pending_verifications[email] = {"code": code, "expires_at": now + VERIFICATION_CODE_EXPIRY}
-        # Prune expired entries
         for k in list(_pending_verifications):
             if _pending_verifications[k]["expires_at"] < now:
                 del _pending_verifications[k]
@@ -369,13 +365,17 @@ async def verify_code(request: Request, data: dict):
     if not email or not code:
         return JSONResponse({"error": "Email and code required"}, status_code=400)
 
-    # Fetch code from Vercel KV (with in-memory fallback)
+    # Fetch code from Firebase Realtime DB (with in-memory fallback)
     stored_code = None
-    if KV_URL and KV_TOKEN:
-        stored_code = await _kv_get(f"verify:{email}")
-        if stored_code:
-            # Valid code found in KV — delete it and verify
-            await _kv_del(f"verify:{email}")
+    if FIREBASE_DB_URL:
+        safe_email = email.replace(".", "_").replace("@", "_")
+        data = await _db_get(f"verify/{safe_email}")
+        if data and isinstance(data, dict):
+            if time.time() > data.get("expires", 0):
+                await _db_del(f"verify/{safe_email}")
+                return JSONResponse({"error": "Code expired — request a new one"}, status_code=400)
+            stored_code = data.get("code")
+            await _db_del(f"verify/{safe_email}")
     else:
         pending = _pending_verifications.get(email)
         if pending:

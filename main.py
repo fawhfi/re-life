@@ -138,6 +138,37 @@ async def check_rate_limit(request: Request, max_requests: int = 5, window_sec: 
 # ── Upload size limit ───────────────────────────────────────────────────────
 MAX_UPLOAD_BYTES = 10 * 1024 * 1024  # 10 MB
 
+# ── Image upload storage ────────────────────────────────────────────────────
+BLOB_TOKEN = os.getenv("BLOB_READ_WRITE_TOKEN", "")
+
+async def _upload_image(contents: bytes, filename: str) -> str:
+    """Upload to Vercel Blob (production) or local disk (dev). Returns public URL."""
+    if BLOB_TOKEN:
+        try:
+            async with httpx.AsyncClient(timeout=30) as client:
+                res = await client.put(
+                    f"https://blob.vercel-storage.com/{filename}",
+                    headers={
+                        "Authorization": f"Bearer {BLOB_TOKEN}",
+                        "x-api-version": "1",
+                        "Content-Type": "application/octet-stream",
+                    },
+                    content=contents,
+                )
+                if res.status_code in (200, 201):
+                    data = res.json()
+                    url = data.get("url", "")
+                    print(f"[Blob] Uploaded {filename} → {url}")
+                    return url
+                print(f"[Blob] Upload error {res.status_code}: {res.text[:200]}")
+        except Exception as e:
+            print(f"[Blob] Upload failed: {e}")
+    # Fallback: local disk
+    UPLOAD_DIR.mkdir(exist_ok=True)
+    with open(UPLOAD_DIR / filename, "wb") as f:
+        f.write(contents)
+    return f"/uploads/{filename}"
+
 UPLOAD_DIR = root_dir / "uploads"
 UPLOAD_DIR.mkdir(exist_ok=True)
 app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
@@ -370,10 +401,10 @@ async def scan_item(request: Request, file: UploadFile = File(...), mode: str = 
         return JSONResponse({"error": f"File too large (max {MAX_UPLOAD_BYTES // (1024*1024)} MB)"}, status_code=413)
     ext = Path(str(file.filename)).suffix or ".png"
     filename = f"{uuid.uuid4()}{ext}"
-    with open(UPLOAD_DIR / filename, "wb") as f: f.write(contents)
+    image_url = await _upload_image(contents, filename)
     result = _mock(mode)
     result["mode"] = mode
-    result["image_url"] = f"/uploads/{filename}"
+    result["image_url"] = image_url
     result["id"] = str(uuid.uuid4())
     result["timestamp"] = datetime.now().isoformat()
     return JSONResponse(result)
@@ -416,8 +447,8 @@ async def scan_item_ai(request: Request, file: UploadFile = File(...), mode: str
             return JSONResponse({"classifier_fallback": True, "ai_error": str(cls_e), "mode": mode, "schema_id": sid})
     ext = Path(str(file.filename)).suffix or ".png"
     fn = f"{uuid.uuid4()}{ext}"
-    with open(UPLOAD_DIR / fn, "wb") as f: f.write(contents)
-    ai["image_url"] = f"/uploads/{fn}"
+    image_url = await _upload_image(contents, fn)
+    ai["image_url"] = image_url
     ai["mode"] = mode; ai["id"] = str(uuid.uuid4()); ai["timestamp"] = datetime.now().isoformat(); ai["schema_id"] = sid
     # Alternative only relevant in purchase mode
     if mode != "purchase":

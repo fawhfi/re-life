@@ -587,10 +587,41 @@ def _mock(mode):
         return {"name": "Scanned Product", "eco_rate": r(), "recycle_rate": r(), "alternative": {"name": "Eco-Friendly Alternative", "eco_rate": 5, "recycle_rate": 4}, "description": "Mock analysis.", "weighted_scores": s(), "material": random.choice(["plastic", "paper", "glass"]), "disposal_guide": "Rinse and recycle.", "precaution": "Remove caps and labels."}
     return {"name": "Scanned Item", "eco_rate": r(), "recycle_rate": r(), "alternative": None, "description": "Mock analysis.", "weighted_scores": s(), "material": random.choice(["plastic", "pp_plastic", "metal", "wood"]), "disposal_guide": "Drop at GREEN@COMMUNITY.", "precaution": "Separate materials."}
 
-@app.get("/api/tips")
-async def get_tips(request: Request):
-    await check_rate_limit(request, max_requests=60, window_sec=60)
-    return [{"title": "Energy saving tips to save money", "source": "From HSBC SG", "snippet": "More and more people are making a conscious effort to use less energy."}, {"title": "How to recycle electronics properly", "source": "From NEA", "snippet": "E-waste contains valuable materials but also hazardous substances."}, {"title": "Zero waste grocery shopping", "source": "From WWF", "snippet": "Simple swaps can dramatically cut your household plastic waste."}]
+import xml.etree.ElementTree as ET
+
+@app.get("/api/news")
+async def get_news(request: Request):
+    """Fetch environmental news from Google News RSS."""
+    await check_rate_limit(request, max_requests=30, window_sec=120)
+    query = "environmental+protection+OR+climate+OR+recycling+OR+sustainability"
+    url = f"https://news.google.com/rss/search?q={query}&hl=en&gl=HK&ceid=HK:en"
+    try:
+        async with httpx.AsyncClient(timeout=15) as client:
+            res = await client.get(url, headers={"User-Agent": "Re-Life/1.0"})
+            res.raise_for_status()
+        root = ET.fromstring(res.text)
+        items = []
+        for item in root.findall(".//item"):
+            title = item.findtext("title", "")
+            link  = item.findtext("link", "")
+            source = item.findtext("source", "")
+            items.append({
+                "title": title,
+                "source": source or "Google News",
+                "link": link,
+                "snippet": "",
+            })
+        return items[:8] if items else _fallback_news()
+    except Exception as e:
+        print(f"[News] Failed: {e}")
+        return _fallback_news()
+
+def _fallback_news():
+    return [
+        {"title": "Global push for plastic treaty gains momentum", "source": "Reuters", "link": "", "snippet": ""},
+        {"title": "New recycling technology triples plastic recovery rate", "source": "BBC News", "link": "", "snippet": ""},
+        {"title": "HK expands GREEN@COMMUNITY recycling network", "source": "SCMP", "link": "", "snippet": ""},
+    ]
 
 @app.get("/api/schemas")
 async def get_schemas(request: Request):

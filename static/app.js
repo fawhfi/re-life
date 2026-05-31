@@ -30,7 +30,7 @@ const STRINGS = {
         navHome: 'Home',
         toDispose: 'TO DISPOSE', toPurchase: 'TO PURCHASE',
         disposeSub: 'E-waste, Organics, Bulky', purchaseSub: 'Groceries, Dairy, Bottles',
-        recordHome: 'Record', greenTips: 'GREEN TIPS', knowMore: '+ KNOW MORE',
+        recordHome: 'Record', greenTips: 'GREEN NEWS', knowMore: '+ READ MORE',
         ecoRate: 'Eco-Rate', recycleRate: 'Recycle Rate',
         alternativeProduct: 'Alternative Product', addToRecord: 'Add to Record',
         scanAgain: 'Scan Again', uploadPhoto: 'Tap to scan', orDrag: 'or drag & drop anywhere',
@@ -1253,12 +1253,18 @@ function updateStats() {
 
 async function loadTips() {
     try {
-        const res = await fetch('/api/tips');
-        state.tips = await res.json();
+        const res = await fetch('/api/news');
+        const news = await res.json();
+        state.tips = news.map(n => ({
+            title: n.title,
+            source: n.source,
+            snippet: '',
+            link: n.link || '',
+        }));
         renderTipsDots();
         showTip(0);
     } catch (e) {
-        console.error('Failed to load tips:', e);
+        console.error('Failed to load news:', e);
     }
 }
 
@@ -1279,7 +1285,13 @@ function showTip(index) {
     if (titleEl) titleEl.classList.add('is-switching');
     if (snippetEl) snippetEl.classList.add('is-switching');
     setTimeout(() => {
-        if (titleEl) titleEl.textContent = `"${tip.title}"`;
+        if (titleEl) {
+            if (tip.link) {
+                titleEl.innerHTML = `<a href="${esc(tip.link)}" target="_blank" style="color:inherit;text-decoration:underline">${esc(tip.title)}</a>`;
+            } else {
+                titleEl.textContent = tip.title;
+            }
+        }
         if (snippetEl) snippetEl.textContent = tip.snippet;
         if (titleEl) titleEl.classList.remove('is-switching');
         if (snippetEl) snippetEl.classList.remove('is-switching');

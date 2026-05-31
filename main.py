@@ -30,7 +30,56 @@ SMTP_PASS = os.getenv("SMTP_PASS", "")
 SMTP_FROM = os.getenv("SMTP_FROM", SMTP_USER)
 VERIFICATION_CODE_EXPIRY = 300  # 5 minutes
 
-# In-memory pending verifications  { email: { code, expires_at } }
+# Vercel KV config (auto-injected by Vercel)
+KV_URL   = os.getenv("KV_REST_API_URL", "")
+KV_TOKEN = os.getenv("KV_REST_API_TOKEN", "")
+
+async def _kv_set(key: str, value: str, ttl_sec: int):
+    """Store a value in Vercel KV with TTL."""
+    if not KV_URL or not KV_TOKEN:
+        return
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            await client.post(
+                f"{KV_URL}/set/{key}?ex={ttl_sec}",
+                headers={"Authorization": f"Bearer {KV_TOKEN}"},
+                json={"value": value},
+            )
+    except Exception as e:
+        print(f"[KV] Set failed: {e}")
+
+async def _kv_get(key: str) -> str | None:
+    """Retrieve a value from Vercel KV. Returns None if not found."""
+    if not KV_URL or not KV_TOKEN:
+        return None
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            res = await client.get(
+                f"{KV_URL}/get/{key}",
+                headers={"Authorization": f"Bearer {KV_TOKEN}"},
+            )
+            if res.status_code == 200:
+                data = res.json()
+                return data.get("result") if isinstance(data, dict) else data
+            return None
+    except Exception as e:
+        print(f"[KV] Get failed: {e}")
+        return None
+
+async def _kv_del(key: str):
+    """Delete a key from Vercel KV."""
+    if not KV_URL or not KV_TOKEN:
+        return
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            await client.delete(
+                f"{KV_URL}/del/{key}",
+                headers={"Authorization": f"Bearer {KV_TOKEN}"},
+            )
+    except Exception as e:
+        print(f"[KV] Del failed: {e}")
+
+# In-memory fallback for local dev (when KV env vars not set)
 _pending_verifications: dict[str, dict] = {}
 
 app = FastAPI(title="Re-Life API")
@@ -226,13 +275,17 @@ async def send_verification(request: Request, data: dict):
         return JSONResponse({"error": "Valid email required"}, status_code=400)
 
     code = str(random.randint(100000, 999999))
-    now = time.time()
-    _pending_verifications[email] = {"code": code, "expires_at": now + VERIFICATION_CODE_EXPIRY}
 
-    # Prune expired entries
-    for k in list(_pending_verifications):
-        if _pending_verifications[k]["expires_at"] < now:
-            del _pending_verifications[k]
+    # Store code in Vercel KV (with in-memory fallback for local dev)
+    if KV_URL and KV_TOKEN:
+        await _kv_set(f"verify:{email}", code, VERIFICATION_CODE_EXPIRY)
+    else:
+        now = time.time()
+        _pending_verifications[email] = {"code": code, "expires_at": now + VERIFICATION_CODE_EXPIRY}
+        # Prune expired entries
+        for k in list(_pending_verifications):
+            if _pending_verifications[k]["expires_at"] < now:
+                del _pending_verifications[k]
 
     # Send email via SMTP; fall back to dev-mode logging
     email_sent = False
@@ -275,18 +328,28 @@ async def verify_code(request: Request, data: dict):
     if not email or not code:
         return JSONResponse({"error": "Email and code required"}, status_code=400)
 
-    pending = _pending_verifications.get(email)
-    if not pending:
+    # Fetch code from Vercel KV (with in-memory fallback)
+    stored_code = None
+    if KV_URL and KV_TOKEN:
+        stored_code = await _kv_get(f"verify:{email}")
+        if stored_code:
+            # Valid code found in KV — delete it and verify
+            await _kv_del(f"verify:{email}")
+    else:
+        pending = _pending_verifications.get(email)
+        if pending:
+            if time.time() > pending["expires_at"]:
+                del _pending_verifications[email]
+                return JSONResponse({"error": "Code expired — request a new one"}, status_code=400)
+            stored_code = pending["code"]
+            del _pending_verifications[email]
+
+    if not stored_code:
         return JSONResponse({"error": "No verification code found — request a new one"}, status_code=400)
 
-    if time.time() > pending["expires_at"]:
-        del _pending_verifications[email]
-        return JSONResponse({"error": "Code expired — request a new one"}, status_code=400)
-
-    if pending["code"] != code:
+    if stored_code != code:
         return JSONResponse({"error": "Invalid code"}, status_code=400)
 
-    del _pending_verifications[email]
     return JSONResponse({"ok": True, "email": email})
 
 @app.post("/api/scan")

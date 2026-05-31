@@ -156,15 +156,21 @@ async def _upload_image(contents: bytes, filename: str) -> str:
                 print(f"[Blob] Upload error {res.status_code}: {res.text[:200]}")
         except Exception as e:
             print(f"[Blob] Upload failed: {e}")
-    # Fallback: local disk
-    UPLOAD_DIR.mkdir(exist_ok=True)
-    with open(UPLOAD_DIR / filename, "wb") as f:
+    # Fallback: local disk (dev only — uses /tmp on Vercel)
+    import tempfile
+    tmp_upload = Path(tempfile.gettempdir()) / "re-life-uploads"
+    tmp_upload.mkdir(exist_ok=True)
+    with open(tmp_upload / filename, "wb") as f:
         f.write(contents)
-    return f"/uploads/{filename}"
+    return f"/tmp-uploads/{filename}"
 
-UPLOAD_DIR = root_dir / "uploads"
-UPLOAD_DIR.mkdir(exist_ok=True)
-app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
+# Only mount local uploads in dev (Vercel uses Blob URLs directly)
+if not BLOB_TOKEN:
+    import tempfile
+    _tmp_upload_dir = Path(tempfile.gettempdir()) / "re-life-uploads"
+    _tmp_upload_dir.mkdir(exist_ok=True)
+    app.mount("/tmp-uploads", StaticFiles(directory=_tmp_upload_dir), name="tmp-uploads")
+
 app.mount("/static", StaticFiles(directory=root_dir / "static"), name="static")
 
 # ── Server-side CNN Classifier ───────────────────────────────────────────────

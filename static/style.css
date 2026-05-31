@@ -798,6 +798,11 @@ body {
     transition: box-shadow 0.2s;
 }
 
+[data-theme="dark"] .alternative-card {
+    background: linear-gradient(135deg, #0f2a1a 0%, #122418 100%);
+    border-color: var(--color-emerald-200);
+}
+
 .alternative-card:hover {
     box-shadow: var(--shadow-md);
 }
@@ -811,10 +816,18 @@ body {
     margin-bottom: 4px;
 }
 
+[data-theme="dark"] .alternative-card-label {
+    color: var(--color-emerald-700);
+}
+
 .alternative-card-name {
     font-size: 13px;
     font-weight: 700;
     color: var(--color-gray-800);
+}
+
+[data-theme="dark"] .alternative-card-name {
+    color: var(--color-emerald-200);
 }
 
 .alternative-card-ratings {

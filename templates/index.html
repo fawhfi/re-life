@@ -87,8 +87,6 @@
             <div class="rating-item"><span class="rating-label">Recycle Rate:</span><div class="star-rating" id="alt-recycle-stars"></div></div>
           </div>
           <button class="btn btn--outline btn--small btn--full mt-2" id="lbl-swap" onclick="swapAlternative()">SWAP ME</button>
-          <button class="btn btn--primary btn--small btn--full mt-2" id="lbl-prove-swap" onclick="triggerSwapProof()">📸 Prove You Swapped → Earn +50 Pts</button>
-          <input type="file" id="swap-proof-input" accept="image/*" capture="environment" onchange="handleSwapProof(event)" class="hidden">
         </div>
 
         <!-- Weighted Score -->
@@ -121,6 +119,10 @@
           <div class="disposal-guide-row mt-2" id="disp-guide"></div>
           <div class="disposal-guide-precaution" id="disp-prec"></div>
         </div>
+
+        <!-- Prove swap (hidden until item added to record) -->
+        <button class="btn btn--primary btn--full hidden mt-3" id="lbl-prove-swap" onclick="triggerSwapProof()">📸 Prove You Swapped → Earn +50 Pts</button>
+        <input type="file" id="swap-proof-input" accept="image/*" capture="environment" onchange="handleSwapProof(event)" class="hidden">
 
         <div class="result-card-actions">
           <button class="btn btn--outline" id="lbl-scan-again" onclick="resetScan()">Scan Again</button>

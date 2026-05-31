@@ -128,6 +128,19 @@ const FB = {
         return { id: user.userId || user.id, displayName: user.displayName, photoUrl: user.photoUrl };
     },
 
+    async resetPasswordByEmail(email, newPassword) {
+        const q = query(ref(db, "users"), orderByChild("email"), equalTo(email), limitToFirst(1));
+        const snap = await get(q);
+        if (!snap.exists()) throw new Error("USER_NOT_FOUND");
+        const entries = Object.entries(snap.val());
+        if (entries.length === 0) throw new Error("USER_NOT_FOUND");
+        const [key, userData] = entries[0];
+        const salt = userData.displayName; // use displayName as salt for consistency
+        const passwordHash = await hashPassword(newPassword, salt);
+        await update(ref(db, `users/${key}`), { passwordHash });
+        return true;
+    },
+
     async getAllUsers() {
         const snap = await get(ref(db, "users"));
         if (!snap.exists()) return [];

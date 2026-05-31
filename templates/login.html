@@ -56,6 +56,27 @@
       </a>
     </form>
 
+    <!-- Forgot Password -->
+    <div style="text-align:center;margin-top:12px">
+      <button class="login-footer-link" onclick="showForgotForm()" id="forgot-link">Forgot Password?</button>
+    </div>
+    <div class="hidden" id="forgot-form" style="margin-top:8px">
+      <div class="login-field">
+        <label class="login-label" for="forgot-email">Email Address</label>
+        <input class="login-input" type="email" id="forgot-email" placeholder="you@example.com" autocomplete="email">
+      </div>
+      <div class="login-field hidden" id="forgot-code-field">
+        <label class="login-label" for="forgot-code">Reset Code</label>
+        <input class="login-input" type="text" id="forgot-code" placeholder="000000" inputmode="numeric" maxlength="6">
+      </div>
+      <div class="login-field hidden" id="forgot-password-field">
+        <label class="login-label" for="forgot-password">New Password</label>
+        <input class="login-input" type="password" id="forgot-password" placeholder="••••••••" minlength="4">
+      </div>
+      <div class="login-error" id="forgot-error"></div>
+      <button class="login-btn login-btn--primary btn--full" onclick="handleForgotStep()" id="forgot-btn" style="margin-top:6px">Send Reset Code</button>
+    </div>
+
     <div class="login-footer">
       <button class="login-footer-link" onclick="toggleTheme()" id="theme-btn">🌙</button>
       <span class="login-footer-dot">·</span>
@@ -137,6 +158,90 @@ async function handleLogin(e) {
         console.error('Login error:', err);
     }
     btn.textContent = 'Log In';
+}
+
+// ── Forgot Password Flow ────────────────────────────────────────────
+let forgotStep = 0; // 0=enter email, 1=enter code+password
+let forgotEmail = '';
+
+function showForgotForm() {
+    document.getElementById('forgot-form').classList.toggle('hidden');
+    forgotStep = 0;
+    document.getElementById('forgot-code-field').classList.add('hidden');
+    document.getElementById('forgot-password-field').classList.add('hidden');
+    document.getElementById('forgot-btn').textContent = 'Send Reset Code';
+    document.getElementById('forgot-error').textContent = '';
+}
+
+async function handleForgotStep() {
+    const errorEl = document.getElementById('forgot-error');
+    const btn = document.getElementById('forgot-btn');
+    errorEl.textContent = '';
+
+    if (forgotStep === 0) {
+        const email = document.getElementById('forgot-email').value.trim();
+        if (!email) { errorEl.textContent = 'Please enter your email'; return; }
+        btn.textContent = 'Sending...';
+        try {
+            const res = await fetch('/api/forgot-password', {
+                method: 'POST', headers: {'Content-Type':'application/json'},
+                body: JSON.stringify({ email }),
+            });
+            const data = await res.json();
+            if (data.ok) {
+                forgotEmail = email;
+                forgotStep = 1;
+                document.getElementById('forgot-code-field').classList.remove('hidden');
+                document.getElementById('forgot-password-field').classList.remove('hidden');
+                btn.textContent = 'Reset Password';
+                if (data.dev_code) {
+                    errorEl.textContent = 'DEV: ' + data.dev_code;
+                    errorEl.style.color = '#047857';
+                }
+            } else {
+                errorEl.textContent = data.error || 'Failed to send code';
+            }
+        } catch (_) { errorEl.textContent = 'Network error'; }
+        btn.textContent = 'Send Reset Code';
+    } else {
+        const code = document.getElementById('forgot-code').value.trim();
+        const password = document.getElementById('forgot-password').value;
+        if (!code || code.length !== 6) { errorEl.textContent = 'Enter the 6-digit code'; return; }
+        if (!password || password.length < 4) { errorEl.textContent = 'Password must be 4+ chars'; return; }
+        btn.textContent = 'Resetting...';
+        try {
+            const res = await fetch('/api/reset-password', {
+                method: 'POST', headers: {'Content-Type':'application/json'},
+                body: JSON.stringify({ email: forgotEmail, code, password }),
+            });
+            const data = await res.json();
+            if (data.ok) {
+                await waitForFBPromise();
+                await window.FB.resetPasswordByEmail(forgotEmail, password);
+                errorEl.textContent = '✅ Password reset! You can now log in.';
+                errorEl.style.color = '#047857';
+                btn.textContent = 'Done';
+                btn.disabled = true;
+            } else {
+                errorEl.textContent = data.error || 'Invalid code';
+            }
+        } catch (err) {
+            errorEl.textContent = 'Reset failed: ' + (err.message || 'try again');
+            console.error(err);
+        }
+        btn.textContent = 'Reset Password';
+    }
+}
+
+function waitForFBPromise() {
+    return new Promise((resolve, reject) => {
+        if (window.FB) return resolve();
+        let tries = 0;
+        const timer = setInterval(() => {
+            if (window.FB) { clearInterval(timer); resolve(); return; }
+            if (++tries > 100) { clearInterval(timer); reject(new Error('FB not loaded')); }
+        }, 100);
+    });
 }
 </script>
 </body>

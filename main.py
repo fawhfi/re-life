@@ -370,6 +370,104 @@ async def verify_code(request: Request, data: dict):
 
     return JSONResponse({"ok": True, "email": email})
 
+async def _get_user_by_email(email: str) -> dict | None:
+    """Find user in Firebase by email."""
+    if not FIREBASE_DB_URL:
+        return None
+    users = await _db_get("users")
+    if not users:
+        return None
+    for key, data in users.items():
+        if isinstance(data, dict) and data.get("email") == email:
+            return {"key": key, **data}
+    return None
+
+@app.post("/api/forgot-password")
+async def forgot_password(request: Request, data: dict):
+    """Send password reset code to email."""
+    await check_rate_limit(request, max_requests=3, window_sec=120)
+    email = (data.get("email") or "").strip().lower()
+    if not email:
+        return JSONResponse({"error": "Email required"}, status_code=400)
+
+    user = await _get_user_by_email(email)
+    if not user:
+        return JSONResponse({"error": "No account found with that email"}, status_code=400)
+
+    code = str(random.randint(100000, 999999))
+    safe_email = email.replace(".", "_").replace("@", "_")
+
+    if FIREBASE_DB_URL:
+        await _db_put(f"reset/{safe_email}", {"code": code, "expires": time.time() + VERIFICATION_CODE_EXPIRY})
+    else:
+        now = time.time()
+        _pending_verifications[f"reset:{email}"] = {"code": code, "expires_at": now + VERIFICATION_CODE_EXPIRY}
+
+    # Send via SMTP or dev mode
+    email_sent = False
+    if SMTP_USER and SMTP_PASS:
+        try:
+            import smtplib
+            from email.mime.text import MIMEText
+            from email.mime.multipart import MIMEMultipart
+            msg = MIMEMultipart()
+            msg["From"] = SMTP_FROM
+            msg["To"] = email
+            msg["Subject"] = "Re-Life — Password Reset Code"
+            msg.attach(MIMEText(f"Your password reset code is: {code}\n\nThis code expires in 5 minutes.\n\nIf you didn't request this, ignore this email.", "plain"))
+            with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=10) as server:
+                server.starttls()
+                server.login(SMTP_USER, SMTP_PASS)
+                server.send_message(msg)
+            email_sent = True
+        except Exception as e:
+            print(f"[Reset] SMTP failed: {e}")
+    if not email_sent:
+        print(f"[Reset] Dev mode — code for {email}: {code}")
+        return JSONResponse({"ok": True, "dev_code": code})
+
+    return JSONResponse({"ok": True})
+
+@app.post("/api/reset-password")
+async def reset_password(request: Request, data: dict):
+    """Verify code and update password."""
+    await check_rate_limit(request, max_requests=5, window_sec=60)
+    email = (data.get("email") or "").strip().lower()
+    code  = (data.get("code") or "").strip()
+    new_password = (data.get("password") or "")
+    if not email or not code or len(new_password) < 4:
+        return JSONResponse({"error": "Email, code, and new password (4+ chars) required"}, status_code=400)
+
+    user = await _get_user_by_email(email)
+    if not user:
+        return JSONResponse({"error": "Account not found"}, status_code=400)
+
+    # Verify code
+    stored_code = None
+    safe_email = email.replace(".", "_").replace("@", "_")
+    if FIREBASE_DB_URL:
+        data = await _db_get(f"reset/{safe_email}")
+        if data and isinstance(data, dict):
+            if time.time() > data.get("expires", 0):
+                await _db_del(f"reset/{safe_email}")
+                return JSONResponse({"error": "Code expired"}, status_code=400)
+            stored_code = data.get("code")
+            await _db_del(f"reset/{safe_email}")
+    else:
+        pending = _pending_verifications.get(f"reset:{email}")
+        if pending:
+            if time.time() > pending["expires_at"]:
+                del _pending_verifications[f"reset:{email}"]
+                return JSONResponse({"error": "Code expired"}, status_code=400)
+            stored_code = pending["code"]
+            del _pending_verifications[f"reset:{email}"]
+
+    if not stored_code or stored_code != code:
+        return JSONResponse({"error": "Invalid code"}, status_code=400)
+
+    # Code is valid — return user info so client can update password
+    return JSONResponse({"ok": True, "displayName": user.get("displayName", ""), "email": email})
+
 @app.post("/api/scan")
 async def scan_item(request: Request, file: UploadFile = File(...), mode: str = Form("dispose")):
     await check_rate_limit(request, max_requests=20, window_sec=60)

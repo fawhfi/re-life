@@ -427,6 +427,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     loadRewards();
     loadFact();
     setupDragDrop();
+    initNavDrag();
     await detectCamera();
     initTheme();
     setScanModeUI('dispose'); // default active scan button
@@ -470,6 +471,42 @@ function startClock() {
 
 
 // ═══════════════════════════════════════════════════════════════════════
+// 5.5 NAV BAR DRAG/SWIPE
+// ═══════════════════════════════════════════════════════════════════════
+
+function initNavDrag() {
+    const navbar = document.querySelector('nav.nav, .app-nav');
+    if (!navbar) return;
+    let isDragging = false;
+
+    function evalTab(clientX) {
+        const btns = navbar.querySelectorAll('.nav-btn');
+        let best = null, minDist = Infinity;
+        btns.forEach(btn => {
+            const r = btn.getBoundingClientRect();
+            if (clientX >= r.left && clientX <= r.right) best = btn;
+            const dist = Math.abs(clientX - (r.left + r.width / 2));
+            if (dist < minDist) { minDist = dist; if (!best) best = btn; }
+        });
+        if (best) {
+            const m = (best.getAttribute('onclick') || '').match(/navigateTo\(['"]([^'"]+)['"]\)/);
+            if (m && m[1] && state.activeTab !== m[1]) navigateTo(m[1]);
+        }
+    }
+
+    navbar.addEventListener('pointerdown', e => {
+        if (e.button !== 0) return;
+        isDragging = true;
+        navbar.setPointerCapture(e.pointerId);
+        evalTab(e.clientX);
+    });
+    navbar.addEventListener('pointermove', e => { if (isDragging) evalTab(e.clientX); });
+    const stop = e => { isDragging = false; try { navbar.releasePointerCapture(e.pointerId); } catch {} };
+    navbar.addEventListener('pointerup', stop);
+    navbar.addEventListener('pointercancel', stop);
+}
+
+// ═══════════════════════════════════════════════════════════════════════
 // 6. TAB NAVIGATION
 // ═══════════════════════════════════════════════════════════════════════
 
@@ -482,7 +519,15 @@ function navigateTo(name) {
     if (tab) tab.classList.add('active');
     if (nav) nav.classList.add('is-active');
     if (name === 'record') loadRecords();
-    if (name === 'rewards') renderRewards();
+    if (name === 'rewards') {
+        renderRewards();
+        const balance = Math.max(0, (state.earnedPoints || 0) - (state.spentPoints || 0));
+        const ptsEl = document.getElementById('rew-pts');
+        if (ptsEl) {
+            const cur = parseInt(ptsEl.textContent) || 0;
+            animateNumber('rew-pts', cur, balance, 1000);
+        }
+    }
     if (name === 'more') {
     }
 }
@@ -893,7 +938,14 @@ function showScanResult(item) {
     const grade = item.grade ? { grade: item.grade, color: item.grade_color } : getGrade(overall);
 
     document.getElementById('ov-score').textContent = overall;
-    document.getElementById('ov-bar-fill').style.cssText = `width:${overall}%;background:${grade.color}`;
+    const barFill = document.getElementById('ov-bar-fill');
+    if (barFill) {
+        barFill.style.width = '0%';
+        requestAnimationFrame(() => {
+            barFill.style.width = `${overall}%`;
+            barFill.style.backgroundColor = grade.color;
+        });
+    }
     document.getElementById('grade-tag').textContent = grade.grade;
     document.getElementById('grade-tag').style.background = grade.color;
     document.getElementById('grade-advice').textContent = item.grade_advice || '';

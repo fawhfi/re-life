@@ -135,13 +135,19 @@ function toggleRegisterLang() {
 }
 
 function showStep(id) {
-    document.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
-    document.getElementById(id).classList.add('active');
-    if (id === 'step-verify') {
-        document.getElementById('step-title').textContent = 'Verify your email';
-        document.getElementById('verify-hint').textContent = 'We sent a 6-digit code to ' + pendingEmail;
-    } else {
-        document.getElementById('step-title').textContent = 'Create your eco account';
+    const steps = document.querySelectorAll('.step');
+    steps.forEach(s => { s.style.opacity = '0'; s.classList.remove('active'); });
+    const activeStep = document.getElementById(id);
+    activeStep.classList.add('active');
+    setTimeout(() => { activeStep.style.opacity = '1'; }, 50);
+    const titleEl = document.getElementById('step-title');
+    if (titleEl) {
+        if (id === 'step-verify') {
+            titleEl.textContent = registerLang === 'zh' ? '驗證您的電子郵件' : 'Verify your email';
+            document.getElementById('verify-hint').textContent = 'We sent a 6-digit code to ' + pendingEmail;
+        } else {
+            titleEl.textContent = registerLang === 'zh' ? '建立您的環保帳戶' : 'Create your eco account';
+        }
     }
 }
 

@@ -774,12 +774,15 @@ async def get_news(request: Request):
     """Fetch environmental news via SerpAPI, cached for 24h in Firebase."""
     await check_rate_limit(request, max_requests=30, window_sec=120)
 
-    # Return cached news if fresh (< 24h)
+    # Return cached news if fresh (refreshes daily at 6am)
     if FIREBASE_DB_URL:
         cache = await _db_get("news_cache")
         if cache and isinstance(cache, dict):
             cached_at = cache.get("fetched_at", 0)
-            if time.time() - cached_at < 86400:  # 24 hours
+            # Calculate 6am today (UTC+8 for HK)
+            now = time.time()
+            today_6am = now - ((now - 8 * 3600) % 86400) + 6 * 3600 + 8 * 3600
+            if cached_at > today_6am:  # fetched after 6am today
                 items = cache.get("data", [])
                 if items:
                     return items

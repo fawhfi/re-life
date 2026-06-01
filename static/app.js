@@ -861,22 +861,29 @@ function showScanResult(item) {
     renderStars('result-eco-stars', item.eco_rate);
     renderStars('result-recycle-stars', item.recycle_rate);
 
-    // Alternative product
+    // Alternative product (purchase mode only)
+    const isPurchase = item.mode === 'purchase';
     const alt = document.getElementById('result-alt');
-    if (item.alternative) {
+    if (item.alternative && isPurchase) {
         alt.classList.remove('hidden');
         document.getElementById('alt-name').textContent = item.alternative.name;
         renderStars('alt-eco-stars', item.alternative.eco_rate);
         renderStars('alt-recycle-stars', item.alternative.recycle_rate);
-        // Reset prove button for new scan
-        const proveBtn = document.getElementById('lbl-prove-swap');
-        if (proveBtn) {
+    } else {
+        alt.classList.add('hidden');
+    }
+
+    // Prove button — only in purchase mode
+    const proveBtn = document.getElementById('lbl-prove-swap');
+    if (proveBtn) {
+        if (isPurchase && item.alternative) {
+            proveBtn.classList.remove('hidden');
             proveBtn.textContent = '📸 Prove You Swapped → Earn +50 Pts';
             proveBtn.style.background = '';
             proveBtn.disabled = false;
+        } else {
+            proveBtn.classList.add('hidden');
         }
-    } else {
-        alt.classList.add('hidden');
     }
 
     // Weighted score breakdown

@@ -100,8 +100,8 @@ const FB = {
         if (!snap.exists()) return null;
         const entries = Object.entries(snap.val());
         if (entries.length === 0) return null;
-        const [id, data] = entries[0];
-        return { id, ...data };
+        const [key, data] = entries[0];
+        return { id: data.userId || key, _key: key, ...data };
     },
 
     async loginUser(displayName, password) {
@@ -110,7 +110,7 @@ const FB = {
         if (!user) throw new Error("USER_NOT_FOUND");
         const ok = await verifyPassword(password, user.passwordHash);
         if (!ok) throw new Error("WRONG_PASSWORD");
-        return { id: user.userId || user.id, displayName: user.displayName, photoUrl: user.photoUrl };
+        return { id: user.userId || user._key, _key: user._key, displayName: user.displayName, photoUrl: user.photoUrl };
     },
 
     async resetPasswordByEmail(email, newPassword) {
@@ -121,7 +121,7 @@ const FB = {
         const entries = Object.entries(snap.val());
         if (entries.length === 0) throw new Error("USER_NOT_FOUND");
         const [key, userData] = entries[0];
-        const salt = userData.displayName;
+        const salt = randomSalt();
         const passwordHash = await hashPassword(newPassword, salt);
         await update(ref(db, `users/${key}`), { passwordHash });
         return true;
@@ -149,7 +149,16 @@ const FB = {
 
     async saveUserData(userId, data) {
         await FB._ensure();
-        await update(ref(db, "users/" + userId), data);
+        // userId may be short ID (usr_xxx) or Firebase key — look up if needed
+        let key = userId;
+        if (userId && userId.startsWith("usr_")) {
+            const q = query(ref(db, "users"), orderByChild("userId"), equalTo(userId), limitToFirst(1));
+            const snap = await get(q);
+            if (snap.exists()) {
+                key = Object.keys(snap.val())[0];
+            }
+        }
+        await update(ref(db, "users/" + key), data);
     },
 
     // ── Items ──────────────────────────────────────────────────────────

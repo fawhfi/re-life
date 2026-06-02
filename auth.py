@@ -15,18 +15,25 @@ _ratelimit_store: dict[str, list[float]] = defaultdict(list)
 async def db_put(path: str, data):
     try:
         async with httpx.AsyncClient(timeout=10) as c:
-            await c.put(f"{FIREBASE_DB_URL}/{path}.json", json=data)
+            r = await c.put(f"{FIREBASE_DB_URL}/{path}.json", json=data)
+            if r.status_code >= 400:
+                print(f"[DB] Put {path} → {r.status_code} {r.text[:100]}")
+                raise Exception(f"HTTP {r.status_code}")
     except Exception as e:
         print(f"[DB] Put failed: {e}")
+        raise
 
 async def db_get(path: str):
     try:
         async with httpx.AsyncClient(timeout=10) as c:
             res = await c.get(f"{FIREBASE_DB_URL}/{path}.json")
-            return res.json() if res.status_code == 200 else None
+            if res.status_code == 200:
+                return res.json()
+            print(f"[DB] Get {path} → {res.status_code}")
+            return None
     except Exception as e:
         print(f"[DB] Get failed: {e}")
-        return None
+        raise
 
 async def db_del(path: str):
     try:
@@ -49,7 +56,10 @@ async def check_rate_limit(request, max_requests: int = 5, window_sec: int = 60)
 
     if FIREBASE_DB_URL:
         now = time.time()
-        data = await db_get(f"rate_limit/{safe_key}")
+        try:
+            data = await db_get(f"rate_limit/{safe_key}")
+        except:
+            data = None
         if data and isinstance(data, dict):
             count = data.get("count", 0)
             expires = data.get("expires", 0)
@@ -59,7 +69,14 @@ async def check_rate_limit(request, max_requests: int = 5, window_sec: int = 60)
                 count = 0
         else:
             count = 0
-        await db_put(f"rate_limit/{safe_key}", {"count": count + 1, "expires": now + window_sec})
+        # Try Firebase write; fall back to in-memory if it fails
+        try:
+            await db_put(f"rate_limit/{safe_key}", {"count": count + 1, "expires": now + window_sec})
+        except:
+            _ratelimit_store[key] = [t for t in _ratelimit_store.get(key, []) if t > now - window_sec]
+            if len(_ratelimit_store[key]) >= max_requests:
+                raise HTTPException(status_code=429, detail="Too many requests — slow down")
+            _ratelimit_store[key].append(now)
     else:
         now = time.time()
         cutoff = now - window_sec

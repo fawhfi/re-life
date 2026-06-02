@@ -61,12 +61,12 @@ async def root(request: Request):
 
 @app.get("/login", response_class=HTMLResponse)
 async def login(request: Request):
-    await check_rate_limit(request, 10, 60)
+    await check_rate_limit(request, 5, 60)
     return HTMLResponse(_inject_firebase_config(_page("login.html")))
 
 @app.get("/register", response_class=HTMLResponse)
 async def register(request: Request):
-    await check_rate_limit(request, 10, 60)
+    await check_rate_limit(request, 5, 60)
     return HTMLResponse(_inject_firebase_config(_page("register.html")))
 
 # ── Auth endpoints ──────────────────────────────────────────────────────────

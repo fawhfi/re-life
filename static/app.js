@@ -145,7 +145,11 @@ const STRINGS = {
 // ═══════════════════════════════════════════════════════════════════════
 
 function tr(key) {
-    return STRINGS[state.lang][key] || key;
+    // Use I18N loader if available, fall back to inline STRINGS
+    if (typeof I18N !== 'undefined' && I18N.tr) {
+        return I18N.tr(key) || (STRINGS[state.lang] && STRINGS[state.lang][key]) || key;
+    }
+    return (STRINGS[state.lang] && STRINGS[state.lang][key]) || key;
 }
 
 function esc(s) {
@@ -432,6 +436,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Init language from storage
     state.lang = safeStorage.get('RE_LIFE_LANG') || 'en';
+    if (typeof I18N !== 'undefined') await I18N.load(state.lang);
     document.documentElement.lang = state.lang === 'zh' ? 'zh-HK' : 'en';
     updateAllLabels();
 
@@ -1786,9 +1791,10 @@ async function handleRegister(e) {
 // 15. LANGUAGE
 // ═══════════════════════════════════════════════════════════════════════
 
-function toggleLang() {
+async function toggleLang() {
     state.lang = state.lang === 'en' ? 'zh' : 'en';
     safeStorage.set('RE_LIFE_LANG', state.lang);
+    if (typeof I18N !== 'undefined') await I18N.load(state.lang);
     document.documentElement.lang = state.lang === 'en' ? 'en' : 'zh-HK';
     const langInd = document.getElementById('lang-ind');
     if (langInd) langInd.textContent = state.lang === 'en' ? 'Eng' : '中文';

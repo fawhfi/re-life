@@ -149,16 +149,28 @@ const FB = {
 
     async saveUserData(userId, data) {
         await FB._ensure();
-        // userId may be short ID (usr_xxx) or Firebase key — look up if needed
         let key = userId;
-        if (userId && userId.startsWith("usr_")) {
-            const q = query(ref(db, "users"), orderByChild("userId"), equalTo(userId), limitToFirst(1));
-            const snap = await get(q);
-            if (snap.exists()) {
-                key = Object.keys(snap.val())[0];
+        // If given short userId (usr_xxx), look up Firebase key
+        if (userId && typeof userId === 'string' && userId.startsWith("usr_")) {
+            try {
+                const q = query(ref(db, "users"), orderByChild("userId"), equalTo(userId), limitToFirst(1));
+                const snap = await get(q);
+                if (snap.exists()) {
+                    key = Object.keys(snap.val())[0];
+                } else {
+                    console.error("[FB] saveUserData: userId not found:", userId);
+                    return;
+                }
+            } catch (e) {
+                console.error("[FB] saveUserData lookup failed:", e);
+                return;
             }
         }
-        await update(ref(db, "users/" + key), data);
+        try {
+            await update(ref(db, "users/" + key), data);
+        } catch (e) {
+            console.error("[FB] saveUserData update failed:", e);
+        }
     },
 
     // ── Items ──────────────────────────────────────────────────────────
@@ -182,10 +194,15 @@ const FB = {
 
     async getItems(userId = null) {
         await FB._ensure();
-        const snap = await get(query(ref(db, "items"), orderByChild("createdAt")));
+        const snap = await get(ref(db, "items"));
         if (!snap.exists()) return [];
-        let items = Object.entries(snap.val()).map(([id, data]) => ({ id, ...data })).reverse();
-        if (userId) items = items.filter(it => !it.userId || it.userId === userId);
+        let items = Object.entries(snap.val()).map(([id, data]) => ({ id, ...data }));
+        // Sort by createdAt descending (newest first)
+        items.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+        // Filter by userId; include items without userId (legacy)
+        if (userId) {
+            items = items.filter(it => !it.userId || it.userId === userId);
+        }
         return items;
     },
 

@@ -1786,6 +1786,7 @@ async function handleRegister(e) {
 
 function toggleLang() {
     state.lang = state.lang === 'en' ? 'zh' : 'en';
+    safeStorage.set('RE_LIFE_LANG', state.lang);
     document.documentElement.lang = state.lang === 'en' ? 'en' : 'zh-HK';
     const langInd = document.getElementById('lang-ind');
     if (langInd) langInd.textContent = state.lang === 'en' ? 'Eng' : '中文';

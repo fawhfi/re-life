@@ -39,10 +39,13 @@ async def db_del(path: str):
 
 async def check_rate_limit(request, max_requests: int = 5, window_sec: int = 60):
     from fastapi import HTTPException
-    ip = request.client.host if request.client else "unknown"
+    # Get real client IP (Vercel puts it in x-forwarded-for)
+    ip = request.headers.get("x-forwarded-for", "").split(",")[0].strip()
+    if not ip:
+        ip = request.client.host if request.client else "unknown"
     route = request.url.path
     key = f"rl:{ip}:{route}"
-    safe_key = key.replace(":", "_").replace("/", "_")
+    safe_key = key.replace(":", "_").replace("/", "_").replace(".", "_")
 
     if FIREBASE_DB_URL:
         now = time.time()

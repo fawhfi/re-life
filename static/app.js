@@ -1449,15 +1449,7 @@ function renderRewards() {
 }
 
 function redeemReward(rewardId) {
-    const earned = state.records
-        .filter(r => r.mode === 'purchase')
-        .reduce((s, r) =>
-            s + (r.overall_score ||
-                calcWeighted(r.weighted_scores || { a: 50, b: 50, c: 50, d: 50, e: 50 },
-                    r.schema_id || 'food_new')),
-            0
-        );
-    const balance = Math.max(0, earned - state.spentPoints);
+    const balance = Math.max(0, (state.earnedPoints || 0) - (state.spentPoints || 0));
     const reward = state.rewards.find(r => r.id === rewardId);
 
     if (!reward || balance < reward.cost) {

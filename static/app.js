@@ -1822,9 +1822,9 @@ function updateAllLabels() {
         'lbl-claimed-title': 'claimedCoupons',
         'lbl-settings': 'settings',
         'nav-lbl-home': 'navHome',
-        'nav-lbl-record': 'recordHome',
-        'nav-lbl-rewards': 'rewards',
-        'nav-lbl-more': 'more',
+        'nav-lbl-record': 'navRecord',
+        'nav-lbl-rewards': 'navRewards',
+        'nav-lbl-more': 'navMore',
         'lbl-swap': 'swapMe',
     };
 

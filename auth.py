@@ -46,7 +46,6 @@ async def db_del(path: str):
 
 async def check_rate_limit(request, max_requests: int = 5, window_sec: int = 60):
     from fastapi import HTTPException
-    # Get real client IP (Vercel puts it in x-forwarded-for)
     ip = request.headers.get("x-forwarded-for", "").split(",")[0].strip()
     if not ip:
         ip = request.client.host if request.client else "unknown"
@@ -66,10 +65,12 @@ async def check_rate_limit(request, max_requests: int = 5, window_sec: int = 60)
             if now < expires and count >= max_requests:
                 raise HTTPException(status_code=429, detail="Too many requests — slow down")
             if now >= expires:
+                # Delete expired entry from DB
+                try: await db_del(f"rate_limit/{safe_key}")
+                except: pass
                 count = 0
         else:
             count = 0
-        # Try Firebase write; fall back to in-memory if it fails
         try:
             await db_put(f"rate_limit/{safe_key}", {"count": count + 1, "expires": now + window_sec})
         except:

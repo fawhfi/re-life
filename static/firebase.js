@@ -211,8 +211,16 @@ const FB = {
             let items = keys.map(id => ({ id, ...val[id] }));
             items.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
             if (userId) {
-                items = items.filter(it => !it.userId || it.userId === userId);
-                console.log("[FB] getItems: after filter=", items.length);
+                // Match by short userId OR legacy username field
+                const displayName = (await FB.getUser(userId))?.displayName || "";
+                items = items.filter(it => {
+                    if (!it.userId) return true;  // no userId = legacy item
+                    if (it.userId === userId) return true;
+                    if (displayName && it.userId === displayName) return true;  // legacy username
+                    if (it.user === displayName) return true;  // old 'user' field
+                    return false;
+                });
+                console.log("[FB] getItems: after filter=", items.length, "displayName=", displayName);
             }
             return items;
         } catch (e) {

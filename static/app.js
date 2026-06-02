@@ -265,6 +265,7 @@ const state = {
     records: [],
     spentPoints: 0,
     earnedPoints: 0,
+    userKey: null,
     claimedCoupons: [],
     rewards: [],
     clockInterval: null,
@@ -1558,6 +1559,7 @@ async function initAccounts() {
             const user = await FB.getUserByName(stored);
             if (user) {
                 state.userId = user.id;
+                state.userKey = user._key || null;
                 state.spentPoints = user.spent_points || 0;
                 state.earnedPoints = user.earned_points || 0;
                 state.claimedCoupons = user.claimed_coupons || [];
@@ -1636,6 +1638,7 @@ async function loginAs(name, avatar, userId) {
         const user = await FB.getUserByName(name);
         if (user) {
             state.userId = user.id;
+            state.userKey = user._key || null;
             state.spentPoints = user.spent_points || 0;
             state.earnedPoints = user.earned_points || 0;
             state.claimedCoupons = user.claimed_coupons || [];
@@ -1647,9 +1650,11 @@ async function loginAs(name, avatar, userId) {
 }
 
 async function saveUserData() {
-    if (!state.currentUser || !state.userId) return;
+    if (!state.currentUser) return;
+    const id = state.userKey || state.userId;
+    if (!id) return;
     try {
-        await FB.saveUserData(state.userId, {
+        await FB.saveUserData(id, {
             spent_points: state.spentPoints,
             earned_points: state.earnedPoints,
             claimed_coupons: state.claimedCoupons,

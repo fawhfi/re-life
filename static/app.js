@@ -253,7 +253,7 @@ const state = {
     selectedFile: null,
     currentTipIndex: 0,
     tips: [],
-    lang: 'en',
+    lang: safeStorage.get('RE_LIFE_LANG') || 'en',
     aiMode: true,
     itemType: 'food',
     itemState: 'new',
@@ -428,6 +428,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     startClock();
+    updateAllLabels();
     await initAccounts();
     await loadRecords();
     loadTips();

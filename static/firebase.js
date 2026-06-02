@@ -158,8 +158,15 @@ const FB = {
                 if (snap.exists()) {
                     key = Object.keys(snap.val())[0];
                 } else {
-                    console.error("[FB] saveUserData: userId not found:", userId);
-                    return;
+                    console.warn("[FB] saveUserData: userId not found, trying displayName fallback");
+                    // Fallback: try with the current displayName
+                    const user = await FB.getUserByName(data._fallbackName || "");
+                    if (user && user._key) {
+                        key = user._key;
+                    } else {
+                        console.error("[FB] saveUserData: cannot find user key");
+                        return;
+                    }
                 }
             } catch (e) {
                 console.error("[FB] saveUserData lookup failed:", e);
@@ -168,6 +175,7 @@ const FB = {
         }
         try {
             await update(ref(db, "users/" + key), data);
+            console.log("[FB] saveUserData: saved to", key);
         } catch (e) {
             console.error("[FB] saveUserData update failed:", e);
         }
@@ -199,26 +207,23 @@ const FB = {
         }
     },
 
-    async getItems(userId = null, displayName = null) {
+    async getItems(userId = null, displayName = null, userKey = null) {
         await FB._ensure();
         try {
             const snap = await get(ref(db, "items"));
-            console.log("[FB] getItems: exists=", snap.exists(), "userId=", userId, "displayName=", displayName);
-            if (!snap.exists()) { console.log("[FB] No items in database"); return []; }
+            if (!snap.exists()) return [];
             const val = snap.val();
-            const keys = Object.keys(val);
-            console.log("[FB] getItems: total items=", keys.length);
-            let items = keys.map(id => ({ id, ...val[id] }));
+            let items = Object.keys(val).map(id => ({ id, ...val[id] }));
             items.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
             if (userId) {
                 items = items.filter(it => {
                     const owner = it.userId || it.userid || it.user || it.userName || it.username || "";
-                    if (!owner) return true;  // legacy — no owner field
-                    if (owner === userId) return true;
-                    if (owner === displayName) return true;
+                    if (!owner) return true;
+                    if (owner === userId) return true;       // short ID (usr_xxx)
+                    if (owner === userKey) return true;      // Firebase push key (-Oxxx)
+                    if (owner === displayName) return true;   // username string
                     return false;
                 });
-                console.log("[FB] getItems: after filter=", items.length);
             }
             return items;
         } catch (e) {

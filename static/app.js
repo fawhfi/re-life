@@ -1112,7 +1112,7 @@ function resetScan() {
 
 async function loadRecords() {
     try {
-        const items = await FB.getItems(state.userId, state.currentUser);
+        const items = await FB.getItems(state.userId, state.currentUser, state.userKey);
         state.records = items.map(it => ({
             id: it.id,
             name: it.name,

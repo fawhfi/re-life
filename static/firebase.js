@@ -178,32 +178,47 @@ const FB = {
     async addItem(item) {
         await FB._ensure();
         const itemRef = push(ref(db, "items"));
-        await set(itemRef, {
-            name: item.name || "Scanned Item", createdAt: Date.now(),
-            status: item.mode || "dispose", description: item.description || "",
-            photoUrl: item.image_url || "", dealtWithMethod: item.disposal_guide || "",
-            dealtWithDate: null, userId: item.userId || null,
-            eco_rate: item.eco_rate || 3, recycle_rate: item.recycle_rate || 4,
-            overall_score: item.overall_score || 50, material: item.material || "",
-            grade: item.grade || "", brand: item.brand || "", category: item.category || "",
-            weighted_scores: item.weighted_scores || {}, schema_id: item.schema_id || "",
-            alternative: item.alternative || null,
-        });
-        return { id: itemRef.key };
+        console.log("[FB] addItem: saving to", itemRef.key);
+        try {
+            await set(itemRef, {
+                name: item.name || "Scanned Item", createdAt: Date.now(),
+                status: item.mode || "dispose", description: item.description || "",
+                photoUrl: item.image_url || "", dealtWithMethod: item.disposal_guide || "",
+                dealtWithDate: null, userId: item.userId || null,
+                eco_rate: item.eco_rate || 3, recycle_rate: item.recycle_rate || 4,
+                overall_score: item.overall_score || 50, material: item.material || "",
+                grade: item.grade || "", brand: item.brand || "", category: item.category || "",
+                weighted_scores: item.weighted_scores || {}, schema_id: item.schema_id || "",
+                alternative: item.alternative || null,
+            });
+            console.log("[FB] addItem: saved successfully");
+            return { id: itemRef.key };
+        } catch (e) {
+            console.error("[FB] addItem failed:", e);
+            throw e;
+        }
     },
 
     async getItems(userId = null) {
         await FB._ensure();
-        const snap = await get(ref(db, "items"));
-        if (!snap.exists()) return [];
-        let items = Object.entries(snap.val()).map(([id, data]) => ({ id, ...data }));
-        // Sort by createdAt descending (newest first)
-        items.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
-        // Filter by userId; include items without userId (legacy)
-        if (userId) {
-            items = items.filter(it => !it.userId || it.userId === userId);
+        try {
+            const snap = await get(ref(db, "items"));
+            console.log("[FB] getItems: exists=", snap.exists(), "userId=", userId);
+            if (!snap.exists()) { console.log("[FB] No items in database"); return []; }
+            const val = snap.val();
+            const keys = Object.keys(val);
+            console.log("[FB] getItems: total items=", keys.length);
+            let items = keys.map(id => ({ id, ...val[id] }));
+            items.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+            if (userId) {
+                items = items.filter(it => !it.userId || it.userId === userId);
+                console.log("[FB] getItems: after filter=", items.length);
+            }
+            return items;
+        } catch (e) {
+            console.error("[FB] getItems failed:", e);
+            return [];
         }
-        return items;
     },
 
     async deleteItem(itemId) {

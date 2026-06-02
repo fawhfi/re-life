@@ -149,16 +149,36 @@ const FB = {
 
     async saveUserData(userId, data) {
         await FB._ensure();
-        // userId may be short ID (usr_xxx) or Firebase key — look up if needed
         let key = userId;
-        if (userId && userId.startsWith("usr_")) {
-            const q = query(ref(db, "users"), orderByChild("userId"), equalTo(userId), limitToFirst(1));
-            const snap = await get(q);
-            if (snap.exists()) {
-                key = Object.keys(snap.val())[0];
+        // If given short userId (usr_xxx), look up Firebase key
+        if (userId && typeof userId === 'string' && userId.startsWith("usr_")) {
+            try {
+                const q = query(ref(db, "users"), orderByChild("userId"), equalTo(userId), limitToFirst(1));
+                const snap = await get(q);
+                if (snap.exists()) {
+                    key = Object.keys(snap.val())[0];
+                } else {
+                    console.warn("[FB] saveUserData: userId not found, trying displayName fallback");
+                    // Fallback: try with the current displayName
+                    const user = await FB.getUserByName(data._fallbackName || "");
+                    if (user && user._key) {
+                        key = user._key;
+                    } else {
+                        console.error("[FB] saveUserData: cannot find user key");
+                        return;
+                    }
+                }
+            } catch (e) {
+                console.error("[FB] saveUserData lookup failed:", e);
+                return;
             }
         }
-        await update(ref(db, "users/" + key), data);
+        try {
+            await update(ref(db, "users/" + key), data);
+            console.log("[FB] saveUserData: saved to", key);
+        } catch (e) {
+            console.error("[FB] saveUserData update failed:", e);
+        }
     },
 
     // ── Items ──────────────────────────────────────────────────────────
@@ -166,27 +186,50 @@ const FB = {
     async addItem(item) {
         await FB._ensure();
         const itemRef = push(ref(db, "items"));
-        await set(itemRef, {
-            name: item.name || "Scanned Item", createdAt: Date.now(),
-            status: item.mode || "dispose", description: item.description || "",
-            photoUrl: item.image_url || "", dealtWithMethod: item.disposal_guide || "",
-            dealtWithDate: null, userId: item.userId || null,
-            eco_rate: item.eco_rate || 3, recycle_rate: item.recycle_rate || 4,
-            overall_score: item.overall_score || 50, material: item.material || "",
-            grade: item.grade || "", brand: item.brand || "", category: item.category || "",
-            weighted_scores: item.weighted_scores || {}, schema_id: item.schema_id || "",
-            alternative: item.alternative || null,
-        });
-        return { id: itemRef.key };
+        console.log("[FB] addItem: saving to", itemRef.key);
+        try {
+            await set(itemRef, {
+                name: item.name || "Scanned Item", createdAt: Date.now(),
+                status: item.mode || "dispose", description: item.description || "",
+                photoUrl: item.image_url || "", dealtWithMethod: item.disposal_guide || "",
+                dealtWithDate: null, userId: item.userId || null,
+                eco_rate: item.eco_rate || 3, recycle_rate: item.recycle_rate || 4,
+                overall_score: item.overall_score || 50, material: item.material || "",
+                grade: item.grade || "", brand: item.brand || "", category: item.category || "",
+                weighted_scores: item.weighted_scores || {}, schema_id: item.schema_id || "",
+                alternative: item.alternative || null,
+            });
+            console.log("[FB] addItem: saved successfully");
+            return { id: itemRef.key };
+        } catch (e) {
+            console.error("[FB] addItem failed:", e);
+            throw e;
+        }
     },
 
-    async getItems(userId = null) {
+    async getItems(userId = null, displayName = null, userKey = null) {
         await FB._ensure();
-        const snap = await get(query(ref(db, "items"), orderByChild("createdAt")));
-        if (!snap.exists()) return [];
-        let items = Object.entries(snap.val()).map(([id, data]) => ({ id, ...data })).reverse();
-        if (userId) items = items.filter(it => !it.userId || it.userId === userId);
-        return items;
+        try {
+            const snap = await get(ref(db, "items"));
+            if (!snap.exists()) return [];
+            const val = snap.val();
+            let items = Object.keys(val).map(id => ({ id, ...val[id] }));
+            items.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+            if (userId) {
+                items = items.filter(it => {
+                    const owner = it.userId || it.userid || it.user || it.userName || it.username || "";
+                    if (!owner) return true;
+                    if (owner === userId) return true;       // short ID (usr_xxx)
+                    if (owner === userKey) return true;      // Firebase push key (-Oxxx)
+                    if (owner === displayName) return true;   // username string
+                    return false;
+                });
+            }
+            return items;
+        } catch (e) {
+            console.error("[FB] getItems failed:", e);
+            return [];
+        }
     },
 
     async deleteItem(itemId) {

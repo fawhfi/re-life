@@ -23,217 +23,12 @@ const CRITERIA_LABELS = {
     item_expire: { a: 'Env. Impact', b: 'Sustainability', c: 'Biodegradable', d: 'Recycling', e: 'Reuse Potential' },
 };
 
-// -- i18n strings (English / 中文) -------------------------------------
-const STRINGS = {
-    en: {
-        appTitle: 'Re-Life', scanItems: 'Scan Your Item',
-        navHome: 'Home',
-        toDispose: 'TO DISPOSE', toPurchase: 'TO PURCHASE',
-        disposeSub: 'E-waste, Organics, Bulky', purchaseSub: 'Groceries, Dairy, Bottles',
-        recordHome: 'Record', greenTips: 'GREEN NEWS', knowMore: '+ READ MORE',
-        ecoRate: 'Eco-Rate', recycleRate: 'Recycle Rate',
-        alternativeProduct: 'Alternative Product', addToRecord: 'Add to Record',
-        scanAgain: 'Scan Again', uploadPhoto: 'Tap to scan', orDrag: 'or drag & drop anywhere',
-        scanning: 'AI Analyzing...', scanningHint: 'Gemini is evaluating your item',
-        purchaseMode: '🥛 Purchase Mode', disposalMode: '♻️ Disposal Mode',
-        noRecords: 'No records yet', noRecordsHint: 'Start by scanning an item',
-        language: 'Language', policy: 'Policy',
-        aiModeLabel: '🤖 Gemini AI', aiModeOn: 'Live AI', aiModeOff: 'Mock',
-        itemType: 'Item Type', itemState: 'State',
-        foodItems: 'Food Items', generalItems: 'General Items',
-        newPurchase: 'New Purchase', aboutToExpire: 'About to Expire',
-        overallScore: 'Overall Score', grade: 'Grade', advice: 'Advice',
-        criteria: 'Weighted Criteria', showDetails: 'Show Details', hideDetails: 'Hide Details',
-        disposalGuide: 'Disposal Guide', material: 'Material', method: 'Method',
-        location: 'Location', precaution: 'Precaution',
-        scanBtn: '🔍 Scan Item', disposeBadge: 'TO DISPOSE', purchaseBadge: 'TO PURCHASE',
-        ecoGradeLabel: 'Eco Grade', rewards: 'Rewards', more: 'More',
-        pointsBalance: 'Eco Points Balance', pointsAvail: 'Points available',
-        rewardsSub: 'Convert your choices into real-world action.',
-        myCoupons: 'My Coupons', viewClaimed: '🎫 View Claimed', redeem: 'Redeem',
-        ecoMarketplace: 'Eco-Marketplace', claimedCoupons: 'My Claimed Coupons',
-        insufficientPoints: 'Not enough points.', swapMe: 'SWAP ME',
-        didYouKnow: 'Did you know?', totalItems: 'Items', ecoAvg: 'Eco Avg',
-        recycleAvg: 'Recycle Avg', notLoggedIn: 'Not Logged In', logout: 'Logout',
-        loginAs: 'Login as', confirmLogout: 'Logout and clear local data?',
-        confirmClear: 'Clear all records?', settings: 'Settings',
-        soundOn: 'Sound ON', soundOff: 'Sound OFF',
-        ecoCommitments: 'My Eco Commitments',
-        commitment1: 'Bring reusable tote bag on grocery trips.',
-        commitment2: 'Separate compost scraps from general trash.',
-        commitment3: 'Consume plant-based milk alternatives weekly.',
-        privacyPolicy: 'Privacy & Community Policy',
-        policyText: 'Re-Life is committed to preserving local smart waste databases.',
-        version: 'Version 4.2.0 (Hong Kong HQ)', fullPolicy: 'Full Policy →',
-        clearAll: 'Clear All', couponClaimed: 'Coupon Claimed!',
-        couponCode: 'Your coupon code:', couponExpiry: 'Valid 30 days',
-        closeBtn: 'Close', cancelBtn: 'Cancel', confirmBtn: 'Confirm',
-        loginTitle: 'Welcome Back', loginTagline: 'Green Living Assistant',
-        usernameLabel: 'Username', passwordLabel: 'Password',
-        loginBtn: 'Log In', registerBtn: 'Create Account',
-        createAccountBtn: 'Create Account', backToLogin: '← Back to Login',
-        orDivider: 'or', versionLabel: 'v4.2.0 HK',
-        regUsernameLabel: 'Choose Username', regPasswordLabel: 'Choose Password',
-        loginError: 'Login failed. Try again.', registerError: 'Registration failed.',
-        usernameTaken: 'Username already taken.',
-    },
-    zh: {
-        appTitle: 'Re-Life', scanItems: '主頁',
-        toDispose: '要丟棄', toPurchase: '要購買',
-        disposeSub: '電子廢物、有機物、大型物品', purchaseSub: '雜貨、乳製品、瓶裝',
-        recordHome: '記錄', greenTips: '綠色提示', knowMore: '+ 了解更多',
-        ecoRate: '環保評分', recycleRate: '回收率',
-        alternativeProduct: '替代產品', addToRecord: '加入記錄',
-        scanAgain: '再次掃描', uploadPhoto: '點擊掃描', orDrag: '或拖放檔案到此處',
-        scanning: 'AI 分析中...', scanningHint: 'Gemini 正在評估你的物品',
-        purchaseMode: '🥛 購買模式', disposalMode: '♻️ 棄置模式',
-        noRecords: '尚無記錄', noRecordsHint: '在上方掃描物品開始使用',
-        language: '語言', policy: '政策',
-        aiModeLabel: '🤖 Gemini AI', aiModeOn: '即時 AI', aiModeOff: '模擬',
-        itemType: '物品類型', itemState: '狀態',
-        foodItems: '食物類', generalItems: '一般物品',
-        newPurchase: '新購買', aboutToExpire: '即將過期',
-        overallScore: '總體評分', grade: '等級', advice: '建議',
-        criteria: '權重指標', showDetails: '顯示詳情', hideDetails: '隱藏詳情',
-        disposalGuide: '棄置指引', material: '物料', method: '處理方法',
-        location: '回收地點', precaution: '注意事項',
-        scanBtn: '🔍 掃描物品', disposeBadge: '要棄置', purchaseBadge: '要購買',
-        ecoGradeLabel: '環保等級', rewards: '獎勵', more: '更多',
-        pointsBalance: '環保積分餘額', pointsAvail: '可用積分',
-        rewardsSub: '將你的可持續選擇轉化為實際行動。',
-        myCoupons: '我的禮券', viewClaimed: '🎫 查看已兌換', redeem: '兌換',
-        ecoMarketplace: '環保市集', claimedCoupons: '已兌換禮券',
-        insufficientPoints: '積分不足。', swapMe: '更換',
-        didYouKnow: '你知道嗎？', totalItems: '物品數', ecoAvg: '環保均分',
-        recycleAvg: '回收均分', notLoggedIn: '尚未登入', logout: '登出',
-        loginAs: '登入為', confirmLogout: '確定登出並清除本地數據？',
-        confirmClear: '確定清除所有記錄？', settings: '設置',
-        soundOn: '聲音開', soundOff: '靜音',
-        ecoCommitments: '我的環保承諾',
-        commitment1: '購物時攜帶可重複使用的帆布袋。',
-        commitment2: '將廚餘與一般垃圾分開。',
-        commitment3: '每週飲用植物奶替代品。',
-        privacyPolicy: '隱私與社區政策',
-        policyText: 'Re-Life 致力於保護本地智慧廢物數據庫。',
-        version: '版本 4.2.0 (香港總部)', fullPolicy: '完整政策 →',
-        clearAll: '清除全部', couponClaimed: '禮券已領取！',
-        couponCode: '你的禮券代碼：', couponExpiry: '有效期 30 天',
-        closeBtn: '關閉', cancelBtn: '取消', confirmBtn: '確認',
-        loginTitle: '歡迎回來', loginTagline: '綠色生活助手',
-        usernameLabel: '用戶名', passwordLabel: '密碼',
-        loginBtn: '登入', registerBtn: '建立帳戶',
-        createAccountBtn: '建立帳戶', backToLogin: '← 返回登入',
-        orDivider: '或', versionLabel: 'v4.2.0 香港',
-        regUsernameLabel: '選擇用戶名', regPasswordLabel: '選擇密碼',
-        loginError: '登入失敗，請重試。', registerError: '註冊失敗。',
-        usernameTaken: '用戶名已被使用。',
-    },
-};
-
-
 // ═══════════════════════════════════════════════════════════════════════
-// 2. UTILITIES
+// 2. UTILITIES — tr() uses I18N loader from static/js/i18n.js
 // ═══════════════════════════════════════════════════════════════════════
 
 function tr(key) {
-    return STRINGS[state.lang][key] || key;
-}
-
-function esc(s) {
-    const d = document.createElement('div');
-    d.textContent = s;
-    return d.innerHTML;
-}
-
-function buildStars(rating) {
-    const r = Math.round(rating);
-    let h = '';
-    for (let i = 1; i <= 5; i++) {
-        h += `<span class="star ${i <= r ? 'is-filled' : ''}">★</span>`;
-    }
-    h += `<span class="rating-value">${r}/5</span>`;
-    return h;
-}
-
-function renderStars(id, rating) {
-    const el = document.getElementById(id);
-    if (el) el.innerHTML = buildStars(rating);
-}
-
-function calcWeighted(scores, schemaId) {
-    const w = SCHEMA_WEIGHTS[schemaId] || SCHEMA_WEIGHTS.food_new;
-    return Math.round(
-        (scores.a || 50) * w.a +
-        (scores.b || 50) * w.b +
-        (scores.c || 50) * w.c +
-        (scores.d || 50) * w.d +
-        (scores.e || 50) * w.e
-    );
-}
-
-function isDarkMode() {
-    return document.documentElement.getAttribute('data-theme') === 'dark';
-}
-
-function getGrade(score) {
-    const dark = isDarkMode();
-    if (score >= 85) return { grade: 'Excellent (A)', advice: 'Highly Recommended', color: dark ? '#4ade80' : '#065f46' };
-    if (score >= 70) return { grade: 'Good (B)', advice: 'Acceptable', color: dark ? '#34d399' : '#047857' };
-    if (score >= 55) return { grade: 'Fair (C)', advice: 'Consider Alternatives', color: dark ? '#fbbf24' : '#ca8a04' };
-    if (score >= 40) return { grade: 'Poor (D)', advice: 'Avoid if Possible', color: dark ? '#f97316' : '#b45309' };
-    return { grade: 'Very Poor (E)', advice: 'Strongly Discouraged', color: dark ? '#f87171' : '#dc2626' };
-}
-
-function getBarColor(v) {
-    const dark = isDarkMode();
-    if (v >= 70) return dark ? '#4ade80' : '#065f46';
-    if (v >= 50) return dark ? '#fbbf24' : '#ca8a04';
-    return dark ? '#f87171' : '#dc2626';
-}
-
-// safeStorage: localStorage with in-memory fallback
-const safeStorage = {
-    _mem: {},
-    get(k) {
-        try { return localStorage.getItem(k); } catch { return this._mem[k] || null; }
-    },
-    set(k, v) {
-        try { localStorage.setItem(k, String(v)); } catch { this._mem[k] = String(v); }
-    },
-    remove(k) {
-        try { localStorage.removeItem(k); } catch { delete this._mem[k]; }
-    },
-};
-
-
-// ── Number counting animation utility ─────────────────────────────────
-function animateNumber(elementId, start, end, duration = 800) {
-    const obj = document.getElementById(elementId);
-    if (!obj) return;
-    
-    // If value didn't change, just set it
-    if (start === end) {
-        obj.textContent = end;
-        return;
-    }
-
-    let startTimestamp = null;
-    const step = (timestamp) => {
-        if (!startTimestamp) startTimestamp = timestamp;
-        const progress = Math.min((timestamp - startTimestamp) / duration, 1);
-        // easeOutQuint easing for decelerating count-up
-        const easeProgress = 1 - Math.pow(1 - progress, 5);
-        const currentCount = Math.floor(easeProgress * (end - start) + start);
-        
-        obj.textContent = currentCount.toLocaleString();
-        
-        if (progress < 1) {
-            window.requestAnimationFrame(step);
-        } else {
-            obj.textContent = end.toLocaleString();
-        }
-    };
-    window.requestAnimationFrame(step);
+    return (typeof I18N !== 'undefined' && I18N.tr) ? I18N.tr(key) : key;
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -256,6 +51,7 @@ const state = {
     records: [],
     spentPoints: 0,
     earnedPoints: 0,
+    userKey: null,
     claimedCoupons: [],
     rewards: [],
     clockInterval: null,
@@ -264,49 +60,8 @@ const state = {
 
 
 // ═══════════════════════════════════════════════════════════════════════
-// 4. SOUND EFFECTS
+// 5. INITIALIZATION  (sound/beep in utils.js)
 // ═══════════════════════════════════════════════════════════════════════
-
-let soundOn = true;
-
-function playBeep(type) {
-    if (!soundOn) return;
-    try {
-        const ctx = new (window.AudioContext || window.webkitAudioContext)();
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.connect(gain);
-        gain.connect(ctx.destination);
-
-        if (type === 'success') {
-            osc.type = 'triangle';
-            osc.frequency.setValueAtTime(523, ctx.currentTime);
-            osc.frequency.setValueAtTime(659, ctx.currentTime + 0.1);
-            osc.frequency.setValueAtTime(1046, ctx.currentTime + 0.3);
-            gain.gain.setValueAtTime(0.12, ctx.currentTime);
-            osc.start();
-            osc.stop(ctx.currentTime + 0.45);
-        } else if (type === 'error') {
-            osc.type = 'sawtooth';
-            osc.frequency.setValueAtTime(180, ctx.currentTime);
-            gain.gain.setValueAtTime(0.1, ctx.currentTime);
-            osc.start();
-            osc.stop(ctx.currentTime + 0.2);
-        } else {
-            osc.type = 'sine';
-            osc.frequency.setValueAtTime(880, ctx.currentTime);
-            gain.gain.setValueAtTime(0.12, ctx.currentTime);
-            osc.start();
-            osc.stop(ctx.currentTime + 0.12);
-        }
-    } catch (_) {
-        /* AudioContext unavailable */
-    }
-}
-
-
-// ═══════════════════════════════════════════════════════════════════════
-// 5. INITIALIZATION
 // ═══════════════════════════════════════════════════════════════════════
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -419,6 +174,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         window.location.replace('/login');
         return;
     }
+
+    // Init language from storage
+    state.lang = safeStorage.get('RE_LIFE_LANG') || 'en';
+    if (typeof I18N !== 'undefined') await I18N.load(state.lang);
+    document.documentElement.lang = state.lang === 'zh' ? 'zh-HK' : 'en';
+    updateAllLabels();
 
     startClock();
     await initAccounts();
@@ -1097,7 +858,7 @@ function resetScan() {
 
 async function loadRecords() {
     try {
-        const items = await FB.getItems(state.userId);
+        const items = await FB.getItems(state.userId, state.currentUser, state.userKey);
         state.records = items.map(it => ({
             id: it.id,
             name: it.name,
@@ -1434,15 +1195,7 @@ function renderRewards() {
 }
 
 function redeemReward(rewardId) {
-    const earned = state.records
-        .filter(r => r.mode === 'purchase')
-        .reduce((s, r) =>
-            s + (r.overall_score ||
-                calcWeighted(r.weighted_scores || { a: 50, b: 50, c: 50, d: 50, e: 50 },
-                    r.schema_id || 'food_new')),
-            0
-        );
-    const balance = Math.max(0, earned - state.spentPoints);
+    const balance = Math.max(0, (state.earnedPoints || 0) - (state.spentPoints || 0));
     const reward = state.rewards.find(r => r.id === rewardId);
 
     if (!reward || balance < reward.cost) {
@@ -1543,9 +1296,11 @@ async function initAccounts() {
         try {
             const user = await FB.getUserByName(stored);
             if (user) {
+                console.log("[App] initAccounts user:", { id: user.id, _key: user._key, earned_points: user.earned_points, spent_points: user.spent_points });
                 state.userId = user.id;
-                state.spentPoints = user.spent_points || 0;
-                state.earnedPoints = user.earned_points || 0;
+                state.userKey = user._key || null;
+                state.spentPoints = user.spent_points || user.spentPoints || 0;
+                state.earnedPoints = user.earned_points || user.earnedPoints || 0;
                 state.claimedCoupons = user.claimed_coupons || [];
             }
         } catch (_) { /* offline */ }
@@ -1622,6 +1377,7 @@ async function loginAs(name, avatar, userId) {
         const user = await FB.getUserByName(name);
         if (user) {
             state.userId = user.id;
+            state.userKey = user._key || null;
             state.spentPoints = user.spent_points || 0;
             state.earnedPoints = user.earned_points || 0;
             state.claimedCoupons = user.claimed_coupons || [];
@@ -1633,9 +1389,11 @@ async function loginAs(name, avatar, userId) {
 }
 
 async function saveUserData() {
-    if (!state.currentUser || !state.userId) return;
+    if (!state.currentUser) return;
+    const id = state.userKey || state.userId;
+    if (!id) return;
     try {
-        await FB.saveUserData(state.userId, {
+        await FB.saveUserData(id, {
             spent_points: state.spentPoints,
             earned_points: state.earnedPoints,
             claimed_coupons: state.claimedCoupons,
@@ -1774,10 +1532,13 @@ async function handleRegister(e) {
 // 15. LANGUAGE
 // ═══════════════════════════════════════════════════════════════════════
 
-function toggleLang() {
+async function toggleLang() {
     state.lang = state.lang === 'en' ? 'zh' : 'en';
+    safeStorage.set('RE_LIFE_LANG', state.lang);
+    if (typeof I18N !== 'undefined') await I18N.load(state.lang);
     document.documentElement.lang = state.lang === 'en' ? 'en' : 'zh-HK';
-    document.getElementById('lang-ind').textContent = state.lang === 'en' ? 'Eng' : '中文';
+    const langInd = document.getElementById('lang-ind');
+    if (langInd) langInd.textContent = state.lang === 'en' ? 'Eng' : '中文';
     updateAllLabels();
     if (state.activeTab === 'record') renderRecords();
     if (state.activeTab === 'rewards') renderRewards();
@@ -1821,6 +1582,12 @@ function updateAllLabels() {
         'lbl-marketplace': 'ecoMarketplace',
         'lbl-claimed-title': 'claimedCoupons',
         'lbl-settings': 'settings',
+        'lbl-policy': 'policy',
+        'logout-label': 'logout',
+        'sound-label': 'soundOn',
+        'theme-label': 'darkMode',
+        'lang-label': 'language',
+        'debug-label': 'debugOff',
         'nav-lbl-home': 'navHome',
         'nav-lbl-record': 'navRecord',
         'nav-lbl-rewards': 'navRewards',
@@ -1884,7 +1651,7 @@ function applyTheme(theme) {
     const icon = document.getElementById('theme-icon');
     if (icon) icon.src = theme === 'dark' ? '/static/assets/DarkMode_Off.png' : '/static/assets/DarkMode_On.png';
     const label = document.getElementById('theme-label');
-    if (label) label.textContent = theme === 'dark' ? 'Light Mode' : 'Dark Mode';
+    if (label) label.textContent = theme === 'dark' ? tr('lightMode') : tr('darkMode');
     safeStorage.set('RE_LIFE_THEME', theme);
 }
 
@@ -1941,7 +1708,8 @@ function openPolicy() {
 
 function toggleDebug() {
     state.debugMode = !state.debugMode;
-    document.getElementById('debug-btn').textContent = state.debugMode ? '🔧 Debug Mode: ON' : '🔧 Debug Mode: OFF';
+    const label = document.getElementById('debug-label');
+    if (label) label.textContent = state.debugMode ? tr('debugOn') : tr('debugOff');
 }
 
 // ── Click Ripple Initialization ───────────────────────────────────────

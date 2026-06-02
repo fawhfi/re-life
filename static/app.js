@@ -38,7 +38,7 @@ const STRINGS = {
         purchaseMode: '🥛 Purchase Mode', disposalMode: '♻️ Disposal Mode',
         noRecords: 'No records yet', noRecordsHint: 'Start by scanning an item',
         language: 'Language', policy: 'Policy',
-        aiModeLabel: '🤖 Gemini AI', aiModeOn: 'Live AI', aiModeOff: 'Mock',
+        aiModeOn: 'Live AI', aiModeOff: 'Mock',
         itemType: 'Item Type', itemState: 'State',
         foodItems: 'Food Items', generalItems: 'General Items',
         newPurchase: 'New Purchase', aboutToExpire: 'About to Expire',
@@ -76,6 +76,9 @@ const STRINGS = {
         regUsernameLabel: 'Choose Username', regPasswordLabel: 'Choose Password',
         loginError: 'Login failed. Try again.', registerError: 'Registration failed.',
         usernameTaken: 'Username already taken.',
+        darkMode: 'Dark Mode', lightMode: 'Light Mode',
+        debugOn: '🔧 Debug Mode: ON', debugOff: '🔧 Debug Mode: OFF',
+        langEng: 'English', langZh: '中文',
     },
     zh: {
         appTitle: 'Re-Life', scanItems: '主頁',
@@ -85,11 +88,11 @@ const STRINGS = {
         ecoRate: '環保評分', recycleRate: '回收率',
         alternativeProduct: '替代產品', addToRecord: '加入記錄',
         scanAgain: '再次掃描', uploadPhoto: '點擊掃描', orDrag: '或拖放檔案到此處',
-        scanning: 'AI 分析中...', scanningHint: 'Gemini 正在評估你的物品',
+        scanning: 'AI 分析中...', scanningHint: 'AI 正在評估你的物品',
         purchaseMode: '🥛 購買模式', disposalMode: '♻️ 棄置模式',
         noRecords: '尚無記錄', noRecordsHint: '在上方掃描物品開始使用',
         language: '語言', policy: '政策',
-        aiModeLabel: '🤖 Gemini AI', aiModeOn: '即時 AI', aiModeOff: '模擬',
+        aiModeOn: '即時 AI', aiModeOff: '模擬',
         itemType: '物品類型', itemState: '狀態',
         foodItems: '食物類', generalItems: '一般物品',
         newPurchase: '新購買', aboutToExpire: '即將過期',
@@ -127,6 +130,10 @@ const STRINGS = {
         regUsernameLabel: '選擇用戶名', regPasswordLabel: '選擇密碼',
         loginError: '登入失敗，請重試。', registerError: '註冊失敗。',
         usernameTaken: '用戶名已被使用。',
+        policy: '政策',
+        darkMode: '深色模式', lightMode: '淺色模式',
+        debugOn: '🔧 除錯模式: 開', debugOff: '🔧 除錯模式: 關',
+        langEng: '英文', langZh: '中文',
     },
 };
 
@@ -1777,7 +1784,8 @@ async function handleRegister(e) {
 function toggleLang() {
     state.lang = state.lang === 'en' ? 'zh' : 'en';
     document.documentElement.lang = state.lang === 'en' ? 'en' : 'zh-HK';
-    document.getElementById('lang-ind').textContent = state.lang === 'en' ? 'Eng' : '中文';
+    const langInd = document.getElementById('lang-ind');
+    if (langInd) langInd.textContent = state.lang === 'en' ? 'Eng' : '中文';
     updateAllLabels();
     if (state.activeTab === 'record') renderRecords();
     if (state.activeTab === 'rewards') renderRewards();
@@ -1821,6 +1829,8 @@ function updateAllLabels() {
         'lbl-marketplace': 'ecoMarketplace',
         'lbl-claimed-title': 'claimedCoupons',
         'lbl-settings': 'settings',
+        'lbl-policy': 'policy',
+        'debug-label': 'debugOff',
         'nav-lbl-home': 'navHome',
         'nav-lbl-record': 'navRecord',
         'nav-lbl-rewards': 'navRewards',
@@ -1884,7 +1894,7 @@ function applyTheme(theme) {
     const icon = document.getElementById('theme-icon');
     if (icon) icon.src = theme === 'dark' ? '/static/assets/DarkMode_Off.png' : '/static/assets/DarkMode_On.png';
     const label = document.getElementById('theme-label');
-    if (label) label.textContent = theme === 'dark' ? 'Light Mode' : 'Dark Mode';
+    if (label) label.textContent = theme === 'dark' ? tr('lightMode') : tr('darkMode');
     safeStorage.set('RE_LIFE_THEME', theme);
 }
 
@@ -1941,7 +1951,8 @@ function openPolicy() {
 
 function toggleDebug() {
     state.debugMode = !state.debugMode;
-    document.getElementById('debug-btn').textContent = state.debugMode ? '🔧 Debug Mode: ON' : '🔧 Debug Mode: OFF';
+    const label = document.getElementById('debug-label');
+    if (label) label.textContent = state.debugMode ? tr('debugOn') : tr('debugOff');
 }
 
 // ── Click Ripple Initialization ───────────────────────────────────────

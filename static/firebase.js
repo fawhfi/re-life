@@ -185,7 +185,7 @@ const FB = {
         const snap = await get(query(ref(db, "items"), orderByChild("createdAt")));
         if (!snap.exists()) return [];
         let items = Object.entries(snap.val()).map(([id, data]) => ({ id, ...data })).reverse();
-        if (userId) items = items.filter(it => it.userId === userId);
+        if (userId) items = items.filter(it => !it.userId || it.userId === userId);
         return items;
     },
 

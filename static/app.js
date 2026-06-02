@@ -27,7 +27,7 @@ const CRITERIA_LABELS = {
 const STRINGS = {
     en: {
         appTitle: 'Re-Life', scanItems: 'Scan Your Item',
-        navHome: 'Home',
+        navHome: 'Home', navRecord: 'Record', navRewards: 'Rewards', navMore: 'More',
         toDispose: 'TO DISPOSE', toPurchase: 'TO PURCHASE',
         disposeSub: 'E-waste, Organics, Bulky', purchaseSub: 'Groceries, Dairy, Bottles',
         recordHome: 'Record', greenTips: 'GREEN NEWS', knowMore: '+ READ MORE',
@@ -133,6 +133,8 @@ const STRINGS = {
         policy: '政策',
         darkMode: '深色模式', lightMode: '淺色模式',
         debugOn: '🔧 除錯模式: 開', debugOff: '🔧 除錯模式: 關',
+        langEng: '英文', langZh: '中文',
+        navHome: '主頁', navRecord: '記錄', navRewards: '獎勵', navMore: '更多',
         langEng: '英文', langZh: '中文',
     },
 };

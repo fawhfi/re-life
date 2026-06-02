@@ -49,9 +49,12 @@ async def check_rate_limit(request, max_requests: int = 5, window_sec: int = 60)
     ip = request.headers.get("x-forwarded-for", "").split(",")[0].strip()
     if not ip:
         ip = request.client.host if request.client else "unknown"
+    # Combine IP + User-Agent to make VPN bypass harder
+    ua = (request.headers.get("user-agent", "") or "")[:64]
+    fingerprint = f"{ip}|{ua}"
     route = request.url.path
-    key = f"rl:{ip}:{route}"
-    safe_key = key.replace(":", "_").replace("/", "_").replace(".", "_")
+    key = f"rl:{fingerprint}:{route}"
+    safe_key = key.replace(":", "_").replace("/", "_").replace(".", "_").replace("|", "_")
 
     if FIREBASE_DB_URL:
         now = time.time()

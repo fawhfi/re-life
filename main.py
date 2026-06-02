@@ -521,10 +521,6 @@ async def scan_item(request: Request, file: UploadFile = File(...), mode: str = 
     result["timestamp"] = datetime.now().isoformat()
     return JSONResponse(result)
 
-@app.get("/api/models")
-async def get_models():
-    return {"models": AVAILABLE_MODELS}
-
 @app.post("/api/scan/ai")
 async def scan_item_ai(request: Request, file: UploadFile = File(...), mode: str = Form("dispose"), item_type: str = Form("food"), item_state: str = Form("new"), debug: str = Form("false")):
     await check_rate_limit(request, max_requests=15, window_sec=60)

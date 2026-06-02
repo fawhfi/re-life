@@ -20,11 +20,10 @@ let db = null;
 
 async function initFB() {
     if (db) return;
-    const res = await fetch("/api/config");
-    const config = await res.json();
+    const config = window.FIREBASE_CONFIG || {};
     const app = initializeApp(config);
     db = getDatabase(app);
-    console.log("[FB] Initialized with server config");
+    console.log("[FB] Initialized");
 }
 
 // ═══════════════════════════════════════════════════════════════════════

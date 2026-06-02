@@ -287,21 +287,30 @@ def get_grade(score):
     if score >= 40: return {"grade": "Poor (D)", "advice": "Avoid if Possible", "color": "#b45309"}
     return {"grade": "Very Poor (E)", "advice": "Strongly Discouraged", "color": "#dc2626"}
 
+def _inject_firebase_config(html: str) -> str:
+    """Inject Firebase config as a script tag before </head>."""
+    config_json = json.dumps(FIREBASE_CONFIG)
+    script_tag = f"<script>window.FIREBASE_CONFIG = {config_json};</script>"
+    return html.replace("</head>", f"{script_tag}\n</head>")
+
 # Routes
 @app.get("/", response_class=HTMLResponse)
 async def root(request: Request):
     await check_rate_limit(request, max_requests=60, window_sec=60)
-    return (root_dir / "templates/index.html").read_text(encoding="utf-8")
+    html = (root_dir / "templates/index.html").read_text(encoding="utf-8")
+    return HTMLResponse(_inject_firebase_config(html))
 
 @app.get("/login", response_class=HTMLResponse)
 async def login_page(request: Request):
     await check_rate_limit(request, max_requests=10, window_sec=60)
-    return (root_dir / "templates/login.html").read_text(encoding="utf-8")
+    html = (root_dir / "templates/login.html").read_text(encoding="utf-8")
+    return HTMLResponse(_inject_firebase_config(html))
 
 @app.get("/register", response_class=HTMLResponse)
 async def register_page(request: Request):
     await check_rate_limit(request, max_requests=10, window_sec=60)
-    return (root_dir / "templates/register.html").read_text(encoding="utf-8")
+    html = (root_dir / "templates/register.html").read_text(encoding="utf-8")
+    return HTMLResponse(_inject_firebase_config(html))
 
 @app.post("/api/send-verification")
 async def send_verification(request: Request, data: dict):
@@ -852,10 +861,6 @@ async def redeem_reward(request: Request, data: dict):
     if not reward: return JSONResponse({"error": "Not found"}, 404)
     code = "RL-" + uuid.uuid4().hex[:6].upper() + "-" + str(reward["cost"])
     return {"ok": True, "coupon": {"code": code, "title": reward["title"], "image": reward["image"], "cost": reward["cost"], "claimed_date": "Just now", "expiry": "Valid 30 days"}}
-
-@app.get("/api/config")
-async def get_config():
-    return FIREBASE_CONFIG
 
 @app.get("/api/fact")
 async def get_fact(request: Request):

@@ -155,6 +155,7 @@ async def check_rate_limit(request: Request, max_requests: int = 5, window_sec: 
 
 # ── Upload size limit ───────────────────────────────────────────────────────
 MAX_UPLOAD_BYTES = 10 * 1024 * 1024  # 10 MB
+ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp"}
 
 # ── Image upload storage (base64 data URLs — no external deps) ──────────────
 
@@ -496,6 +497,8 @@ async def reset_password(request: Request, data: dict):
 @app.post("/api/scan")
 async def scan_item(request: Request, file: UploadFile = File(...), mode: str = Form("dispose")):
     await check_rate_limit(request, max_requests=20, window_sec=60)
+    if file.content_type and file.content_type not in ALLOWED_IMAGE_TYPES:
+        return JSONResponse({"error": "Only JPEG, PNG, and WebP images allowed"}, status_code=400)
     contents = await file.read()
     if len(contents) > MAX_UPLOAD_BYTES:
         return JSONResponse({"error": f"File too large (max {MAX_UPLOAD_BYTES // (1024*1024)} MB)"}, status_code=413)
@@ -516,6 +519,8 @@ async def get_models():
 @app.post("/api/scan/ai")
 async def scan_item_ai(request: Request, file: UploadFile = File(...), mode: str = Form("dispose"), item_type: str = Form("food"), item_state: str = Form("new"), debug: str = Form("false")):
     await check_rate_limit(request, max_requests=15, window_sec=60)
+    if file.content_type and file.content_type not in ALLOWED_IMAGE_TYPES:
+        return JSONResponse({"error": "Only JPEG, PNG, and WebP images allowed"}, status_code=400)
     contents = await file.read()
     if len(contents) > MAX_UPLOAD_BYTES:
         return JSONResponse({"error": f"File too large (max {MAX_UPLOAD_BYTES // (1024*1024)} MB)"}, status_code=413)
@@ -859,4 +864,4 @@ async def get_fact(request: Request):
     return {"fact": random.choice(facts)}
 
 if __name__ == "__main__":
-    import uvicorn; uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+    import uvicorn; uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True)

@@ -60,49 +60,8 @@ const state = {
 
 
 // ═══════════════════════════════════════════════════════════════════════
-// 4. SOUND EFFECTS
+// 5. INITIALIZATION  (sound/beep in utils.js)
 // ═══════════════════════════════════════════════════════════════════════
-
-let soundOn = true;
-
-function playBeep(type) {
-    if (!soundOn) return;
-    try {
-        const ctx = new (window.AudioContext || window.webkitAudioContext)();
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.connect(gain);
-        gain.connect(ctx.destination);
-
-        if (type === 'success') {
-            osc.type = 'triangle';
-            osc.frequency.setValueAtTime(523, ctx.currentTime);
-            osc.frequency.setValueAtTime(659, ctx.currentTime + 0.1);
-            osc.frequency.setValueAtTime(1046, ctx.currentTime + 0.3);
-            gain.gain.setValueAtTime(0.12, ctx.currentTime);
-            osc.start();
-            osc.stop(ctx.currentTime + 0.45);
-        } else if (type === 'error') {
-            osc.type = 'sawtooth';
-            osc.frequency.setValueAtTime(180, ctx.currentTime);
-            gain.gain.setValueAtTime(0.1, ctx.currentTime);
-            osc.start();
-            osc.stop(ctx.currentTime + 0.2);
-        } else {
-            osc.type = 'sine';
-            osc.frequency.setValueAtTime(880, ctx.currentTime);
-            gain.gain.setValueAtTime(0.12, ctx.currentTime);
-            osc.start();
-            osc.stop(ctx.currentTime + 0.12);
-        }
-    } catch (_) {
-        /* AudioContext unavailable */
-    }
-}
-
-
-// ═══════════════════════════════════════════════════════════════════════
-// 5. INITIALIZATION
 // ═══════════════════════════════════════════════════════════════════════
 
 // ═══════════════════════════════════════════════════════════════════════

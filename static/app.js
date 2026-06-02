@@ -255,7 +255,7 @@ const state = {
     selectedFile: null,
     currentTipIndex: 0,
     tips: [],
-    lang: safeStorage.get('RE_LIFE_LANG') || 'en',
+    lang: 'en',
     aiMode: true,
     itemType: 'food',
     itemState: 'new',
@@ -429,8 +429,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         return;
     }
 
-    startClock();
+    // Init language from storage
+    state.lang = safeStorage.get('RE_LIFE_LANG') || 'en';
+    document.documentElement.lang = state.lang === 'zh' ? 'zh-HK' : 'en';
     updateAllLabels();
+
+    startClock();
     await initAccounts();
     await loadRecords();
     loadTips();
@@ -1834,6 +1838,10 @@ function updateAllLabels() {
         'lbl-claimed-title': 'claimedCoupons',
         'lbl-settings': 'settings',
         'lbl-policy': 'policy',
+        'logout-label': 'logout',
+        'sound-label': 'soundOn',
+        'theme-label': 'darkMode',
+        'lang-label': 'language',
         'debug-label': 'debugOff',
         'nav-lbl-home': 'navHome',
         'nav-lbl-record': 'navRecord',

@@ -199,11 +199,11 @@ const FB = {
         }
     },
 
-    async getItems(userId = null) {
+    async getItems(userId = null, displayName = null) {
         await FB._ensure();
         try {
             const snap = await get(ref(db, "items"));
-            console.log("[FB] getItems: exists=", snap.exists(), "userId=", userId);
+            console.log("[FB] getItems: exists=", snap.exists(), "userId=", userId, "displayName=", displayName);
             if (!snap.exists()) { console.log("[FB] No items in database"); return []; }
             const val = snap.val();
             const keys = Object.keys(val);
@@ -211,16 +211,14 @@ const FB = {
             let items = keys.map(id => ({ id, ...val[id] }));
             items.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
             if (userId) {
-                // Match by short userId OR legacy username field
-                const displayName = (await FB.getUser(userId))?.displayName || "";
                 items = items.filter(it => {
-                    if (!it.userId) return true;  // no userId = legacy item
+                    if (!it.userId && !it.user) return true;  // no ownership = legacy
                     if (it.userId === userId) return true;
-                    if (displayName && it.userId === displayName) return true;  // legacy username
+                    if (it.userId === displayName) return true;  // legacy username as userId
                     if (it.user === displayName) return true;  // old 'user' field
                     return false;
                 });
-                console.log("[FB] getItems: after filter=", items.length, "displayName=", displayName);
+                console.log("[FB] getItems: after filter=", items.length);
             }
             return items;
         } catch (e) {

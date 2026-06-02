@@ -211,18 +211,14 @@ const FB = {
             let items = keys.map(id => ({ id, ...val[id] }));
             items.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
             if (userId) {
-                // Log first 3 items to debug
-                items.slice(0, 3).forEach(it => {
-                    console.log("[FB] item fields:", { id: it.id, userId: it.userId, user: it.user, name: it.name });
-                });
                 items = items.filter(it => {
-                    if (!it.userId && !it.user) return true;
-                    if (it.userId === userId) return true;
-                    if (it.userId === displayName) return true;
-                    if (it.user === displayName) return true;
+                    const owner = it.userId || it.userid || it.user || it.userName || it.username || "";
+                    if (!owner) return true;  // legacy — no owner field
+                    if (owner === userId) return true;
+                    if (owner === displayName) return true;
                     return false;
                 });
-                console.log("[FB] getItems: after filter=", items.length, "userId=", userId, "displayName=", displayName);
+                console.log("[FB] getItems: after filter=", items.length);
             }
             return items;
         } catch (e) {

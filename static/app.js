@@ -1561,8 +1561,8 @@ async function initAccounts() {
                 console.log("[App] initAccounts user:", { id: user.id, _key: user._key, earned_points: user.earned_points, spent_points: user.spent_points });
                 state.userId = user.id;
                 state.userKey = user._key || null;
-                state.spentPoints = user.spent_points || 0;
-                state.earnedPoints = user.earned_points || 0;
+                state.spentPoints = user.spent_points || user.spentPoints || 0;
+                state.earnedPoints = user.earned_points || user.earnedPoints || 0;
                 state.claimedCoupons = user.claimed_coupons || [];
             }
         } catch (_) { /* offline */ }

@@ -20,30 +20,34 @@
     --glass-border-light: rgba(255, 255, 255, 0.4);
     --glass-border-dark: rgba(255, 255, 255, 0.08);
     --glass-shadow: 0 12px 40px 0 rgba(31, 38, 135, 0.08), 0 4px 12px 0 rgba(0, 0, 0, 0.04);
-    /* Palette — warm organic */
-    --color-primary:        #2d5a3d;
-    --color-primary-hover:  #1f3e2a;
-    --color-primary-light:  #e2f0e5;
-    --color-primary-mid:    #4a8c5c;
-    --color-bg:             #f7f5f0;
-    --color-bg-alt:         #f0ede6;
-    --color-white:          #fefdfb;
-    --color-gray-50:        #f9f7f2;
-    --color-gray-100:       #f3f0e9;
-    --color-gray-200:       #e8e3d8;
+    /* Palette — luxury dark */
+    --color-primary:        #2a4a35;
+    --color-primary-hover:  #1a2e21;
+    --color-primary-light:  #dce8e0;
+    --color-primary-mid:    #4a7a55;
+    --color-bg:             #faf8f5;
+    --color-bg-alt:         #f3f0eb;
+    --color-white:          #ffffff;
+    --color-gray-50:        #f7f5f1;
+    --color-gray-100:       #f0ede6;
+    --color-gray-200:       #e4dfd4;
     --color-gray-400:       #a09888;
-    --color-gray-500:       #7a7262;
-    --color-gray-700:       #4a4337;
-    --color-gray-800:       #2a241a;
-    --color-amber-200:      #fdf0d5;
-    --color-amber-400:      #e6a817;
-    --color-emerald-50:     #edf7f0;
-    --color-emerald-100:    #d4ede0;
-    --color-emerald-200:    #a3d9b6;
-    --color-emerald-700:    #1a7a3a;
-    --color-emerald-800:    #0f5a28;
-    --color-red-400:        #e88c8c;
-    --color-red-500:        #d94a4a;
+    --color-gray-500:       #6b6354;
+    --color-gray-700:       #3d372d;
+    --color-gray-800:       #1e1a14;
+    --color-amber-200:      #faf0d7;
+    --color-amber-400:      #c8921a;
+    --color-emerald-50:     #eef6f0;
+    --color-emerald-100:    #d6e8da;
+    --color-emerald-200:    #a8ccb2;
+    --color-emerald-700:    #2d6a3f;
+    --color-emerald-800:    #1a4a28;
+    --color-red-400:        #d4a0a0;
+    --color-red-500:        #b84444;
+    /* Luxury accents */
+    --color-gold:           #b8943a;
+    --color-gold-light:     #e8d5a3;
+    --color-champagne:      #f5ecd7;
     /* Radii */
     --radius-sm:  10px;
     --radius-md:  14px;
@@ -146,12 +150,22 @@ body {
     background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
-/* ── Organic cards ─────────────────────────────────────────────────── */
+/* ── Premium cards ─────────────────────────────────────────────────── */
 .login-card, .card, .tips-card, .fact-card, .rewards-wallet, .result-card {
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    border-radius: 24px 12px 24px 12px;
-    border: 1px solid rgba(0,0,0,0.04);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border-radius: 20px;
+    border: 1px solid rgba(0,0,0,0.05);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.03), 0 4px 16px rgba(0,0,0,0.04);
+}
+.card { padding: 20px; }
+.card-header {
+    font-size: var(--text-xs);
+    font-weight: var(--weight-semibold);
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--color-gray-400);
+    margin-bottom: 16px;
 }
 
 /* Hardware acceleration for smooth animations on low-end devices */
@@ -237,14 +251,11 @@ body {
 /* ── Main Content ───────────────────────────────────────────────────── */
 .main {
     flex: 1;
-    padding-top: 95px !important;
-    padding-bottom: 110px !important;
-    padding-left: 14px;
-    padding-right: 14px;
+    padding: 95px 16px 120px;
     height: 100%;
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 14px;
     overflow-y: auto;
     box-sizing: border-box;
 }
@@ -303,16 +314,17 @@ body {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 6px;
-    padding: 11px 20px;
+    gap: 8px;
+    padding: 12px 22px;
     border: none;
-    border-radius: var(--radius-md);
-    font-size: 12px;
-    font-weight: 700;
+    border-radius: 14px;
+    font-size: var(--text-sm);
+    font-weight: var(--weight-semibold);
     cursor: pointer;
     transition: all 0.2s ease;
     font-family: inherit;
     letter-spacing: 0.01em;
+    min-height: 44px;
 }
 
 .btn:active {
@@ -570,11 +582,16 @@ body {
     text-align: center;
     cursor: pointer;
     background: var(--color-white);
-    border: 2px dashed var(--color-primary-mid);
-    border-radius: 22px;
-    padding: 32px 14px 22px;
+    border: 2px dashed var(--color-gray-200);
+    border-radius: 20px;
+    padding: 36px 16px 28px;
     position: relative;
-    transition: background 0.2s ease, border-color 0.2s ease, transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+    transition: all 0.3s ease;
+    min-height: 140px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
 }
 
 .upload-zone:hover {
@@ -1105,11 +1122,10 @@ body {
 /* ── Scan Result ───────────────────────────────────────────────────── */
 .result-card {
     background: var(--color-white);
-    border-radius: var(--radius-lg);
-    border: 2px solid var(--color-emerald-100);
-    padding: 20px 16px;
-    box-shadow: var(--shadow-md);
-    animation: slideUp 0.35s ease;
+    border-radius: 20px;
+    border: 1px solid var(--color-gray-200);
+    padding: 24px 18px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.05);
 }
 
 /* Staggered children for scan result card */
@@ -1858,13 +1874,13 @@ nav.nav, .app-nav {
     justify-content: space-around;
     align-items: center;
     gap: 0;
-    background: rgba(255, 255, 255, 0.2);
-    backdrop-filter: blur(25px) saturate(200%);
-    -webkit-backdrop-filter: blur(25px) saturate(200%);
-    border: 1px solid rgba(255, 255, 255, 0.25);
-    box-shadow: 0 10px 30px rgba(31, 38, 135, 0.06), 0 1px 0 rgba(255, 255, 255, 0.15) inset;
-    border-radius: 20px;
-    padding: 6px 14px;
+    background: rgba(255,255,255,0.85);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    border: 1px solid rgba(0,0,0,0.06);
+    box-shadow: 0 2px 20px rgba(0,0,0,0.06);
+    border-radius: 22px;
+    padding: 6px 10px;
     z-index: 100;
     transition: box-shadow 0.2s ease, opacity 0.2s ease, visibility 0.2s;
 }
@@ -1872,13 +1888,14 @@ nav.nav, .app-nav {
 /* Sliding nav indicator */
 .nav-indicator {
     position: absolute;
-    top: 4px;
-    height: calc(100% - 8px);
-    background: rgba(61, 106, 75, 0.12);
-    border-radius: 16px;
+    top: 5px;
+    height: calc(100% - 10px);
+    background: var(--color-primary);
+    border-radius: 18px;
     pointer-events: none;
     z-index: 0;
     will-change: left, width;
+    opacity: 0.08;
 }
 
 /* Hide floating bars when camera is active */

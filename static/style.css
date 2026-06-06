@@ -1078,18 +1078,18 @@ body {
 
 /* ── Disposal Guide ────────────────────────────────────────────────── */
 .disposal-guide {
-    background: linear-gradient(135deg, #eff6ff, #f0f9ff);
-    border: 1.5px solid #bfdbfe;
+    background: var(--color-gray-50);
+    border: 1px solid var(--color-gray-200);
     border-radius: var(--radius-md);
     padding: 10px 12px;
     margin-top: 10px;
 }
 
 .disposal-guide-title {
-    font-size: 8px;
-    font-weight: 800;
+    font-size: 10px;
+    font-weight: var(--weight-bold);
     text-transform: uppercase;
-    color: #1e40af;
+    color: var(--color-primary);
     letter-spacing: 0.05em;
     margin-bottom: 5px;
 }
@@ -1109,12 +1109,12 @@ body {
 }
 
 .disposal-guide-precaution {
-    font-size: 9px;
+    font-size: 10px;
     color: var(--color-red-500);
-    font-weight: 600;
+    font-weight: var(--weight-semibold);
     margin-top: 5px;
     padding-top: 5px;
-    border-top: 1px solid #bfdbfe;
+    border-top: 1px solid var(--color-gray-200);
 }
 
 /* ── Scan Result ───────────────────────────────────────────────────── */

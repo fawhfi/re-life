@@ -1193,7 +1193,7 @@ body {
 
 /* ── News Card ──────────────────────────────────────────────────────── */
 .tips-card {
-    background: var(--color-primary);
+    background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-hover) 100%);
     color: #fff;
     border-radius: 14px;
     padding: 14px 16px;
@@ -1211,8 +1211,8 @@ body {
 .tips-pill {
     font-size: 9px;
     font-weight: 700;
-    background: rgba(255,255,255,0.2);
-    color: #fff;
+    background: var(--color-amber-400);
+    color: var(--color-gray-800);
     padding: 2px 8px;
     border-radius: 99px;
     text-transform: uppercase;
@@ -1261,7 +1261,7 @@ body {
 }
 
 .tips-dot.is-active {
-    background: #fff;
+    background: var(--color-amber-400);
     width: 14px;
     border-radius: 99px;
 }

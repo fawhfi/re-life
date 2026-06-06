@@ -116,28 +116,6 @@ async def reset_password(request: Request, data: dict):
 
 # ── Scan endpoints ──────────────────────────────────────────────────────────
 
-@app.post("/api/scan")
-async def scan_item(request: Request, file: UploadFile = File(...), mode: str = Form("dispose")):
-    await check_rate_limit(request, 20, 60)
-    if file.content_type and file.content_type not in ALLOWED_IMAGE_TYPES:
-        return JSONResponse({"error": "Only JPEG, PNG, WebP allowed"}, 400)
-    contents = await file.read()
-    if len(contents) > MAX_UPLOAD_BYTES:
-        return JSONResponse({"error": f"File too large (max {MAX_UPLOAD_BYTES // (1024*1024)} MB)"}, 413)
-    ext = Path(str(file.filename)).suffix or ".png"
-    filename = f"{uuid.uuid4()}{ext}"
-    image_url = upload_image(contents, filename)
-    r, s = random.randint, lambda: {k: random.randint(30, 100) for k in "abcde"}
-    result = {
-        "name": "Scanned Item", "eco_rate": r(1, 5), "recycle_rate": r(1, 5),
-        "description": "Mock analysis.", "weighted_scores": s(),
-        "material": random.choice(["plastic", "paper", "glass"]) if mode == "purchase" else random.choice(["plastic", "pp_plastic", "metal", "wood"]),
-        "disposal_guide": "Rinse and recycle.", "precaution": "Separate materials.",
-        "alternative": {"name": "Eco-Friendly Alternative", "eco_rate": 5, "recycle_rate": 4} if mode == "purchase" else None,
-        "mode": mode, "image_url": image_url, "id": str(uuid.uuid4()), "timestamp": datetime.now().isoformat(),
-    }
-    return JSONResponse(result)
-
 @app.post("/api/scan/ai")
 async def scan_item_ai(request: Request, file: UploadFile = File(...), mode: str = Form("dispose"),
                        item_type: str = Form("food"), item_state: str = Form("new"), debug: str = Form("false")):

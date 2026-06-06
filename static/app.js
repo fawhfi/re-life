@@ -273,24 +273,35 @@ function initNavDrag() {
 
 function navigateTo(name) {
     state.activeTab = name;
-    document.querySelectorAll('.tab').forEach(el => el.classList.remove('active'));
     document.querySelectorAll('.nav-btn').forEach(el => el.classList.remove('is-active'));
-    const tab = document.getElementById(`tab-${name}`);
     const nav = document.getElementById(`nav-${name}`);
-    if (tab) tab.classList.add('active');
     if (nav) nav.classList.add('is-active');
+
+    // GSAP tab transition
+    const currentTab = document.querySelector('.tab.active');
+    const nextTab = document.getElementById(`tab-${name}`);
+    if (currentTab && nextTab && currentTab !== nextTab) {
+        gsap.to(currentTab, { opacity: 0, y: -8, duration: 0.2, onComplete: () => {
+            currentTab.classList.remove('active');
+            nextTab.classList.add('active');
+            gsap.fromTo(nextTab, { opacity: 0, y: 8 }, { opacity: 1, y: 0, duration: 0.3, ease: "power2.out" });
+            if (name === 'record') loadRecords();
+            if (name === 'rewards') {
+                renderRewards();
+                const balance = Math.max(0, (state.earnedPoints || 0) - (state.spentPoints || 0));
+                const ptsEl = document.getElementById('rew-pts');
+                if (ptsEl) {
+                    const cur = parseInt(ptsEl.textContent) || 0;
+                    animateNumber('rew-pts', cur, balance, 1000);
+                }
+            }
+        }});
+        return;
+    }
+    // First load or same tab
+    if (nextTab) nextTab.classList.add('active');
     if (name === 'record') loadRecords();
-    if (name === 'rewards') {
-        renderRewards();
-        const balance = Math.max(0, (state.earnedPoints || 0) - (state.spentPoints || 0));
-        const ptsEl = document.getElementById('rew-pts');
-        if (ptsEl) {
-            const cur = parseInt(ptsEl.textContent) || 0;
-            animateNumber('rew-pts', cur, balance, 1000);
-        }
-    }
-    if (name === 'more') {
-    }
+    if (name === 'rewards') renderRewards();
 }
 
 
@@ -629,6 +640,8 @@ function recalcOverall() {
 function showScanResult(item) {
     const result = document.getElementById('scan-result');
     result.classList.remove('hidden');
+    // GSAP entrance animation
+    gsap.fromTo(result, { opacity: 0, y: 20, scale: 0.97 }, { opacity: 1, y: 0, scale: 1, duration: 0.4, ease: "power2.out" });
 
     // Image
     const imgContainer = document.getElementById('result-img');
@@ -701,11 +714,8 @@ function showScanResult(item) {
     document.getElementById('ov-score').textContent = overall;
     const barFill = document.getElementById('ov-bar-fill');
     if (barFill) {
-        barFill.style.width = '0%';
-        requestAnimationFrame(() => {
-            barFill.style.width = `${overall}%`;
-            barFill.style.backgroundColor = grade.color;
-        });
+        gsap.fromTo(barFill, { width: '0%' }, { width: `${overall}%`, duration: 0.8, ease: "power3.out" });
+        barFill.style.backgroundColor = grade.color;
     }
     document.getElementById('grade-tag').textContent = grade.grade;
     document.getElementById('grade-tag').style.background = grade.color;
@@ -978,6 +988,12 @@ function renderRecords() {
             </div>
         </div>`;
     }).join('');
+
+    // GSAP staggered card entrance
+    gsap.fromTo('#records-list .record-card', 
+        { opacity: 0, y: 24 }, 
+        { opacity: 1, y: 0, duration: 0.4, stagger: 0.06, ease: "power2.out" }
+    );
 }
 
 async function deleteRecord(id) {
@@ -985,10 +1001,7 @@ async function deleteRecord(id) {
         await FB.deleteItem(id);
         const card = document.getElementById(`rec-${id}`);
         if (card) {
-            card.style.cssText = 'opacity:0;transform:scale(0.92) translateY(-8px);transition:all 0.3s cubic-bezier(0.4,0,0.2,1)';
-            card.style.maxHeight = card.offsetHeight + 'px';
-            requestAnimationFrame(() => { card.style.maxHeight = '0px'; card.style.marginTop = '0px'; card.style.marginBottom = '0px'; card.style.paddingTop = '0px'; card.style.paddingBottom = '0px'; card.style.overflow = 'hidden'; });
-            setTimeout(loadRecords, 350);
+            gsap.to(card, { opacity: 0, scale: 0.9, height: 0, marginTop: 0, marginBottom: 0, paddingTop: 0, paddingBottom: 0, duration: 0.3, ease: "power2.in", onComplete: () => { card.remove(); loadRecords(); } });
         }
     } catch (e) {
         console.error('Failed to delete record:', e);

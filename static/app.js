@@ -177,23 +177,27 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Init language from storage
     state.lang = safeStorage.get('RE_LIFE_LANG') || 'en';
-    if (typeof I18N !== 'undefined') await I18N.load(state.lang);
+    // Fire i18n load but don't block render
+    if (typeof I18N !== 'undefined') I18N.load(state.lang).then(updateAllLabels);
     document.documentElement.lang = state.lang === 'zh' ? 'zh-HK' : 'en';
     updateAllLabels();
 
     startClock();
-    await initAccounts();
-    await loadRecords();
-    loadTips();
-    loadRewards();
-    loadFact();
     setupDragDrop();
     initNavDrag();
-    await detectCamera();
     initTheme();
-    setScanModeUI('dispose'); // default active scan button
-    updateAllLabels();
+    setScanModeUI('dispose');
     updateHeaderUI();
+
+    // Critical: load user + records first
+    const [_, __] = await Promise.all([initAccounts(), loadRecords()]);
+
+    // Non-critical: lazy load in background
+    requestIdleCallback ? requestIdleCallback(() => {
+        loadTips(); loadRewards(); loadFact(); detectCamera();
+    }) : setTimeout(() => {
+        loadTips(); loadRewards(); loadFact(); detectCamera();
+    }, 500);
 });
 
 let cameraAvailable = false;
@@ -238,16 +242,62 @@ function startClock() {
 function initNavDrag() {
     const navbar = document.querySelector('nav.nav, .app-nav');
     if (!navbar) return;
+    const indicator = document.getElementById('nav-indicator');
+    const btns = navbar.querySelectorAll('.nav-btn');
     let isDragging = false;
 
+    // Position indicator under active tab initially
+    function snapIndicatorTo(btn) {
+        if (!indicator || !btn) return;
+        const nr = navbar.getBoundingClientRect();
+        const br = btn.getBoundingClientRect();
+        gsap.to(indicator, {
+            left: br.left - nr.left,
+            width: br.width,
+            duration: isDragging ? 0.15 : 0.3,
+            ease: "power2.out",
+        });
+    }
+
+    // Initial snap
+    const activeBtn = navbar.querySelector('.nav-btn.is-active');
+    if (activeBtn) snapIndicatorTo(activeBtn);
+
     function evalTab(clientX) {
-        const btns = navbar.querySelectorAll('.nav-btn');
+        const nr = navbar.getBoundingClientRect();
+        const relX = clientX - nr.left;
+
+        // Find which two buttons the finger is between for smooth interpolation
+        let leftBtn = null, rightBtn = null;
+        const btnArray = Array.from(btns);
+        for (let i = 0; i < btnArray.length; i++) {
+            const r = btnArray[i].getBoundingClientRect();
+            const btnCenter = r.left - nr.left + r.width / 2;
+            if (btnCenter <= relX) leftBtn = { el: btnArray[i], rect: r, center: btnCenter };
+            if (btnCenter >= relX && !rightBtn) rightBtn = { el: btnArray[i], rect: r, center: btnCenter };
+        }
+
+        // Smoothly interpolate indicator position between adjacent buttons
+        if (indicator) {
+            if (leftBtn && rightBtn && leftBtn.el !== rightBtn.el) {
+                const range = rightBtn.center - leftBtn.center;
+                const t = range > 0 ? (relX - leftBtn.center) / range : 0;
+                const l = leftBtn.rect.left - nr.left + t * (rightBtn.rect.left - leftBtn.rect.left);
+                const w = leftBtn.rect.width + t * (rightBtn.rect.width - leftBtn.rect.width);
+                gsap.to(indicator, { left: l, width: w, duration: 0.08, ease: "power1.out", overwrite: "auto" });
+            } else if (rightBtn) {
+                // Finger is at edges — snap to nearest
+                const r = rightBtn.rect;
+                gsap.to(indicator, { left: r.left - nr.left, width: r.width, duration: 0.12, ease: "power2.out", overwrite: "auto" });
+            }
+        }
+
+        // Find best match for tab switching
         let best = null, minDist = Infinity;
         btns.forEach(btn => {
             const r = btn.getBoundingClientRect();
-            if (clientX >= r.left && clientX <= r.right) best = btn;
             const dist = Math.abs(clientX - (r.left + r.width / 2));
-            if (dist < minDist) { minDist = dist; if (!best) best = btn; }
+            if (dist < minDist) { minDist = dist; best = btn; }
         });
         if (best) {
             const m = (best.getAttribute('onclick') || '').match(/navigateTo\(['"]([^'"]+)['"]\)/);
@@ -262,23 +312,50 @@ function initNavDrag() {
         evalTab(e.clientX);
     });
     navbar.addEventListener('pointermove', e => { if (isDragging) evalTab(e.clientX); });
-    const stop = e => { isDragging = false; try { navbar.releasePointerCapture(e.pointerId); } catch {} };
+    const stop = e => {
+        isDragging = false;
+        try { navbar.releasePointerCapture(e.pointerId); } catch {}
+        // Snap back to active tab
+        const active = navbar.querySelector('.nav-btn.is-active');
+        if (active) snapIndicatorTo(active);
+    };
     navbar.addEventListener('pointerup', stop);
     navbar.addEventListener('pointercancel', stop);
+
+    // Update indicator when tab changes via click too
+    window._snapNavIndicator = () => {
+        const a = navbar.querySelector('.nav-btn.is-active');
+        if (a) snapIndicatorTo(a);
+    };
 }
 
 // ═══════════════════════════════════════════════════════════════════════
 // 6. TAB NAVIGATION
 // ═══════════════════════════════════════════════════════════════════════
 
+let _tabTween = null;
+
 function navigateTo(name) {
+    // Kill any in-progress tab animation
+    if (_tabTween) { _tabTween.kill(); _tabTween = null; }
+
     state.activeTab = name;
-    document.querySelectorAll('.tab').forEach(el => el.classList.remove('active'));
     document.querySelectorAll('.nav-btn').forEach(el => el.classList.remove('is-active'));
-    const tab = document.getElementById(`tab-${name}`);
     const nav = document.getElementById(`nav-${name}`);
-    if (tab) tab.classList.add('active');
-    if (nav) nav.classList.add('is-active');
+    if (nav) { nav.classList.add('is-active'); if (window._snapNavIndicator) window._snapNavIndicator(); }
+
+    const currentTab = document.querySelector('.tab.active');
+    const nextTab = document.getElementById(`tab-${name}`);
+    if (!nextTab) return;
+    if (currentTab === nextTab) return;
+
+    // Immediately clean up all tabs
+    document.querySelectorAll('.tab').forEach(t => { t.classList.remove('active'); gsap.set(t, { clearProps: "all" }); });
+    nextTab.classList.add('active');
+
+    // Animate new tab in
+    gsap.fromTo(nextTab, { opacity: 0, y: 8 }, { opacity: 1, y: 0, duration: 0.3, ease: "power2.out" });
+
     if (name === 'record') loadRecords();
     if (name === 'rewards') {
         renderRewards();
@@ -288,8 +365,6 @@ function navigateTo(name) {
             const cur = parseInt(ptsEl.textContent) || 0;
             animateNumber('rew-pts', cur, balance, 1000);
         }
-    }
-    if (name === 'more') {
     }
 }
 
@@ -311,7 +386,10 @@ function setScanModeUI(mode) {
     state.scanMode = mode;
     document.querySelectorAll('.scan-btn').forEach(b => b.classList.remove('scan-btn--active'));
     const active = document.querySelector(`.scan-btn--${mode}`);
-    if (active) active.classList.add('scan-btn--active');
+    if (active) {
+        active.classList.add('scan-btn--active');
+        gsap.fromTo(active, { scale: 0.92 }, { scale: 1.04, duration: 0.35, ease: "elastic.out(1, 0.4)" });
+    }
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -332,7 +410,10 @@ function setupDragDrop() {
     if (!zone) return;
     zone.addEventListener('dragover', e => {
         e.preventDefault();
-        zone.classList.add('drag-over');
+        if (!zone.classList.contains('drag-over')) {
+            zone.classList.add('drag-over');
+            gsap.to(zone, { scale: 1.02, duration: 0.2, ease: "power2.out" });
+        }
     });
     zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
     zone.addEventListener('drop', e => {
@@ -373,6 +454,7 @@ function showPreview(dataUrl) {
     document.getElementById('upload-preview-img').src = dataUrl;
     preview.classList.add('is-shown');
     zone.classList.add('has-image');
+    gsap.from(preview, { scale: 0.9, opacity: 0, duration: 0.35, ease: "back.out(1.4)" });
 }
 
 function clearPreview() {
@@ -419,6 +501,7 @@ async function openCamera() {
     // (required by iOS Safari before attaching a stream)
     modal.classList.add('is-shown');
     document.body.style.overflow = 'hidden';
+    gsap.fromTo(modal, { y: '100%' }, { y: 0, duration: 0.3, ease: "power2.out" });
     document.body.classList.add('camera-active');
 
     // iOS-friendly constraints: avoid width/height which some iOS versions reject
@@ -510,7 +593,9 @@ function capturePhoto() {
 async function doScan() {
     if (!state.selectedFile) return;
 
-    document.getElementById('scan-status').classList.add('is-shown');
+    const status = document.getElementById('scan-status');
+    status.classList.add('is-shown');
+    gsap.fromTo(status, { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.3 });
     document.getElementById('scan-result').classList.add('hidden');
 
     try {
@@ -629,6 +714,8 @@ function recalcOverall() {
 function showScanResult(item) {
     const result = document.getElementById('scan-result');
     result.classList.remove('hidden');
+    // GSAP entrance animation
+    gsap.fromTo(result, { opacity: 0, y: 20, scale: 0.97 }, { opacity: 1, y: 0, scale: 1, duration: 0.4, ease: "power2.out" });
 
     // Image
     const imgContainer = document.getElementById('result-img');
@@ -675,6 +762,7 @@ function showScanResult(item) {
         document.getElementById('alt-name').textContent = item.alternative.name;
         renderStars('alt-eco-stars', item.alternative.eco_rate);
         renderStars('alt-recycle-stars', item.alternative.recycle_rate);
+        gsap.from(alt, { opacity: 0, y: 12, duration: 0.35, ease: "power2.out" });
     } else {
         alt.classList.add('hidden');
     }
@@ -701,11 +789,10 @@ function showScanResult(item) {
     document.getElementById('ov-score').textContent = overall;
     const barFill = document.getElementById('ov-bar-fill');
     if (barFill) {
-        barFill.style.width = '0%';
-        requestAnimationFrame(() => {
-            barFill.style.width = `${overall}%`;
-            barFill.style.backgroundColor = grade.color;
-        });
+        barFill.style.transformOrigin = 'left center';
+        gsap.fromTo(barFill, { scaleX: 0 }, { scaleX: overall / 100, duration: 0.8, ease: "power3.out" });
+        barFill.style.backgroundColor = grade.color;
+        barFill.style.width = `${overall}%`; // set actual width for layout
     }
     document.getElementById('grade-tag').textContent = grade.grade;
     document.getElementById('grade-tag').style.background = grade.color;
@@ -840,13 +927,22 @@ async function handleSwapProof(e) {
         btn.textContent = '✅ +' + points + ' Points Earned!';
         btn.style.background = 'var(--color-emerald-700)';
         btn.disabled = true;
+        gsap.fromTo(btn, { scale: 1 }, { scale: 1.1, duration: 0.15, yoyo: true, repeat: 1, ease: "power2.out" });
     }
     playBeep('success');
 }
 
 function resetScan() {
+    const result = document.getElementById('scan-result');
+    if (!result.classList.contains('hidden')) {
+        gsap.to(result, { opacity: 0, scale: 0.95, y: -10, duration: 0.25, ease: "power2.in", onComplete: () => {
+            result.classList.add('hidden');
+            result.style.opacity = ''; result.style.transform = '';
+        }});
+    } else {
+        result.classList.add('hidden');
+    }
     clearPreview();
-    document.getElementById('scan-result').classList.add('hidden');
     document.getElementById('weighted-detail').classList.remove('is-open');
     state.lastScanResult = null;
 }
@@ -978,6 +1074,12 @@ function renderRecords() {
             </div>
         </div>`;
     }).join('');
+
+    // GSAP staggered card entrance
+    gsap.fromTo('#records-list .record-card', 
+        { opacity: 0, y: 24 }, 
+        { opacity: 1, y: 0, duration: 0.4, stagger: 0.06, ease: "power2.out" }
+    );
 }
 
 async function deleteRecord(id) {
@@ -985,10 +1087,7 @@ async function deleteRecord(id) {
         await FB.deleteItem(id);
         const card = document.getElementById(`rec-${id}`);
         if (card) {
-            card.style.cssText = 'opacity:0;transform:scale(0.92) translateY(-8px);transition:all 0.3s cubic-bezier(0.4,0,0.2,1)';
-            card.style.maxHeight = card.offsetHeight + 'px';
-            requestAnimationFrame(() => { card.style.maxHeight = '0px'; card.style.marginTop = '0px'; card.style.marginBottom = '0px'; card.style.paddingTop = '0px'; card.style.paddingBottom = '0px'; card.style.overflow = 'hidden'; });
-            setTimeout(loadRecords, 350);
+            gsap.to(card, { opacity: 0, scaleY: 0, transformOrigin: 'top center', duration: 0.25, ease: "power2.in", onComplete: () => { card.style.display = 'none'; loadRecords(); } });
         }
     } catch (e) {
         console.error('Failed to delete record:', e);
@@ -1181,6 +1280,12 @@ function renderRewards() {
         </div>`;
     }).join('');
 
+    // GSAP staggered entrance for rewards
+    gsap.fromTo('#rew-catalogue .rewards-item', 
+        { opacity: 0, y: 16 }, 
+        { opacity: 1, y: 0, duration: 0.35, stagger: 0.05, ease: "power2.out" }
+    );
+
     // Claimed coupons grid
     const grid = document.getElementById('rew-coupon-grid');
     grid.innerHTML = state.claimedCoupons.map(c => `
@@ -1244,7 +1349,10 @@ function showAlert(title, body, icon) {
     document.getElementById('modal-body').textContent = body;
     document.getElementById('modal-actions').innerHTML =
         `<button class="btn btn--primary btn--full" onclick="closeModal()">${tr('closeBtn')}</button>`;
-    document.getElementById('modal-overlay').classList.add('is-shown');
+    const overlay = document.getElementById('modal-overlay');
+    overlay.classList.add('is-shown');
+    const modal = overlay.querySelector('.modal');
+    if (modal) gsap.fromTo(modal, { scale: 0.85, opacity: 0, y: 16 }, { scale: 1, opacity: 1, y: 0, duration: 0.35, ease: "back.out(1.4)" });
 }
 
 function showConfirm(msg, onConfirm) {
@@ -1292,7 +1400,7 @@ async function initAccounts() {
     const stored = safeStorage.get('RE_LIFE_CURRENT_USER');
     if (stored) {
         state.currentUser = stored;
-        state.userAvatar = safeStorage.get('RE_LIFE_USER_AVATAR') || '👤';
+        state.userAvatar = safeStorage.get('RE_LIFE_USER_AVATAR') || user.photoUrl || '👤';
         try {
             const user = await FB.getUserByName(stored);
             if (user) {
@@ -1309,7 +1417,14 @@ async function initAccounts() {
 }
 
 function updateHeaderUI() {
-    document.getElementById('hdr-avatar').textContent = state.userAvatar;
+    const avatarEl = document.getElementById('hdr-avatar');
+    if (state.userAvatar && state.userAvatar.startsWith('data:')) {
+        avatarEl.innerHTML = `<img src="${state.userAvatar}" style="width:100%;height:100%;border-radius:50%;object-fit:cover">`;
+        avatarEl.style.background = 'none';
+    } else {
+        avatarEl.textContent = state.userAvatar || '👤';
+        avatarEl.style.background = '';
+    }
     document.getElementById('hdr-user').textContent = state.currentUser || tr('notLoggedIn');
     document.getElementById('hdr-user').style.display = state.currentUser ? 'block' : 'none';
     const logoutBtn = document.getElementById('logout-btn');
@@ -1317,10 +1432,55 @@ function updateHeaderUI() {
 }
 
 function handleAvatarClick() {
-    // Only trigger login flow; logout is in the More tab
     if (!state.currentUser) {
         showUserPicker();
+        return;
     }
+    const avatars = ['🌿','♻️','🌱','🍃','🌳','💚','🌍','🪴','🐼','🐨','🦊','🐸','🌺','🍀','🌊','🔥','⭐','🌈','🦋','🐝'];
+    const list = avatars.map(a => `
+        <button class="btn btn--outline" style="font-size:28px;padding:8px;min-width:48px"
+                onclick="setAvatar('${a}')">${a}</button>
+    `).join('');
+    document.getElementById('modal-icon').textContent = state.userAvatar;
+    document.getElementById('modal-title').textContent = 'Choose Avatar';
+    document.getElementById('modal-body').innerHTML = `
+        <div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-bottom:12px">${list}</div>
+        <div style="text-align:center">
+            <span class="text-muted text-sm">or</span>
+            <button class="btn btn--outline btn--small mt-2" onclick="uploadAvatar()">📷 Upload Photo / GIF</button>
+            <input type="file" id="avatar-file-input" accept="image/*" onchange="handleAvatarUpload(event)" class="hidden">
+        </div>`;
+    document.getElementById('modal-actions').innerHTML =
+        `<button class="btn btn--outline btn--full" onclick="closeModal()">${tr('closeBtn')}</button>`;
+    document.getElementById('modal-overlay').classList.add('is-shown');
+    const modal = document.querySelector('#modal-overlay .modal');
+    if (modal) gsap.fromTo(modal, { scale: 0.85, opacity: 0, y: 16 }, { scale: 1, opacity: 1, y: 0, duration: 0.35, ease: "back.out(1.4)" });
+}
+
+function uploadAvatar() {
+    document.getElementById('avatar-file-input').click();
+}
+
+function handleAvatarUpload(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    e.target.value = '';
+    const reader = new FileReader();
+    reader.onload = () => {
+        setAvatar(reader.result); // data URL
+    };
+    reader.readAsDataURL(file);
+}
+
+function setAvatar(emoji) {
+    state.userAvatar = emoji;
+    safeStorage.set('RE_LIFE_USER_AVATAR', emoji);
+    updateHeaderUI();
+    // Save to Firebase
+    if (state.userKey || state.userId) {
+        FB.saveUserData(state.userKey || state.userId, { photoUrl: emoji });
+    }
+    closeModal();
 }
 
 function handleLogout() {
@@ -1737,3 +1897,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
     document.body.addEventListener('click', addRippleEffect);
 });
+
+// ═══════════════════════════════════════════════════════════════════════
+// THEME SYSTEM — just sets data-theme; colors defined in CSS
+// ═══════════════════════════════════════════════════════════════════════
+
+function initTheme() {
+    const saved = safeStorage.get('RE_LIFE_THEME') || 'light';
+    applyTheme(saved);
+    const sel = document.getElementById('theme-select');
+    if (sel) sel.value = saved;
+}
+
+function applyTheme(name) {
+    document.documentElement.setAttribute('data-theme', name);
+    safeStorage.set('RE_LIFE_THEME', name);
+    const sel = document.getElementById('theme-select');
+    if (sel) sel.value = name;
+}

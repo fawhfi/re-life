@@ -4,6 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
   <title>Re-Life</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,700;9..40,900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/static/style.css">
   <link rel="stylesheet" href="/static/css/theme.css">
   <link rel="icon" type="image/png" href="/static/assets/favicon.png">
@@ -191,8 +194,18 @@
         <div class="card">
           <h3 class="section-title mb-3" id="lbl-settings">Settings</h3>
           <div class="flex-col gap-2">
+            <div class="ai-row">
+              <span class="ai-row-label">🎨 Theme</span>
+              <select class="select-field" id="theme-select" onchange="applyTheme(this.value)" style="width:auto;min-width:120px">
+                <option value="light">🌿 Light</option>
+                <option value="dark">🌙 Dark</option>
+                <option value="forest">🌲 Forest</option>
+                <option value="ocean">🌊 Ocean</option>
+                <option value="sunset">🌅 Sunset</option>
+                <option value="midnight">✨ Midnight</option>
+              </select>
+            </div>
             <button class="btn btn--outline btn--full btn--small" id="sound-btn" onclick="toggleSound()"><img id="sound-icon" src="/static/assets/Sound_On.png" alt="Sound" class="btn-icon"><span id="sound-label">Sound ON</span></button>
-            <button class="btn btn--outline btn--full btn--small" id="theme-btn" onclick="toggleTheme()"><img id="theme-icon" src="/static/assets/DarkMode_Off.png" alt="Theme" class="btn-icon"><span id="theme-label">Dark Mode</span></button>
             <button class="btn btn--outline btn--full btn--small" onclick="toggleLang()"><img id="lang-icon" src="/static/assets/Language.png" alt="Language" class="btn-icon"><span id="lang-label">Language</span> <span id="lang-ind">Eng</span></button>
             <button class="btn btn--outline btn--full btn--small" onclick="openPolicy()"><img src="/static/assets/Policy.png" alt="Policy" class="btn-icon"><span id="lbl-policy">Policy</span></button>
             <button class="btn btn--outline btn--full btn--small" id="debug-btn" onclick="toggleDebug()"><span id="debug-label">🔧 Debug Mode: OFF</span></button>
@@ -207,6 +220,7 @@
 
   <!-- ═══ NAV ═══ -->
   <nav class="nav">
+    <div class="nav-indicator" id="nav-indicator"></div>
     <button id="nav-home" class="nav-btn is-active" onclick="navigateTo('home')"><span class="nav-btn-icon"><img src="/static/assets/Home.png" alt="Home" style="width:100%;height:100%;object-fit:contain"></span><span id="nav-lbl-home">Home</span></button>
     <button id="nav-record" class="nav-btn" onclick="navigateTo('record')"><span class="nav-btn-icon"><img src="/static/assets/Record.png" alt="Record" style="width:100%;height:100%;object-fit:contain"></span><span id="nav-lbl-record">Record</span></button>
     <button id="nav-rewards" class="nav-btn" onclick="navigateTo('rewards')"><span class="nav-btn-icon"><img src="/static/assets/Reward.png" alt="Rewards" style="width:100%;height:100%;object-fit:contain"></span><span id="nav-lbl-rewards">Rewards</span></button>
@@ -240,7 +254,8 @@
   </div>
 </div>
 
-<script type="module" src="/static/firebase.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+<script type="module" src="/static/firebase.js" async></script>
 <script src="/static/js/i18n.js"></script>
 <script src="/static/js/utils.js"></script>
 <script src="/static/app.js"></script>

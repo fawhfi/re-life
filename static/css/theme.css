@@ -2,6 +2,99 @@
    Re-Life — Dark Theme + Animations
    ═══════════════════════════════════════════════════════════════════════ */
 
+/* ═══════════════════════════════════════════════════════════════════════
+   THEME DEFINITIONS — edit colors here
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* ── Forest ─────────────────────────────────────────────────────────── */
+[data-theme="forest"] {
+    --color-primary: #2d5a1e; --color-primary-hover: #1a3a10;
+    --color-primary-light: #d4e8c8; --color-primary-mid: #4a8a30;
+    --color-bg: #f5f2ea; --color-bg-alt: #ede8d8;
+    --color-white: #fefdf8; --color-gray-50: #f7f4ec;
+    --color-gray-100: #f0ecd8; --color-gray-200: #e4dcc0;
+    --color-gray-400: #a09878; --color-gray-500: #7a7258;
+    --color-gray-700: #4a4230; --color-gray-800: #2a2218;
+    --color-amber-200: #f5e8c8; --color-amber-400: #c89820;
+    --color-emerald-50: #f0f5e8; --color-emerald-100: #d8e8c8;
+    --color-emerald-200: #b0cc98; --color-emerald-700: #3a6a20;
+    --color-emerald-800: #1a4a10; --color-red-400: #d4a088; --color-red-500: #b85040;
+}
+
+/* ── Ocean ──────────────────────────────────────────────────────────── */
+[data-theme="ocean"] {
+    --color-primary: #1a4a6a; --color-primary-hover: #0e2e44;
+    --color-primary-light: #c8dce8; --color-primary-mid: #307aa0;
+    --color-bg: #f0f4f8; --color-bg-alt: #e4ecf2;
+    --color-white: #f8fafc; --color-gray-50: #f2f6fa;
+    --color-gray-100: #e8eef4; --color-gray-200: #d0dce8;
+    --color-gray-400: #8898a8; --color-gray-500: #586878;
+    --color-gray-700: #2a3848; --color-gray-800: #141e28;
+    --color-amber-200: #e8f0d0; --color-amber-400: #a0b830;
+    --color-emerald-50: #e8f4f0; --color-emerald-100: #d0e8e0;
+    --color-emerald-200: #a0ccb8; --color-emerald-700: #1a5a4a;
+    --color-emerald-800: #0a3a2e; --color-red-400: #c8a0a0; --color-red-500: #a84040;
+}
+
+/* ── Sunset ─────────────────────────────────────────────────────────── */
+[data-theme="sunset"] {
+    --color-primary: #8a3a2a; --color-primary-hover: #5a2018;
+    --color-primary-light: #f0d8d0; --color-primary-mid: #b85040;
+    --color-bg: #faf5f0; --color-bg-alt: #f5ece4;
+    --color-white: #fefcf8; --color-gray-50: #f8f4ec;
+    --color-gray-100: #f2e8d8; --color-gray-200: #e8d4c0;
+    --color-gray-400: #b09880; --color-gray-500: #8a7060;
+    --color-gray-700: #4a3830; --color-gray-800: #2a1e18;
+    --color-amber-200: #fae0c8; --color-amber-400: #d89030;
+    --color-emerald-50: #f5f0e8; --color-emerald-100: #e8dcc8;
+    --color-emerald-200: #ccb898; --color-emerald-700: #6a5030;
+    --color-emerald-800: #3a2a18; --color-red-400: #e0a8a0; --color-red-500: #c05040;
+}
+
+/* ── Midnight ───────────────────────────────────────────────────────── */
+[data-theme="midnight"] {
+    --color-primary: #6a5acd; --color-primary-hover: #4a3aa0;
+    --color-primary-light: #2a2040; --color-primary-mid: #8a7ad0;
+    --color-bg: #0a0a14; --color-bg-alt: #101020;
+    --color-white: #141428; --color-gray-50: #101020;
+    --color-gray-100: #181830; --color-gray-200: #252540;
+    --color-gray-400: #7070a0; --color-gray-500: #8888b0;
+    --color-gray-700: #c0c0e0; --color-gray-800: #e0e0f0;
+    --color-amber-200: #302840; --color-amber-400: #b8a040;
+    --color-emerald-50: #101828; --color-emerald-100: #182038;
+    --color-emerald-200: #203048; --color-emerald-700: #60d0a0;
+    --color-emerald-800: #80e0b8; --color-red-400: #c04060; --color-red-500: #e06080;
+}
+
+/* ── Dark + Midnight: fix hardcoded white surfaces ─────────────────── */
+[data-theme="dark"] .app-header,
+[data-theme="midnight"] .app-header {
+    background: rgba(30,35,30,0.4) !important;
+    border-color: rgba(255,255,255,0.06) !important;
+}
+[data-theme="dark"] nav.nav,
+[data-theme="dark"] .app-nav,
+[data-theme="midnight"] nav.nav,
+[data-theme="midnight"] .app-nav {
+    background: rgba(30,35,30,0.85) !important;
+    border-color: rgba(255,255,255,0.06) !important;
+}
+[data-theme="dark"] .modal,
+[data-theme="midnight"] .modal {
+    background: rgba(30,36,30,0.95);
+}
+[data-theme="dark"] .login-card,
+[data-theme="midnight"] .login-card {
+    background: rgba(20,28,20,0.9);
+    border-color: rgba(255,255,255,0.08);
+}
+[data-theme="dark"] .tips-card,
+[data-theme="midnight"] .tips-card,
+[data-theme="dark"] .rewards-wallet,
+[data-theme="midnight"] .rewards-wallet {
+    color: #e5e7e5;
+}
+
 /* ── Dark Theme ────────────────────────────────────────────────────── */
 [data-theme="dark"] {
     --color-primary:        #4a9a5b;
@@ -82,7 +175,7 @@
 [data-theme="dark"] .record-card-badge--purchase { background: var(--color-emerald-100); color: var(--color-emerald-700); }
 [data-theme="dark"] .scanning-status { background: var(--color-gray-50); }
 [data-theme="dark"] .disposal-guide { background: var(--color-gray-50); border-color: var(--color-gray-200); }
-[data-theme="dark"] .nav-btn.is-active { background: rgba(212, 232, 216, 0.15); color: var(--color-primary-light); }
+[data-theme="dark"] .nav-btn.is-active { color: var(--color-primary-light); }
 [data-theme="dark"] .ai-switch::after { background: #e5e7e5; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3); }
 [data-theme="dark"] .result-card-name,
 [data-theme="dark"] .record-card-name { color: var(--color-gray-800); }
@@ -100,9 +193,11 @@
 [data-theme="dark"] .rewards-item-btn--can-buy { color: #e5e7e5; }
 [data-theme="dark"] .grade-tag { color: #e5e7e5; }
 
-/* ── Dark mode: scan mode active buttons ──────────────────────────── */
-[data-theme="dark"] .scan-btn--active.scan-btn--dispose { background: #1e3a28; border-color: var(--color-emerald-700); }
-[data-theme="dark"] .scan-btn--active.scan-btn--purchase { background: #1e3a28; border-color: var(--color-emerald-700); }
+/* ── Dark mode: scan mode buttons ─────────────────────────────────── */
+[data-theme="dark"] .scan-btn--active.scan-btn--dispose,
+[data-theme="midnight"] .scan-btn--active.scan-btn--dispose { background: var(--color-primary-light); border-color: var(--color-emerald-700); }
+[data-theme="dark"] .scan-btn--active.scan-btn--purchase,
+[data-theme="midnight"] .scan-btn--active.scan-btn--purchase { background: var(--color-emerald-100); border-color: var(--color-emerald-700); }
 
 /* ── Dark mode: danger button ─────────────────────────────────────── */
 [data-theme="dark"] .btn--danger { background: #dc2626; border-color: #dc2626; color: #fff; }

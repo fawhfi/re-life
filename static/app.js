@@ -1897,3 +1897,110 @@ document.addEventListener('DOMContentLoaded', () => {
 
     document.body.addEventListener('click', addRippleEffect);
 });
+
+// ═══════════════════════════════════════════════════════════════════════
+// THEME SYSTEM
+// ═══════════════════════════════════════════════════════════════════════
+
+const THEMES = {
+    light: {
+        '--color-primary': '#3d6a4b', '--color-primary-hover': '#2f5239',
+        '--color-primary-light': '#d4e8d8', '--color-primary-mid': '#5a9a6b',
+        '--color-bg': '#f0f4ef', '--color-bg-alt': '#e8ede6',
+        '--color-white': '#ffffff', '--color-gray-50': '#f9faf8',
+        '--color-gray-100': '#f3f5f2', '--color-gray-200': '#e3e6e1',
+        '--color-gray-400': '#9ca39a', '--color-gray-500': '#6b7268',
+        '--color-gray-700': '#3d423b', '--color-gray-800': '#1f231e',
+        '--color-amber-200': '#fef3c7', '--color-amber-400': '#f59e0b',
+        '--color-emerald-50': '#ecfdf5', '--color-emerald-100': '#d1fae5',
+        '--color-emerald-200': '#a7f3d0', '--color-emerald-700': '#047857',
+        '--color-emerald-800': '#065f46', '--color-red-400': '#f87171',
+        '--color-red-500': '#ef4444',
+    },
+    dark: {
+        '--color-primary': '#4a9a5b', '--color-primary-hover': '#5aae6b',
+        '--color-primary-light': '#1e3a28', '--color-primary-mid': '#3a7a4b',
+        '--color-bg': '#0f120f', '--color-bg-alt': '#151815',
+        '--color-white': '#1a1f1a', '--color-gray-50': '#161a16',
+        '--color-gray-100': '#1e231e', '--color-gray-200': '#2a302a',
+        '--color-gray-400': '#7a807a', '--color-gray-500': '#9aa09a',
+        '--color-gray-700': '#c8cec8', '--color-gray-800': '#e8ebe8',
+        '--color-amber-200': '#5a4a20', '--color-amber-400': '#d4a017',
+        '--color-emerald-50': '#122016', '--color-emerald-100': '#182a1e',
+        '--color-emerald-200': '#1e3a28', '--color-emerald-700': '#4ade80',
+        '--color-emerald-800': '#6ee7a0', '--color-red-400': '#dc2626',
+        '--color-red-500': '#ef4444',
+    },
+    forest: {
+        '--color-primary': '#2d5a1e', '--color-primary-hover': '#1a3a10',
+        '--color-primary-light': '#d4e8c8', '--color-primary-mid': '#4a8a30',
+        '--color-bg': '#f5f2ea', '--color-bg-alt': '#ede8d8',
+        '--color-white': '#fefdf8', '--color-gray-50': '#f7f4ec',
+        '--color-gray-100': '#f0ecd8', '--color-gray-200': '#e4dcc0',
+        '--color-gray-400': '#a09878', '--color-gray-500': '#7a7258',
+        '--color-gray-700': '#4a4230', '--color-gray-800': '#2a2218',
+        '--color-amber-200': '#f5e8c8', '--color-amber-400': '#c89820',
+        '--color-emerald-50': '#f0f5e8', '--color-emerald-100': '#d8e8c8',
+        '--color-emerald-200': '#b0cc98', '--color-emerald-700': '#3a6a20',
+        '--color-emerald-800': '#1a4a10', '--color-red-400': '#d4a088',
+        '--color-red-500': '#b85040',
+    },
+    ocean: {
+        '--color-primary': '#1a4a6a', '--color-primary-hover': '#0e2e44',
+        '--color-primary-light': '#c8dce8', '--color-primary-mid': '#307aa0',
+        '--color-bg': '#f0f4f8', '--color-bg-alt': '#e4ecf2',
+        '--color-white': '#f8fafc', '--color-gray-50': '#f2f6fa',
+        '--color-gray-100': '#e8eef4', '--color-gray-200': '#d0dce8',
+        '--color-gray-400': '#8898a8', '--color-gray-500': '#586878',
+        '--color-gray-700': '#2a3848', '--color-gray-800': '#141e28',
+        '--color-amber-200': '#e8f0d0', '--color-amber-400': '#a0b830',
+        '--color-emerald-50': '#e8f4f0', '--color-emerald-100': '#d0e8e0',
+        '--color-emerald-200': '#a0ccb8', '--color-emerald-700': '#1a5a4a',
+        '--color-emerald-800': '#0a3a2e', '--color-red-400': '#c8a0a0',
+        '--color-red-500': '#a84040',
+    },
+    sunset: {
+        '--color-primary': '#8a3a2a', '--color-primary-hover': '#5a2018',
+        '--color-primary-light': '#f0d8d0', '--color-primary-mid': '#b85040',
+        '--color-bg': '#faf5f0', '--color-bg-alt': '#f5ece4',
+        '--color-white': '#fefcf8', '--color-gray-50': '#f8f4ec',
+        '--color-gray-100': '#f2e8d8', '--color-gray-200': '#e8d4c0',
+        '--color-gray-400': '#b09880', '--color-gray-500': '#8a7060',
+        '--color-gray-700': '#4a3830', '--color-gray-800': '#2a1e18',
+        '--color-amber-200': '#fae0c8', '--color-amber-400': '#d89030',
+        '--color-emerald-50': '#f5f0e8', '--color-emerald-100': '#e8dcc8',
+        '--color-emerald-200': '#ccb898', '--color-emerald-700': '#6a5030',
+        '--color-emerald-800': '#3a2a18', '--color-red-400': '#e0a8a0',
+        '--color-red-500': '#c05040',
+    },
+    midnight: {
+        '--color-primary': '#6a5acd', '--color-primary-hover': '#4a3aa0',
+        '--color-primary-light': '#2a2040', '--color-primary-mid': '#8a7ad0',
+        '--color-bg': '#0a0a14', '--color-bg-alt': '#101020',
+        '--color-white': '#141428', '--color-gray-50': '#101020',
+        '--color-gray-100': '#181830', '--color-gray-200': '#252540',
+        '--color-gray-400': '#7070a0', '--color-gray-500': '#8888b0',
+        '--color-gray-700': '#c0c0e0', '--color-gray-800': '#e0e0f0',
+        '--color-amber-200': '#302840', '--color-amber-400': '#b8a040',
+        '--color-emerald-50': '#101828', '--color-emerald-100': '#182038',
+        '--color-emerald-200': '#203048', '--color-emerald-700': '#60d0a0',
+        '--color-emerald-800': '#80e0b8', '--color-red-400': '#c04060',
+        '--color-red-500': '#e06080',
+    },
+};
+
+function initTheme() {
+    const saved = safeStorage.get('RE_LIFE_THEME') || 'light';
+    applyTheme(saved);
+    const sel = document.getElementById('theme-select');
+    if (sel) sel.value = saved;
+}
+
+function applyTheme(name) {
+    const theme = THEMES[name] || THEMES.light;
+    const root = document.documentElement;
+    Object.entries(theme).forEach(([k, v]) => root.style.setProperty(k, v));
+    safeStorage.set('RE_LIFE_THEME', name);
+    const sel = document.getElementById('theme-select');
+    if (sel) sel.value = name;
+}

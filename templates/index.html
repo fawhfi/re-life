@@ -195,7 +195,17 @@
           <h3 class="section-title mb-3" id="lbl-settings">Settings</h3>
           <div class="flex-col gap-2">
             <button class="btn btn--outline btn--full btn--small" id="sound-btn" onclick="toggleSound()"><img id="sound-icon" src="/static/assets/Sound_On.png" alt="Sound" class="btn-icon"><span id="sound-label">Sound ON</span></button>
-            <button class="btn btn--outline btn--full btn--small" id="theme-btn" onclick="toggleTheme()"><img id="theme-icon" src="/static/assets/DarkMode_Off.png" alt="Theme" class="btn-icon"><span id="theme-label">Dark Mode</span></button>
+            <div class="ai-row" style="margin-bottom:4px">
+              <span class="ai-row-label">🎨 Theme</span>
+              <select class="select-field" id="theme-select" onchange="applyTheme(this.value)" style="width:auto;min-width:120px">
+                <option value="light">🌿 Light</option>
+                <option value="dark">🌙 Dark</option>
+                <option value="forest">🌲 Forest</option>
+                <option value="ocean">🌊 Ocean</option>
+                <option value="sunset">🌅 Sunset</option>
+                <option value="midnight">✨ Midnight</option>
+              </select>
+            </div>
             <button class="btn btn--outline btn--full btn--small" onclick="toggleLang()"><img id="lang-icon" src="/static/assets/Language.png" alt="Language" class="btn-icon"><span id="lang-label">Language</span> <span id="lang-ind">Eng</span></button>
             <button class="btn btn--outline btn--full btn--small" onclick="openPolicy()"><img src="/static/assets/Policy.png" alt="Policy" class="btn-icon"><span id="lbl-policy">Policy</span></button>
             <button class="btn btn--outline btn--full btn--small" id="debug-btn" onclick="toggleDebug()"><span id="debug-label">🔧 Debug Mode: OFF</span></button>

@@ -177,23 +177,27 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Init language from storage
     state.lang = safeStorage.get('RE_LIFE_LANG') || 'en';
-    if (typeof I18N !== 'undefined') await I18N.load(state.lang);
+    // Fire i18n load but don't block render
+    if (typeof I18N !== 'undefined') I18N.load(state.lang).then(updateAllLabels);
     document.documentElement.lang = state.lang === 'zh' ? 'zh-HK' : 'en';
     updateAllLabels();
 
     startClock();
-    await initAccounts();
-    await loadRecords();
-    loadTips();
-    loadRewards();
-    loadFact();
     setupDragDrop();
     initNavDrag();
-    await detectCamera();
     initTheme();
-    setScanModeUI('dispose'); // default active scan button
-    updateAllLabels();
+    setScanModeUI('dispose');
     updateHeaderUI();
+
+    // Critical: load user + records first
+    const [_, __] = await Promise.all([initAccounts(), loadRecords()]);
+
+    // Non-critical: lazy load in background
+    requestIdleCallback ? requestIdleCallback(() => {
+        loadTips(); loadRewards(); loadFact(); detectCamera();
+    }) : setTimeout(() => {
+        loadTips(); loadRewards(); loadFact(); detectCamera();
+    }, 500);
 });
 
 let cameraAvailable = false;

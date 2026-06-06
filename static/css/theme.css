@@ -82,7 +82,7 @@
 [data-theme="dark"] .record-card-badge--purchase { background: var(--color-emerald-100); color: var(--color-emerald-700); }
 [data-theme="dark"] .scanning-status { background: var(--color-gray-50); }
 [data-theme="dark"] .disposal-guide { background: var(--color-gray-50); border-color: var(--color-gray-200); }
-[data-theme="dark"] .nav-btn.is-active { background: rgba(212, 232, 216, 0.15); color: var(--color-primary-light); }
+[data-theme="dark"] .nav-btn.is-active { color: var(--color-primary-light); }
 [data-theme="dark"] .ai-switch::after { background: #e5e7e5; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3); }
 [data-theme="dark"] .result-card-name,
 [data-theme="dark"] .record-card-name { color: var(--color-gray-800); }

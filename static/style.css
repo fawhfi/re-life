@@ -1878,7 +1878,6 @@ body:has(.camera-modal.is-shown) .app-header,
 }
 
 .nav-btn.is-active, .nav-btn:hover {
-    background: rgba(61, 106, 75, 0.12);
     color: var(--color-primary);
     font-weight: 700;
 }
@@ -2526,7 +2525,6 @@ body:has(.camera-modal.is-shown) .app-header,
 }
 
 [data-theme="dark"] .nav-btn.is-active {
-    background: rgba(212, 232, 216, 0.15);
     color: var(--color-primary-light);
 }
 

@@ -429,25 +429,25 @@ body {
 }
 
 .scan-btn--dispose {
-    background: var(--color-primary-light);
-    border-color: rgba(61, 106, 75, 0.12);
+    background: var(--color-gray-100);
+    border: 2px solid var(--color-gray-200);
 }
 
 .scan-btn--dispose:hover {
-    background: #c8dfcc;
-    border-color: rgba(61, 106, 75, 0.25);
+    background: var(--color-primary-light);
+    border-color: var(--color-primary-mid);
     transform: translateY(-2px);
     box-shadow: var(--shadow-md);
 }
 
 .scan-btn--purchase {
-    background: var(--color-emerald-50);
-    border-color: rgba(61, 106, 75, 0.12);
+    background: var(--color-gray-100);
+    border: 2px solid var(--color-gray-200);
 }
 
 .scan-btn--purchase:hover {
-    background: #dcf5e5;
-    border-color: rgba(61, 106, 75, 0.25);
+    background: var(--color-emerald-50);
+    border-color: var(--color-emerald-700);
     transform: translateY(-2px);
     box-shadow: var(--shadow-md);
 }
@@ -465,11 +465,13 @@ body {
 }
 
 .scan-btn--active.scan-btn--dispose {
-    background: #c6f0d4;
+    background: var(--color-primary-light);
+    border-color: var(--color-primary) !important;
 }
 
 .scan-btn--active.scan-btn--purchase {
-    background: #c6f0d4;
+    background: var(--color-emerald-100);
+    border-color: var(--color-emerald-700) !important;
 }
 
 .scan-btn-icon {

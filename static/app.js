@@ -238,10 +238,28 @@ function startClock() {
 function initNavDrag() {
     const navbar = document.querySelector('nav.nav, .app-nav');
     if (!navbar) return;
+    const indicator = document.getElementById('nav-indicator');
+    const btns = navbar.querySelectorAll('.nav-btn');
     let isDragging = false;
 
+    // Position indicator under active tab initially
+    function snapIndicatorTo(btn) {
+        if (!indicator || !btn) return;
+        const nr = navbar.getBoundingClientRect();
+        const br = btn.getBoundingClientRect();
+        gsap.to(indicator, {
+            left: br.left - nr.left,
+            width: br.width,
+            duration: isDragging ? 0.15 : 0.3,
+            ease: "power2.out",
+        });
+    }
+
+    // Initial snap
+    const activeBtn = navbar.querySelector('.nav-btn.is-active');
+    if (activeBtn) snapIndicatorTo(activeBtn);
+
     function evalTab(clientX) {
-        const btns = navbar.querySelectorAll('.nav-btn');
         let best = null, minDist = Infinity;
         btns.forEach(btn => {
             const r = btn.getBoundingClientRect();
@@ -250,6 +268,7 @@ function initNavDrag() {
             if (dist < minDist) { minDist = dist; if (!best) best = btn; }
         });
         if (best) {
+            snapIndicatorTo(best);
             const m = (best.getAttribute('onclick') || '').match(/navigateTo\(['"]([^'"]+)['"]\)/);
             if (m && m[1] && state.activeTab !== m[1]) navigateTo(m[1]);
         }
@@ -262,9 +281,21 @@ function initNavDrag() {
         evalTab(e.clientX);
     });
     navbar.addEventListener('pointermove', e => { if (isDragging) evalTab(e.clientX); });
-    const stop = e => { isDragging = false; try { navbar.releasePointerCapture(e.pointerId); } catch {} };
+    const stop = e => {
+        isDragging = false;
+        try { navbar.releasePointerCapture(e.pointerId); } catch {}
+        // Snap back to active tab
+        const active = navbar.querySelector('.nav-btn.is-active');
+        if (active) snapIndicatorTo(active);
+    };
     navbar.addEventListener('pointerup', stop);
     navbar.addEventListener('pointercancel', stop);
+
+    // Update indicator when tab changes via click too
+    window._snapNavIndicator = () => {
+        const a = navbar.querySelector('.nav-btn.is-active');
+        if (a) snapIndicatorTo(a);
+    };
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -280,7 +311,7 @@ function navigateTo(name) {
     state.activeTab = name;
     document.querySelectorAll('.nav-btn').forEach(el => el.classList.remove('is-active'));
     const nav = document.getElementById(`nav-${name}`);
-    if (nav) nav.classList.add('is-active');
+    if (nav) { nav.classList.add('is-active'); if (window._snapNavIndicator) window._snapNavIndicator(); }
 
     const currentTab = document.querySelector('.tab.active');
     const nextTab = document.getElementById(`tab-${name}`);

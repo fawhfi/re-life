@@ -1828,6 +1828,18 @@ nav.nav, .app-nav {
     transition: box-shadow 0.2s ease, opacity 0.2s ease, visibility 0.2s;
 }
 
+/* Sliding nav indicator */
+.nav-indicator {
+    position: absolute;
+    top: 4px;
+    height: calc(100% - 8px);
+    background: rgba(61, 106, 75, 0.12);
+    border-radius: 16px;
+    pointer-events: none;
+    z-index: 0;
+    will-change: left, width;
+}
+
 /* Hide floating bars when camera is active */
 body:has(.camera-modal.is-shown) .app-nav,
 body:has(.camera-modal.is-shown) nav.nav,
@@ -1843,6 +1855,8 @@ body:has(.camera-modal.is-shown) .app-header,
 .nav-btn {
     flex: 1;
     display: flex;
+    position: relative;
+    z-index: 1;
     flex-direction: column;
     align-items: center;
     gap: 1px;

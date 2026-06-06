@@ -384,6 +384,7 @@ function showPreview(dataUrl) {
     document.getElementById('upload-preview-img').src = dataUrl;
     preview.classList.add('is-shown');
     zone.classList.add('has-image');
+    gsap.from(preview, { scale: 0.9, opacity: 0, duration: 0.35, ease: "back.out(1.4)" });
 }
 
 function clearPreview() {
@@ -521,7 +522,9 @@ function capturePhoto() {
 async function doScan() {
     if (!state.selectedFile) return;
 
-    document.getElementById('scan-status').classList.add('is-shown');
+    const status = document.getElementById('scan-status');
+    status.classList.add('is-shown');
+    gsap.fromTo(status, { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.3 });
     document.getElementById('scan-result').classList.add('hidden');
 
     try {
@@ -688,6 +691,7 @@ function showScanResult(item) {
         document.getElementById('alt-name').textContent = item.alternative.name;
         renderStars('alt-eco-stars', item.alternative.eco_rate);
         renderStars('alt-recycle-stars', item.alternative.recycle_rate);
+        gsap.from(alt, { opacity: 0, y: 12, duration: 0.35, ease: "power2.out" });
     } else {
         alt.classList.add('hidden');
     }
@@ -852,6 +856,7 @@ async function handleSwapProof(e) {
         btn.textContent = '✅ +' + points + ' Points Earned!';
         btn.style.background = 'var(--color-emerald-700)';
         btn.disabled = true;
+        gsap.fromTo(btn, { scale: 1 }, { scale: 1.1, duration: 0.15, yoyo: true, repeat: 1, ease: "power2.out" });
     }
     playBeep('success');
 }
@@ -1196,6 +1201,12 @@ function renderRewards() {
         </div>`;
     }).join('');
 
+    // GSAP staggered entrance for rewards
+    gsap.fromTo('#rew-catalogue .rewards-item', 
+        { opacity: 0, y: 16 }, 
+        { opacity: 1, y: 0, duration: 0.35, stagger: 0.05, ease: "power2.out" }
+    );
+
     // Claimed coupons grid
     const grid = document.getElementById('rew-coupon-grid');
     grid.innerHTML = state.claimedCoupons.map(c => `
@@ -1259,7 +1270,10 @@ function showAlert(title, body, icon) {
     document.getElementById('modal-body').textContent = body;
     document.getElementById('modal-actions').innerHTML =
         `<button class="btn btn--primary btn--full" onclick="closeModal()">${tr('closeBtn')}</button>`;
-    document.getElementById('modal-overlay').classList.add('is-shown');
+    const overlay = document.getElementById('modal-overlay');
+    overlay.classList.add('is-shown');
+    const modal = overlay.querySelector('.modal');
+    if (modal) gsap.fromTo(modal, { scale: 0.85, opacity: 0, y: 16 }, { scale: 1, opacity: 1, y: 0, duration: 0.35, ease: "back.out(1.4)" });
 }
 
 function showConfirm(msg, onConfirm) {

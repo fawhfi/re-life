@@ -1193,8 +1193,8 @@ body {
 
 /* ── News Card ──────────────────────────────────────────────────────── */
 .tips-card {
-    background: var(--color-gray-800);
-    color: var(--color-gray-50);
+    background: var(--color-primary);
+    color: #fff;
     border-radius: 16px;
     padding: 20px;
     position: relative;
@@ -1206,9 +1206,9 @@ body {
     position: absolute;
     right: -20px; top: -20px;
     width: 120px; height: 120px;
-    background: var(--color-primary);
+    background: #fff;
     border-radius: 50%;
-    opacity: 0.15;
+    opacity: 0.08;
 }
 
 .tips-card-header {
@@ -1233,7 +1233,7 @@ body {
 
 .tips-source {
     font-size: var(--text-xs);
-    color: var(--color-gray-400);
+    color: rgba(255,255,255,0.6);
 }
 
 .tips-title {
@@ -1251,7 +1251,7 @@ body {
 
 .tips-snippet {
     font-size: var(--text-sm);
-    color: var(--color-gray-400);
+    color: rgba(255,255,255,0.7);
     transition: opacity 0.25s ease;
     line-height: 1.5;
     margin-bottom: 14px;

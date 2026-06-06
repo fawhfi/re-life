@@ -47,7 +47,8 @@ app.mount("/static", StaticFiles(directory=root_dir / "static"), name="static")
 
 def _inject_firebase_config(html: str) -> str:
     config_json = json.dumps(FIREBASE_CONFIG)
-    return html.replace("</head>", f"<script>window.FIREBASE_CONFIG = {config_json};</script>\n</head>")
+    safe_json = config_json.replace("</", "<\\/")
+    return html.replace("</head>", f"<script>window.FIREBASE_CONFIG = {safe_json};</script>\n</head>")
 
 def _page(path: str) -> str:
     return (root_dir / "templates" / path).read_text(encoding="utf-8")
@@ -106,8 +107,8 @@ async def reset_password(request: Request, data: dict):
     email = (data.get("email") or "").strip().lower()
     code  = (data.get("code") or "").strip()
     password = data.get("password", "")
-    if not email or not code or len(password) < 4:
-        return JSONResponse({"error": "Email, code, and new password (4+ chars) required"}, 400)
+    if not email or not code or len(password) < 8:
+        return JSONResponse({"error": "Email, code, and new password (8+ chars) required"}, 400)
     user = await verify_reset_code(email, code)
     if not user:
         return JSONResponse({"error": "Invalid or expired code"}, 400)

@@ -179,7 +179,7 @@ async def _call_claude(prompt: str, b64: str, mime: str) -> str:
             "https://api.anthropic.com/v1/messages",
             headers={"x-api-key": CLAUDE_API_KEY, "anthropic-version": "2023-06-01", "Content-Type": "application/json"},
             json={
-                "model": "claude-3-haiku-20240307", "max_tokens": 4096,
+                "model": CLAUDE_MODEL, "max_tokens": 4096,
                 "system": "You are an environmental packaging evaluator. Respond with ONLY a single JSON object.",
                 "messages": [{"role": "user", "content": [{"type": "image", "source": {"type": "base64", "media_type": mime, "data": b64}}, {"type": "text", "text": prompt}]}],
             },
@@ -187,7 +187,6 @@ async def _call_claude(prompt: str, b64: str, mime: str) -> str:
         r.raise_for_status()
     return r.json()["content"][0]["text"]
 
-import json as _json
 
 async def ai_analyze(image_bytes: bytes, sid: str) -> dict:
     """Route to the correct AI provider based on DEFAULT_AI_MODEL."""

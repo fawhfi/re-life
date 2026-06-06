@@ -210,3 +210,17 @@ async def verify_reset_code(email: str, code: str) -> dict | None:
                 del _pending_verifications[f"reset:{email}"]
                 return user
     return None
+
+async def update_password(email: str, new_password: str) -> bool:
+    """Update a user's password by email. Returns True on success."""
+    user = await get_user_by_email(email)
+    if not user:
+        return False
+    if FIREBASE_DB_URL:
+        try:
+            await db_put(f"users/{user['key']}/passwordHash", new_password)
+            return True
+        except Exception as e:
+            print(f"[Auth] update_password failed: {e}")
+            return False
+    return False

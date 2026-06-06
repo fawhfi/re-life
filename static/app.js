@@ -1396,7 +1396,7 @@ async function initAccounts() {
     const stored = safeStorage.get('RE_LIFE_CURRENT_USER');
     if (stored) {
         state.currentUser = stored;
-        state.userAvatar = safeStorage.get('RE_LIFE_USER_AVATAR') || '👤';
+        state.userAvatar = safeStorage.get('RE_LIFE_USER_AVATAR') || user.photoUrl || '👤';
         try {
             const user = await FB.getUserByName(stored);
             if (user) {
@@ -1413,7 +1413,14 @@ async function initAccounts() {
 }
 
 function updateHeaderUI() {
-    document.getElementById('hdr-avatar').textContent = state.userAvatar;
+    const avatarEl = document.getElementById('hdr-avatar');
+    if (state.userAvatar && state.userAvatar.startsWith('data:')) {
+        avatarEl.innerHTML = `<img src="${state.userAvatar}" style="width:100%;height:100%;border-radius:50%;object-fit:cover">`;
+        avatarEl.style.background = 'none';
+    } else {
+        avatarEl.textContent = state.userAvatar || '👤';
+        avatarEl.style.background = '';
+    }
     document.getElementById('hdr-user').textContent = state.currentUser || tr('notLoggedIn');
     document.getElementById('hdr-user').style.display = state.currentUser ? 'block' : 'none';
     const logoutBtn = document.getElementById('logout-btn');
@@ -1425,7 +1432,6 @@ function handleAvatarClick() {
         showUserPicker();
         return;
     }
-    // Let user pick a new avatar emoji
     const avatars = ['🌿','♻️','🌱','🍃','🌳','💚','🌍','🪴','🐼','🐨','🦊','🐸','🌺','🍀','🌊','🔥','⭐','🌈','🦋','🐝'];
     const list = avatars.map(a => `
         <button class="btn btn--outline" style="font-size:28px;padding:8px;min-width:48px"
@@ -1433,12 +1439,33 @@ function handleAvatarClick() {
     `).join('');
     document.getElementById('modal-icon').textContent = state.userAvatar;
     document.getElementById('modal-title').textContent = 'Choose Avatar';
-    document.getElementById('modal-body').innerHTML = `<div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center">${list}</div>`;
+    document.getElementById('modal-body').innerHTML = `
+        <div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-bottom:12px">${list}</div>
+        <div style="text-align:center">
+            <span class="text-muted text-sm">or</span>
+            <button class="btn btn--outline btn--small mt-2" onclick="uploadAvatar()">📷 Upload Photo / GIF</button>
+            <input type="file" id="avatar-file-input" accept="image/*" onchange="handleAvatarUpload(event)" class="hidden">
+        </div>`;
     document.getElementById('modal-actions').innerHTML =
         `<button class="btn btn--outline btn--full" onclick="closeModal()">${tr('closeBtn')}</button>`;
     document.getElementById('modal-overlay').classList.add('is-shown');
     const modal = document.querySelector('#modal-overlay .modal');
     if (modal) gsap.fromTo(modal, { scale: 0.85, opacity: 0, y: 16 }, { scale: 1, opacity: 1, y: 0, duration: 0.35, ease: "back.out(1.4)" });
+}
+
+function uploadAvatar() {
+    document.getElementById('avatar-file-input').click();
+}
+
+function handleAvatarUpload(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    e.target.value = '';
+    const reader = new FileReader();
+    reader.onload = () => {
+        setAvatar(reader.result); // data URL
+    };
+    reader.readAsDataURL(file);
 }
 
 function setAvatar(emoji) {

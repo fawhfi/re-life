@@ -428,33 +428,23 @@ body {
     transition: transform 0.1s var(--ease-out-quint);
 }
 
-.scan-btn--dispose {
-    background: var(--color-gray-100);
-    border: 2px solid var(--color-gray-200);
-}
-
-.scan-btn--dispose:hover {
-    background: var(--color-primary-light);
-    border-color: var(--color-primary-mid);
-    transform: translateY(-2px);
-    box-shadow: var(--shadow-md);
-}
-
+.scan-btn--dispose,
 .scan-btn--purchase {
     background: var(--color-gray-100);
     border: 2px solid var(--color-gray-200);
 }
 
+.scan-btn--dispose:hover,
 .scan-btn--purchase:hover {
-    background: var(--color-emerald-50);
-    border-color: var(--color-emerald-700);
+    background: var(--color-primary-light);
+    border-color: var(--color-primary);
     transform: translateY(-2px);
     box-shadow: var(--shadow-md);
 }
 
 .scan-btn--active {
     transform: scale(1.04);
-    box-shadow: 0 8px 24px rgba(61, 106, 75, 0.18);
+    box-shadow: 0 8px 24px rgba(61, 106, 75, 0.12);
     border-color: var(--color-primary) !important;
     animation: pulseBorder 2s infinite ease-in-out;
 }
@@ -464,14 +454,10 @@ body {
     50% { border-color: var(--color-primary-mid); }
 }
 
-.scan-btn--active.scan-btn--dispose {
+.scan-btn--active.scan-btn--dispose,
+.scan-btn--active.scan-btn--purchase {
     background: var(--color-primary-light);
     border-color: var(--color-primary) !important;
-}
-
-.scan-btn--active.scan-btn--purchase {
-    background: var(--color-emerald-100);
-    border-color: var(--color-emerald-700) !important;
 }
 
 .scan-btn-icon {

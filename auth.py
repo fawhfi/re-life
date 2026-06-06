@@ -9,6 +9,7 @@ from config import (
 # ── In-memory fallback ──────────────────────────────────────────────────────
 _pending_verifications: dict[str, dict] = {}
 _ratelimit_store: dict[str, list[float]] = defaultdict(list)
+_cleanup_counter = 0
 
 # ── Firebase DB helpers ─────────────────────────────────────────────────────
 
@@ -46,6 +47,25 @@ async def db_del(path: str):
 
 async def check_rate_limit(request, max_requests: int = 5, window_sec: int = 60):
     from fastapi import HTTPException
+    global _cleanup_counter
+    _cleanup_counter += 1
+
+    # Periodically clean up expired rate limit entries from DB (every 200 requests)
+    if FIREBASE_DB_URL and _cleanup_counter % 200 == 0:
+        try:
+            all_data = await db_get("rate_limit")
+            if all_data and isinstance(all_data, dict):
+                now = time.time()
+                deleted = 0
+                for key, val in list(all_data.items()):
+                    if isinstance(val, dict) and val.get("expires", 0) < now:
+                        await db_del(f"rate_limit/{key}")
+                        deleted += 1
+                if deleted:
+                    print(f"[RateLimit] Cleaned up {deleted} expired entries")
+        except Exception as e:
+            print(f"[RateLimit] Cleanup failed: {e}")
+
     ip = request.headers.get("x-forwarded-for", "").split(",")[0].strip()
     if not ip:
         ip = request.client.host if request.client else "unknown"

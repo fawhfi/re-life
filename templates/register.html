@@ -56,11 +56,11 @@
         </div>
         <div class="login-field">
           <label class="login-label" for="reg-password">Choose Password</label>
-          <input class="login-input" type="password" id="reg-password" placeholder="••••••••" autocomplete="new-password" required minlength="4">
+          <input class="login-input" type="password" id="reg-password" placeholder="••••••••" autocomplete="new-password" required minlength="8">
         </div>
         <div class="login-field">
           <label class="login-label" for="reg-password-confirm">Confirm Password</label>
-          <input class="login-input" type="password" id="reg-password-confirm" placeholder="••••••••" autocomplete="new-password" required minlength="4">
+          <input class="login-input" type="password" id="reg-password-confirm" placeholder="••••••••" autocomplete="new-password" required minlength="8">
         </div>
         <div class="login-error" id="register-error"></div>
         <button class="login-btn login-btn--primary" type="submit" id="register-submit-btn">
@@ -187,8 +187,8 @@ async function handleRegister(e) {
         errorEl.textContent = registerLang === 'zh' ? '請輸入有效的電子郵件' : 'Please enter a valid email address';
         return;
     }
-    if (!password || password.length < 4) {
-        errorEl.textContent = registerLang === 'zh' ? '密碼至少需要4個字符' : 'Password must be at least 4 characters';
+    if (!password || password.length < 8) {
+        errorEl.textContent = registerLang === 'zh' ? '密碼至少需要8個字符' : 'Password must be at least 8 characters';
         return;
     }
 

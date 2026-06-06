@@ -71,7 +71,7 @@
       </div>
       <div class="login-field hidden" id="forgot-password-field">
         <label class="login-label" for="forgot-password">New Password</label>
-        <input class="login-input" type="password" id="forgot-password" placeholder="••••••••" minlength="4">
+        <input class="login-input" type="password" id="forgot-password" placeholder="••••••••" minlength="8">
       </div>
       <div class="login-error" id="forgot-error"></div>
       <button class="login-btn login-btn--primary btn--full" onclick="handleForgotStep()" id="forgot-btn" style="margin-top:6px">Send Reset Code</button>
@@ -207,7 +207,7 @@ async function handleForgotStep() {
         const code = document.getElementById('forgot-code').value.trim();
         const password = document.getElementById('forgot-password').value;
         if (!code || code.length !== 6) { errorEl.textContent = 'Enter the 6-digit code'; return; }
-        if (!password || password.length < 4) { errorEl.textContent = 'Password must be 4+ chars'; return; }
+        if (!password || password.length < 8) { errorEl.textContent = 'Password must be 8+ chars'; return; }
         btn.textContent = 'Resetting...';
         try {
             const res = await fetch('/api/reset-password', {

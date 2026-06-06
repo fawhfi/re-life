@@ -444,7 +444,7 @@ body {
 
 .scan-btn--active {
     transform: scale(1.04);
-    box-shadow: 0 8px 24px rgba(61, 106, 75, 0.12);
+    box-shadow: var(--shadow-lg);
     border-color: var(--color-primary) !important;
     animation: pulseBorder 2s infinite ease-in-out;
 }

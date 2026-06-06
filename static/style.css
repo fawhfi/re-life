@@ -1193,12 +1193,28 @@ body {
 
 /* ── News Card ──────────────────────────────────────────────────────── */
 .tips-card {
-    background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-hover) 100%);
+    background: 
+        radial-gradient(circle at 90% 10%, rgba(255,255,255,0.06) 0%, transparent 50%),
+        radial-gradient(circle at 10% 90%, rgba(0,0,0,0.1) 0%, transparent 40%),
+        linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-hover) 100%);
     color: #fff;
     border-radius: 14px;
     padding: 14px 16px;
     position: relative;
     overflow: hidden;
+}
+.tips-card::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: repeating-linear-gradient(
+        45deg,
+        transparent,
+        transparent 2px,
+        rgba(255,255,255,0.02) 2px,
+        rgba(255,255,255,0.02) 4px
+    );
+    pointer-events: none;
 }
 
 .tips-card-header {

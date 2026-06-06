@@ -2,6 +2,35 @@
    Re-Life — Dark Theme + Animations
    ═══════════════════════════════════════════════════════════════════════ */
 
+/* ── Dark + Midnight themes: fix hardcoded white surfaces ───────────── */
+[data-theme="dark"] .app-header,
+[data-theme="midnight"] .app-header {
+    background: rgba(30,35,30,0.4) !important;
+    border-color: rgba(255,255,255,0.06) !important;
+}
+[data-theme="dark"] nav.nav,
+[data-theme="dark"] .app-nav,
+[data-theme="midnight"] nav.nav,
+[data-theme="midnight"] .app-nav {
+    background: rgba(30,35,30,0.85) !important;
+    border-color: rgba(255,255,255,0.06) !important;
+}
+[data-theme="dark"] .modal,
+[data-theme="midnight"] .modal {
+    background: rgba(30,36,30,0.95);
+}
+[data-theme="dark"] .login-card,
+[data-theme="midnight"] .login-card {
+    background: rgba(20,28,20,0.9);
+    border-color: rgba(255,255,255,0.08);
+}
+[data-theme="dark"] .tips-card,
+[data-theme="midnight"] .tips-card,
+[data-theme="dark"] .rewards-wallet,
+[data-theme="midnight"] .rewards-wallet {
+    color: #e5e7e5;
+}
+
 /* ── Dark Theme ────────────────────────────────────────────────────── */
 [data-theme="dark"] {
     --color-primary:        #4a9a5b;

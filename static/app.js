@@ -2000,6 +2000,7 @@ function applyTheme(name) {
     const theme = THEMES[name] || THEMES.light;
     const root = document.documentElement;
     Object.entries(theme).forEach(([k, v]) => root.style.setProperty(k, v));
+    root.setAttribute('data-theme', name);
     safeStorage.set('RE_LIFE_THEME', name);
     const sel = document.getElementById('theme-select');
     if (sel) sel.value = name;

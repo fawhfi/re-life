@@ -71,7 +71,7 @@
     --transition-spring: 0.5s var(--spring-wobbly);
 
     /* ── Typography ───────────────────────────────────────────────── */
-    --font-display: 'Amatic SC', cursive;
+    --font-display: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
     --font-sans: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
     --font-mono: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
 
@@ -193,11 +193,10 @@ body {
 }
 
 .header-title {
-    font-family: var(--font-display);
-    font-size: 1.5rem;
-    font-weight: 700;
+    font-size: 1.125rem;
+    font-weight: var(--weight-black);
     color: var(--color-primary);
-    letter-spacing: 0.02em;
+    letter-spacing: -0.02em;
 }
 
 .header-time, .header-user {

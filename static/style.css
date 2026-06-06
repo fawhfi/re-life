@@ -293,6 +293,7 @@ body {
     border: 1px solid var(--color-gray-200);
     box-shadow: var(--shadow-sm);
     transition: box-shadow 0.2s, transform 0.2s;
+    color: var(--color-gray-800);
 }
 
 .card:hover {
@@ -582,6 +583,7 @@ body {
     text-align: center;
     cursor: pointer;
     background: var(--color-white);
+    color: var(--color-gray-800);
     border: 2px dashed var(--color-gray-200);
     border-radius: 20px;
     padding: 36px 16px 28px;

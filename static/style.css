@@ -1482,6 +1482,13 @@ body {
     display: flex;
     align-items: center;
     gap: 6px;
+    overflow: hidden;
+    min-width: 0;
+}
+.rewards-coupon > * {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .rewards-coupon:hover {

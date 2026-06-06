@@ -271,37 +271,39 @@ function initNavDrag() {
 // 6. TAB NAVIGATION
 // ═══════════════════════════════════════════════════════════════════════
 
+let _tabTween = null;
+
 function navigateTo(name) {
+    // Kill any in-progress tab animation
+    if (_tabTween) { _tabTween.kill(); _tabTween = null; }
+
     state.activeTab = name;
     document.querySelectorAll('.nav-btn').forEach(el => el.classList.remove('is-active'));
     const nav = document.getElementById(`nav-${name}`);
     if (nav) nav.classList.add('is-active');
 
-    // GSAP tab transition
     const currentTab = document.querySelector('.tab.active');
     const nextTab = document.getElementById(`tab-${name}`);
-    if (currentTab && nextTab && currentTab !== nextTab) {
-        gsap.to(currentTab, { opacity: 0, y: -8, duration: 0.2, onComplete: () => {
-            currentTab.classList.remove('active');
-            nextTab.classList.add('active');
-            gsap.fromTo(nextTab, { opacity: 0, y: 8 }, { opacity: 1, y: 0, duration: 0.3, ease: "power2.out" });
-            if (name === 'record') loadRecords();
-            if (name === 'rewards') {
-                renderRewards();
-                const balance = Math.max(0, (state.earnedPoints || 0) - (state.spentPoints || 0));
-                const ptsEl = document.getElementById('rew-pts');
-                if (ptsEl) {
-                    const cur = parseInt(ptsEl.textContent) || 0;
-                    animateNumber('rew-pts', cur, balance, 1000);
-                }
-            }
-        }});
-        return;
-    }
-    // First load or same tab
-    if (nextTab) nextTab.classList.add('active');
+    if (!nextTab) return;
+    if (currentTab === nextTab) return;
+
+    // Immediately clean up all tabs
+    document.querySelectorAll('.tab').forEach(t => { t.classList.remove('active'); gsap.set(t, { clearProps: "all" }); });
+    nextTab.classList.add('active');
+
+    // Animate new tab in
+    gsap.fromTo(nextTab, { opacity: 0, y: 8 }, { opacity: 1, y: 0, duration: 0.3, ease: "power2.out" });
+
     if (name === 'record') loadRecords();
-    if (name === 'rewards') renderRewards();
+    if (name === 'rewards') {
+        renderRewards();
+        const balance = Math.max(0, (state.earnedPoints || 0) - (state.spentPoints || 0));
+        const ptsEl = document.getElementById('rew-pts');
+        if (ptsEl) {
+            const cur = parseInt(ptsEl.textContent) || 0;
+            animateNumber('rew-pts', cur, balance, 1000);
+        }
+    }
 }
 
 

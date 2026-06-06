@@ -260,15 +260,42 @@ function initNavDrag() {
     if (activeBtn) snapIndicatorTo(activeBtn);
 
     function evalTab(clientX) {
+        const nr = navbar.getBoundingClientRect();
+        const relX = clientX - nr.left;
+
+        // Find which two buttons the finger is between for smooth interpolation
+        let leftBtn = null, rightBtn = null;
+        const btnArray = Array.from(btns);
+        for (let i = 0; i < btnArray.length; i++) {
+            const r = btnArray[i].getBoundingClientRect();
+            const btnCenter = r.left - nr.left + r.width / 2;
+            if (btnCenter <= relX) leftBtn = { el: btnArray[i], rect: r, center: btnCenter };
+            if (btnCenter >= relX && !rightBtn) rightBtn = { el: btnArray[i], rect: r, center: btnCenter };
+        }
+
+        // Smoothly interpolate indicator position between adjacent buttons
+        if (indicator) {
+            if (leftBtn && rightBtn && leftBtn.el !== rightBtn.el) {
+                const range = rightBtn.center - leftBtn.center;
+                const t = range > 0 ? (relX - leftBtn.center) / range : 0;
+                const l = leftBtn.rect.left - nr.left + t * (rightBtn.rect.left - leftBtn.rect.left);
+                const w = leftBtn.rect.width + t * (rightBtn.rect.width - leftBtn.rect.width);
+                gsap.to(indicator, { left: l, width: w, duration: 0.08, ease: "power1.out", overwrite: "auto" });
+            } else if (rightBtn) {
+                // Finger is at edges — snap to nearest
+                const r = rightBtn.rect;
+                gsap.to(indicator, { left: r.left - nr.left, width: r.width, duration: 0.12, ease: "power2.out", overwrite: "auto" });
+            }
+        }
+
+        // Find best match for tab switching
         let best = null, minDist = Infinity;
         btns.forEach(btn => {
             const r = btn.getBoundingClientRect();
-            if (clientX >= r.left && clientX <= r.right) best = btn;
             const dist = Math.abs(clientX - (r.left + r.width / 2));
-            if (dist < minDist) { minDist = dist; if (!best) best = btn; }
+            if (dist < minDist) { minDist = dist; best = btn; }
         });
         if (best) {
-            snapIndicatorTo(best);
             const m = (best.getAttribute('onclick') || '').match(/navigateTo\(['"]([^'"]+)['"]\)/);
             if (m && m[1] && state.activeTab !== m[1]) navigateTo(m[1]);
         }

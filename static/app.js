@@ -714,8 +714,10 @@ function showScanResult(item) {
     document.getElementById('ov-score').textContent = overall;
     const barFill = document.getElementById('ov-bar-fill');
     if (barFill) {
-        gsap.fromTo(barFill, { width: '0%' }, { width: `${overall}%`, duration: 0.8, ease: "power3.out" });
+        barFill.style.transformOrigin = 'left center';
+        gsap.fromTo(barFill, { scaleX: 0 }, { scaleX: overall / 100, duration: 0.8, ease: "power3.out" });
         barFill.style.backgroundColor = grade.color;
+        barFill.style.width = `${overall}%`; // set actual width for layout
     }
     document.getElementById('grade-tag').textContent = grade.grade;
     document.getElementById('grade-tag').style.background = grade.color;
@@ -1001,7 +1003,7 @@ async function deleteRecord(id) {
         await FB.deleteItem(id);
         const card = document.getElementById(`rec-${id}`);
         if (card) {
-            gsap.to(card, { opacity: 0, scale: 0.9, height: 0, marginTop: 0, marginBottom: 0, paddingTop: 0, paddingBottom: 0, duration: 0.3, ease: "power2.in", onComplete: () => { card.remove(); loadRecords(); } });
+            gsap.to(card, { opacity: 0, scaleY: 0, transformOrigin: 'top center', duration: 0.25, ease: "power2.in", onComplete: () => { card.style.display = 'none'; loadRecords(); } });
         }
     } catch (e) {
         console.error('Failed to delete record:', e);

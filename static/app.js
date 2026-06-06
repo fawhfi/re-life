@@ -382,7 +382,10 @@ function setScanModeUI(mode) {
     state.scanMode = mode;
     document.querySelectorAll('.scan-btn').forEach(b => b.classList.remove('scan-btn--active'));
     const active = document.querySelector(`.scan-btn--${mode}`);
-    if (active) active.classList.add('scan-btn--active');
+    if (active) {
+        active.classList.add('scan-btn--active');
+        gsap.fromTo(active, { scale: 0.92 }, { scale: 1.04, duration: 0.35, ease: "elastic.out(1, 0.4)" });
+    }
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -403,7 +406,10 @@ function setupDragDrop() {
     if (!zone) return;
     zone.addEventListener('dragover', e => {
         e.preventDefault();
-        zone.classList.add('drag-over');
+        if (!zone.classList.contains('drag-over')) {
+            zone.classList.add('drag-over');
+            gsap.to(zone, { scale: 1.02, duration: 0.2, ease: "power2.out" });
+        }
     });
     zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
     zone.addEventListener('drop', e => {
@@ -491,6 +497,7 @@ async function openCamera() {
     // (required by iOS Safari before attaching a stream)
     modal.classList.add('is-shown');
     document.body.style.overflow = 'hidden';
+    gsap.fromTo(modal, { y: '100%' }, { y: 0, duration: 0.3, ease: "power2.out" });
     document.body.classList.add('camera-active');
 
     // iOS-friendly constraints: avoid width/height which some iOS versions reject
@@ -922,8 +929,16 @@ async function handleSwapProof(e) {
 }
 
 function resetScan() {
+    const result = document.getElementById('scan-result');
+    if (!result.classList.contains('hidden')) {
+        gsap.to(result, { opacity: 0, scale: 0.95, y: -10, duration: 0.25, ease: "power2.in", onComplete: () => {
+            result.classList.add('hidden');
+            result.style.opacity = ''; result.style.transform = '';
+        }});
+    } else {
+        result.classList.add('hidden');
+    }
     clearPreview();
-    document.getElementById('scan-result').classList.add('hidden');
     document.getElementById('weighted-detail').classList.remove('is-open');
     state.lastScanResult = null;
 }
@@ -1406,10 +1421,35 @@ function updateHeaderUI() {
 }
 
 function handleAvatarClick() {
-    // Only trigger login flow; logout is in the More tab
     if (!state.currentUser) {
         showUserPicker();
+        return;
     }
+    // Let user pick a new avatar emoji
+    const avatars = ['🌿','♻️','🌱','🍃','🌳','💚','🌍','🪴','🐼','🐨','🦊','🐸','🌺','🍀','🌊','🔥','⭐','🌈','🦋','🐝'];
+    const list = avatars.map(a => `
+        <button class="btn btn--outline" style="font-size:28px;padding:8px;min-width:48px"
+                onclick="setAvatar('${a}')">${a}</button>
+    `).join('');
+    document.getElementById('modal-icon').textContent = state.userAvatar;
+    document.getElementById('modal-title').textContent = 'Choose Avatar';
+    document.getElementById('modal-body').innerHTML = `<div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center">${list}</div>`;
+    document.getElementById('modal-actions').innerHTML =
+        `<button class="btn btn--outline btn--full" onclick="closeModal()">${tr('closeBtn')}</button>`;
+    document.getElementById('modal-overlay').classList.add('is-shown');
+    const modal = document.querySelector('#modal-overlay .modal');
+    if (modal) gsap.fromTo(modal, { scale: 0.85, opacity: 0, y: 16 }, { scale: 1, opacity: 1, y: 0, duration: 0.35, ease: "back.out(1.4)" });
+}
+
+function setAvatar(emoji) {
+    state.userAvatar = emoji;
+    safeStorage.set('RE_LIFE_USER_AVATAR', emoji);
+    updateHeaderUI();
+    // Save to Firebase
+    if (state.userKey || state.userId) {
+        FB.saveUserData(state.userKey || state.userId, { photoUrl: emoji });
+    }
+    closeModal();
 }
 
 function handleLogout() {

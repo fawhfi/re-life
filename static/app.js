@@ -1552,13 +1552,20 @@ async function saveUserData() {
     if (!state.currentUser) return;
     const id = state.userKey || state.userId;
     if (!id) return;
-    try {
-        await FB.saveUserData(id, {
-            spent_points: state.spentPoints,
-            earned_points: state.earnedPoints,
-            claimed_coupons: state.claimedCoupons,
-        });
-    } catch (_) { /* offline */ }
+    const data = {
+        spent_points: state.spentPoints,
+        earned_points: state.earnedPoints,
+        claimed_coupons: state.claimedCoupons,
+    };
+    // Retry up to 3 times with backoff
+    for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+            await FB.saveUserData(id, data);
+            return;
+        } catch (e) {
+            if (attempt < 2) await new Promise(r => setTimeout(r, 300 * (attempt + 1)));
+        }
+    }
 }
 
 window.addEventListener('beforeunload', () => {

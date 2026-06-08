@@ -308,14 +308,15 @@ function initNavDrag() {
     navbar.addEventListener('pointerdown', e => {
         if (e.button !== 0) return;
         isDragging = true;
+        navbar.classList.add('nav-is-dragging');
         navbar.setPointerCapture(e.pointerId);
         evalTab(e.clientX);
     });
     navbar.addEventListener('pointermove', e => { if (isDragging) evalTab(e.clientX); });
     const stop = e => {
         isDragging = false;
+        navbar.classList.remove('nav-is-dragging');
         try { navbar.releasePointerCapture(e.pointerId); } catch {}
-        // Snap back to active tab
         const active = navbar.querySelector('.nav-btn.is-active');
         if (active) snapIndicatorTo(active);
     };

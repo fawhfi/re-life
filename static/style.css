@@ -1867,6 +1867,7 @@ nav.nav, .app-nav {
     border-radius: 24px;
     padding: 6px 8px;
     z-index: 100;
+    overflow: visible;
 }
 @supports not ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
     nav.nav, .app-nav { background: rgba(255,255,255,0.88); }
@@ -1875,22 +1876,22 @@ nav.nav, .app-nav {
 /* Sliding nav indicator */
 .nav-indicator {
     position: absolute;
-    top: -6px;
-    height: calc(100% + 12px);
+    top: -3px;
+    height: calc(100% + 6px);
     background: var(--color-primary);
-    border-radius: 22px;
+    border-radius: 20px;
     pointer-events: none;
     z-index: 0;
     will-change: left, width;
     opacity: 0.10;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.08);
-    transition: opacity 0.2s ease, box-shadow 0.2s ease;
+    transition: opacity 0.2s ease;
 }
-/* Brighter when dragging */
 .nav-is-dragging .nav-indicator,
 nav.nav:active .nav-indicator {
     opacity: 0.16;
-    box-shadow: 0 4px 24px rgba(0,0,0,0.12);
+    top: -5px;
+    height: calc(100% + 10px);
+    border-radius: 22px;
 }
 
 /* Hide floating bars when camera is active */

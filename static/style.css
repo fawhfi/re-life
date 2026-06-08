@@ -186,7 +186,7 @@ body {
     align-items: center;
     justify-content: space-between;
     padding: 12px 18px;
-    background: rgba(255, 255, 255, 0.2);
+    background: rgba(255, 255, 255, 0.85);
     backdrop-filter: blur(25px) saturate(200%);
     -webkit-backdrop-filter: blur(25px) saturate(200%);
     border: 1px solid rgba(255, 255, 255, 0.25);
@@ -194,6 +194,9 @@ body {
     border-radius: 16px;
     z-index: 100;
     transition: box-shadow 0.2s ease;
+}
+@supports not ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+    .app-header { background: rgba(255,255,255,0.95); }
 }
 
 .header-left {
@@ -1853,28 +1856,38 @@ nav.nav, .app-nav {
     justify-content: space-around;
     align-items: center;
     gap: 0;
-    background: rgba(255,255,255,0.85);
-    backdrop-filter: blur(20px) saturate(180%);
-    -webkit-backdrop-filter: blur(20px) saturate(180%);
-    border: 1px solid rgba(0,0,0,0.06);
-    box-shadow: 0 2px 20px rgba(0,0,0,0.06);
-    border-radius: 22px;
-    padding: 6px 10px;
+    background: rgba(255,255,255,0.10);
+    backdrop-filter: blur(20px) brightness(1.15) saturate(150%);
+    -webkit-backdrop-filter: blur(20px) brightness(1.15) saturate(150%);
+    border: 1px solid rgba(255,255,255,0.3);
+    box-shadow: 0 4px 24px rgba(0,0,0,0.10), inset 0 1px 3px rgba(255,255,255,0.3);
+    border-radius: 24px;
+    padding: 5px 8px;
     z-index: 100;
-    transition: box-shadow 0.2s ease, opacity 0.2s ease, visibility 0.2s;
+    overflow: visible;
+}
+@supports not ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+    nav.nav, .app-nav { background: rgba(255,255,255,0.88); }
 }
 
 /* Sliding nav indicator */
 .nav-indicator {
     position: absolute;
-    top: 5px;
-    height: calc(100% - 10px);
+    top: 3px;
+    height: calc(100% - 6px);
     background: var(--color-primary);
     border-radius: 18px;
     pointer-events: none;
     z-index: 0;
     will-change: left, width;
     opacity: 0.08;
+    transition: top 0.2s, height 0.2s, opacity 0.2s, border-radius 0.2s;
+}
+.nav-is-dragging .nav-indicator {
+    top: -3px;
+    height: calc(100% + 6px);
+    border-radius: 20px;
+    opacity: 0.14;
 }
 
 /* Hide floating bars when camera is active */

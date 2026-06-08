@@ -929,6 +929,8 @@ async function handleSwapProof(e) {
         btn.disabled = true;
         gsap.fromTo(btn, { scale: 1 }, { scale: 1.1, duration: 0.15, yoyo: true, repeat: 1, ease: "power2.out" });
     }
+    // Refresh points display
+    if (state.activeTab === 'rewards') renderRewards();
     playBeep('success');
 }
 

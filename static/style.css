@@ -1853,11 +1853,11 @@ nav.nav, .app-nav {
     justify-content: space-around;
     align-items: center;
     gap: 0;
-    background: rgba(255,255,255,0.55);
-    backdrop-filter: blur(30px) saturate(200%);
-    -webkit-backdrop-filter: blur(30px) saturate(200%);
-    border: 1px solid rgba(255,255,255,0.5);
-    box-shadow: 0 8px 32px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.6);
+    background: rgba(255,255,255,0.25);
+    backdrop-filter: blur(40px) saturate(220%);
+    -webkit-backdrop-filter: blur(40px) saturate(220%);
+    border: 1px solid rgba(255,255,255,0.35);
+    box-shadow: 0 4px 24px rgba(0,0,0,0.04), inset 0 1px 0 rgba(255,255,255,0.5);
     border-radius: 24px;
     padding: 6px 8px;
     z-index: 100;
@@ -1867,15 +1867,24 @@ nav.nav, .app-nav {
 /* Sliding nav indicator */
 .nav-indicator {
     position: absolute;
-    top: -4px;
-    height: calc(100% + 8px);
+    top: 4px;
+    height: calc(100% - 8px);
     background: var(--color-primary);
-    border-radius: 22px;
+    border-radius: 18px;
     pointer-events: none;
     z-index: 0;
     will-change: left, width;
     opacity: 0.10;
-    box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+    transition: top 0.2s ease, height 0.2s ease, border-radius 0.2s ease;
+}
+/* When dragging — indicator extends beyond nav */
+.nav-is-dragging .nav-indicator,
+nav.nav:active .nav-indicator {
+    top: -4px;
+    height: calc(100% + 8px);
+    border-radius: 22px;
+    box-shadow: 0 2px 16px rgba(0,0,0,0.08);
+    opacity: 0.14;
 }
 
 /* Hide floating bars when camera is active */

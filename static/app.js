@@ -251,12 +251,26 @@ function initNavDrag() {
         if (!indicator || !btn) return;
         const nr = navbar.getBoundingClientRect();
         const br = btn.getBoundingClientRect();
+        const targetX = br.left - nr.left;
+        const curX = parseFloat(indicator.style.left) || 0;
+        const dx = targetX - curX;
+
         gsap.to(indicator, {
-            left: br.left - nr.left,
+            left: targetX,
             width: br.width,
-            duration: isDragging ? 0.15 : 0.3,
-            ease: "power2.out",
+            scaleX: 1,
+            duration: isDragging ? 0.15 : 0.4,
+            ease: isDragging ? "power2.out" : "elastic.out(1, 0.5)",
+            overwrite: "auto",
         });
+        // Jelly squash in direction of movement
+        if (!isDragging && Math.abs(dx) > 10) {
+            const dir = dx > 0 ? 1 : -1;
+            gsap.fromTo(indicator, 
+                { scaleX: 1 + dir * 0.08 },
+                { scaleX: 1, duration: 0.5, ease: "elastic.out(1, 0.4)", overwrite: "auto" }
+            );
+        }
     }
 
     // Initial snap
@@ -284,11 +298,12 @@ function initNavDrag() {
                 const t = range > 0 ? (relX - leftBtn.center) / range : 0;
                 const l = leftBtn.rect.left - nr.left + t * (rightBtn.rect.left - leftBtn.rect.left);
                 const w = leftBtn.rect.width + t * (rightBtn.rect.width - leftBtn.rect.width);
-                gsap.to(indicator, { left: l, width: w, duration: 0.08, ease: "power1.out", overwrite: "auto" });
+                // Jelly during drag: slight width overshoot in movement direction
+                const dragScale = 0.97 + 0.06 * Math.abs(t - 0.5) * 2; // narrower at midpoint, wider near edges
+                gsap.to(indicator, { left: l, width: w, scaleX: dragScale, duration: 0.1, ease: "power1.out", overwrite: "auto" });
             } else if (rightBtn) {
-                // Finger is at edges — snap to nearest
                 const r = rightBtn.rect;
-                gsap.to(indicator, { left: r.left - nr.left, width: r.width, duration: 0.12, ease: "power2.out", overwrite: "auto" });
+                gsap.to(indicator, { left: r.left - nr.left, width: r.width, scaleX: 1, duration: 0.12, ease: "power2.out", overwrite: "auto" });
             }
         }
 

@@ -1504,6 +1504,7 @@ body {
 
 .rewards-coupon {
     background: var(--color-gray-50);
+    color: var(--color-gray-700);
     padding: 10px;
     border-radius: var(--radius-md);
     border: 1px solid rgba(0, 0, 0, 0.04);
@@ -1514,6 +1515,7 @@ body {
     gap: 6px;
     overflow: hidden;
     min-width: 0;
+    font-family: inherit;
 }
 .rewards-coupon > * {
     overflow: hidden;

@@ -185,7 +185,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     startClock();
     setupDragDrop();
     initNavDrag();
-    initLiquidGlass();
     initTheme();
     setScanModeUI('dispose');
     updateHeaderUI();
@@ -1970,15 +1969,6 @@ function getDisplacementFilter(w, h, r, depth, strength, cab) {
                 </filter>
             </defs>
         </svg>`) + "#f";
-}
-
-function initLiquidGlass() {
-    const nav = document.querySelector('nav.nav');
-    if (!nav) return;
-
-    // Pure CSS glass — SVG filter causes icon edge artifacts
-    nav.style.backdropFilter = `blur(20px) saturate(160%)`;
-    nav.style.webkitBackdropFilter = `blur(20px) saturate(160%)`;
 }
 
 // THEME SYSTEM — just sets data-theme; colors defined in CSS

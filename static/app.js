@@ -281,8 +281,6 @@ function initNavDrag() {
     });
     navbar.addEventListener('pointermove', e => { if (isDragging) evalTab(e.clientX); });
     document.addEventListener('pointermove', e => { if (isDragging) evalTab(e.clientX); });
-    document.addEventListener('pointerup', stop);
-    document.addEventListener('pointercancel', stop);
     const stop = e => {
         if (!isDragging) return;
         isDragging = false;
@@ -298,6 +296,8 @@ function initNavDrag() {
     };
     navbar.addEventListener('pointerup', stop);
     navbar.addEventListener('pointercancel', stop);
+    document.addEventListener('pointerup', stop);
+    document.addEventListener('pointercancel', stop);
 
     // Update indicator when tab changes via click too
     window._snapNavIndicator = () => {

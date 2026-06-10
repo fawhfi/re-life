@@ -254,13 +254,20 @@ function initNavDrag() {
         if (!indicator || !btn) return;
         const nr = navbar.getBoundingClientRect();
         const br = btn.getBoundingClientRect();
-        const targetX = br.left - nr.left;
+        let targetX = br.left - nr.left;
+        let targetW = br.width;
+        // Clamp to nav bounds
+        const maxRight = nr.width;
+        if (targetX + targetW > maxRight) targetW = maxRight - targetX;
+        if (targetX < 0) { targetW += targetX; targetX = 0; }
+        targetW = Math.max(targetW, 20); // min width
+
         const curX = parseFloat(indicator.style.left) || 0;
         const dx = targetX - curX;
 
         gsap.to(indicator, {
             left: targetX,
-            width: br.width,
+            width: targetW,
             scaleX: 1,
             duration: isDragging ? 0.15 : 0.4,
             ease: isDragging ? "power2.out" : "elastic.out(1, 0.5)",
@@ -304,8 +311,11 @@ function initNavDrag() {
             if (leftBtn && rightBtn && leftBtn.el !== rightBtn.el) {
                 const range = rightBtn.center - leftBtn.center;
                 const t = range > 0 ? (relX - leftBtn.center) / range : 0;
-                const l = leftBtn.rect.left - nr.left + t * (rightBtn.rect.left - leftBtn.rect.left);
-                const w = leftBtn.rect.width + t * (rightBtn.rect.width - leftBtn.rect.width);
+                let l = leftBtn.rect.left - nr.left + t * (rightBtn.rect.left - leftBtn.rect.left);
+                let w = leftBtn.rect.width + t * (rightBtn.rect.width - leftBtn.rect.width);
+                if (l + w > nr.width) w = nr.width - l;
+                if (l < 0) { w += l; l = 0; }
+                w = Math.max(w, 20);
                 gsap.to(indicator, { left: l, width: w, scaleX: 1, duration: 0.1, ease: "power1.out", overwrite: "auto" });
             } else if (rightBtn) {
                 // Finger is left of all buttons — rightBtn is first button

@@ -1976,23 +1976,23 @@ function initLiquidGlass() {
     const nav = document.querySelector('nav.nav');
     if (!nav) return;
 
-    let curStrength = 40, targetStrength = 40;
+    let curStrength = 60, targetStrength = 60;
 
     function update() {
         const r = nav.getBoundingClientRect();
         const w = Math.round(r.width), h = Math.round(r.height);
         curStrength += (targetStrength - curStrength) * 0.1;
-        const filterUrl = getDisplacementFilter(w, h, 28, 6, Math.round(curStrength), 2);
-        nav.style.backdropFilter = `blur(15px) url('${filterUrl}') blur(15px) saturate(160%)`;
-        nav.style.webkitBackdropFilter = `blur(30px) saturate(160%)`;
+        const filterUrl = getDisplacementFilter(w, h, 28, 4, Math.round(curStrength), 3);
+        nav.style.backdropFilter = `blur(4px) url('${filterUrl}') blur(4px) saturate(140%)`;
+        nav.style.webkitBackdropFilter = `blur(8px) saturate(140%)`;
         requestAnimationFrame(update);
     }
 
     const obs = new MutationObserver(() => {
-        targetStrength = nav.classList.contains('nav-is-dragging') ? 80 : 40;
+        targetStrength = nav.classList.contains('nav-is-dragging') ? 110 : 60;
     });
     obs.observe(nav, { attributes: true, attributeFilter: ['class'] });
-    targetStrength = nav.classList.contains('nav-is-dragging') ? 80 : 40;
+    targetStrength = nav.classList.contains('nav-is-dragging') ? 110 : 60;
     update();
     new ResizeObserver(() => {}).observe(nav);
 }

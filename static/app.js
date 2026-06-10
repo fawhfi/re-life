@@ -342,6 +342,24 @@ function initNavDrag() {
         }
     }
 
+    // Wave deformation during drag
+    function applyWave(clientX) {
+        const nr = navbar.getBoundingClientRect();
+        const relX = clientX - nr.left;
+        const t = relX / nr.width; // 0..1 across nav
+        // bend downward under finger, upward at edges
+        const bend = Math.sin(t * Math.PI) * 3; // 0-3px wave
+        const skew = (t - 0.5) * 1.5; // slight twist
+        gsap.to(navbar, {
+            y: bend,
+            skewX: skew,
+            borderRadius: `${24 + bend}px`,
+            duration: 0.12,
+            ease: "power1.out",
+            overwrite: "auto",
+        });
+    }
+
     navbar.addEventListener('pointerdown', e => {
         if (e.button !== 0) return;
         isDragging = true;
@@ -349,11 +367,18 @@ function initNavDrag() {
         navbar.setPointerCapture(e.pointerId);
         evalTab(e.clientX);
     });
-    navbar.addEventListener('pointermove', e => { if (isDragging) evalTab(e.clientX); });
+    navbar.addEventListener('pointermove', e => {
+        if (isDragging) {
+            evalTab(e.clientX);
+            applyWave(e.clientX);
+        }
+    });
     const stop = e => {
         isDragging = false;
         navbar.classList.remove('nav-is-dragging');
         try { navbar.releasePointerCapture(e.pointerId); } catch {}
+        // Reset wave
+        gsap.to(navbar, { y: 0, skewX: 0, borderRadius: 28, duration: 0.4, ease: "elastic.out(1, 0.4)" });
         const active = navbar.querySelector('.nav-btn.is-active');
         if (active) snapIndicatorTo(active);
     };

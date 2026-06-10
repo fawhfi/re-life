@@ -1872,13 +1872,13 @@ nav.nav, .app-nav {
     border-radius: 20px;
     pointer-events: none;
     z-index: 1;
-    transition: left 0.4s cubic-bezier(.22,1,.36,1), width 0.4s cubic-bezier(.22,1,.36,1);
+    transition: left 0.4s cubic-bezier(.22,1,.36,1), width 0.4s cubic-bezier(.22,1,.36,1), top 0.15s, height 0.15s;
 }
 .nav-is-dragging .nav-indicator {
-    top: 3px;
-    height: calc(100% - 6px);
-    border-radius: 22px;
-    background: rgba(255,255,255,0.18);
+    top: -4px;
+    height: calc(100% + 8px);
+    border-radius: 24px;
+    background: rgba(255,255,255,0.16);
 }
 
 /* Hide floating bars when camera is active */

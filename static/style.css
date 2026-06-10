@@ -1866,21 +1866,19 @@ nav.nav, .app-nav {
 /* Sliding nav indicator */
 .nav-indicator {
     position: absolute;
-    top: 4px;
-    height: calc(100% - 8px);
-    background: rgba(255,255,255,0.22);
-    border-radius: 22px;
+    top: 5px;
+    height: calc(100% - 10px);
+    background: rgba(255,255,255,0.10);
+    border-radius: 20px;
     pointer-events: none;
     z-index: 1;
-    box-shadow: 0 2px 12px rgba(0,0,0,0.06);
     transition: left 0.4s cubic-bezier(.22,1,.36,1), width 0.4s cubic-bezier(.22,1,.36,1);
 }
 .nav-is-dragging .nav-indicator {
-    top: 2px;
-    height: calc(100% - 4px);
-    border-radius: 24px;
-    background: rgba(255,255,255,0.32);
-    box-shadow: 0 4px 18px rgba(0,0,0,0.10);
+    top: 3px;
+    height: calc(100% - 6px);
+    border-radius: 22px;
+    background: rgba(255,255,255,0.18);
 }
 
 /* Hide floating bars when camera is active */

@@ -1475,8 +1475,8 @@ async function initAccounts() {
 
 function updateHeaderUI() {
     const avatarEl = document.getElementById('hdr-avatar');
-    if (state.userAvatar && state.userAvatar.startsWith('data:')) {
-        avatarEl.innerHTML = `<img src="${state.userAvatar}" style="width:100%;height:100%;border-radius:50%;object-fit:cover">`;
+    if (state.userAvatar && state.userAvatar.startsWith('data:') && state.userAvatar.length > 100) {
+        avatarEl.innerHTML = `<img src="${state.userAvatar}" style="width:100%;height:100%;border-radius:50%;object-fit:cover" onerror="this.parentElement.textContent='👤'">`;
         avatarEl.style.background = 'none';
     } else {
         avatarEl.textContent = state.userAvatar || '👤';

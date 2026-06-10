@@ -246,11 +246,29 @@ function initNavDrag() {
     const navbar = document.querySelector('nav.nav, .app-nav');
     if (!navbar) return;
     const indicator = document.getElementById('nav-indicator');
+    const svgPath = document.getElementById('nav-glass-path');
     const btns = navbar.querySelectorAll('.nav-btn');
     const btnArray = Array.from(btns);
     let isDragging = false;
 
-    // Position indicator under active tab initially
+    // Build SVG path: flat rectangle with optional arch at (cx, archHeight)
+    function buildPath(cx, archH, archW) {
+        const W = 400, H = 60, r = 28;
+        if (!archH || archH < 2) {
+            // Flat rounded rect
+            return `M${r},0 L${W-r},0 Q${W},0 ${W},${r} L${W},${H-r} Q${W},${H} ${W-r},${H} L${r},${H} Q0,${H} 0,${H-r} L0,${r} Q0,0 ${r},0 Z`;
+        }
+        // Arched: top edge bulges up around cx
+        const ax = Math.max(r, Math.min(W-r, cx));
+        const hw = archW / 2;
+        const x0 = Math.max(0, ax - hw);
+        const x1 = ax;
+        const x2 = Math.min(W, ax + hw);
+        const topY = -archH;
+        return `M${r},0 L${x0},0 Q${x1},${topY} ${x2},0 L${W-r},0 Q${W},0 ${W},${r} L${W},${H-r} Q${W},${H} ${W-r},${H} L${r},${H} Q0,${H} 0,${H-r} L0,${r} Q0,0 ${r},0 Z`;
+    }
+
+    // Position indicator and arch
     function snapIndicatorTo(btn) {
         if (!indicator || !btn) return;
         const nr = navbar.getBoundingClientRect();
@@ -258,30 +276,26 @@ function initNavDrag() {
         let targetX = br.left - nr.left + (br.width - 100) / 2;
         targetX = Math.max(5, Math.min(295, targetX));
 
-        const curX = parseFloat(indicator.style.left) || 0;
-        const dx = targetX - curX;
+        // Scale to SVG coordinates
+        const svgCX = (targetX + 50) / nr.width * 400;
+        const archW = 100 / nr.width * 400;
 
-        gsap.to(indicator, {
-            left: targetX,
-            width: 100,
-            scaleX: 1,
-            duration: isDragging ? 0.15 : 0.45,
-            ease: isDragging ? "power2.out" : "elastic.out(1, 0.6)",
-            overwrite: "auto",
-        });
-        // Jelly squash + indicator glow
-        if (!isDragging && Math.abs(dx) > 10) {
-            const dir = dx > 0 ? 1 : -1;
-            gsap.fromTo(indicator, 
-                { scaleX: 1 + dir * 0.1, opacity: 0.14 },
-                { scaleX: 1, opacity: 0.10, duration: 0.6, ease: "elastic.out(1, 0.4)", overwrite: "auto" }
-            );
-        }
-        // Bounce the nav button icon
+        const tl = gsap.timeline();
+        // Step 1: lift indicator + arch rises
+        tl.to(indicator, { top: -6, height: 'calc(100% + 12px)', borderRadius: 26, duration: 0.15, ease: "power2.out" }, 0);
+        if (svgPath) tl.to(svgPath, { attr: { d: buildPath(svgCX, 12, archW) }, duration: 0.2, ease: "power2.out" }, 0);
+        // Step 2: slide horizontally
+        tl.to(indicator, { left: targetX, width: 100, duration: 0.35, ease: "power3.out" }, 0.1);
+        if (svgPath) tl.to(svgPath, { attr: { d: buildPath(svgCX, 12, archW) }, duration: 0.35, ease: "power3.out" }, 0.1);
+        // Step 3: settle
+        tl.to(indicator, { top: 5, height: 'calc(100% - 10px)', borderRadius: 20, duration: 0.4, ease: "elastic.out(1, 0.6)" }, 0.4);
+        if (svgPath) tl.to(svgPath, { attr: { d: buildPath(svgCX, 0, archW) }, duration: 0.4, ease: "elastic.out(1, 0.5)" }, 0.4);
+
+        // Button icon bounce
         if (!isDragging) {
             const icon = btn.querySelector('.nav-btn-icon');
             if (icon) {
-                gsap.fromTo(icon, { scale: 0.85 }, { scale: 1, duration: 0.4, ease: "back.out(2)", overwrite: "auto" });
+                tl.fromTo(icon, { scale: 0.85 }, { scale: 1, duration: 0.4, ease: "back.out(2)" }, 0.45);
             }
         }
     }
@@ -310,6 +324,12 @@ function initNavDrag() {
             const navLeft = firstBtn.left - nr.left;
             const navRight = lastBtn.right - nr.left;
 
+            const updateArch = (l) => {
+                if (!svgPath) return;
+                const svgCX = (l + 50) / nr.width * 400;
+                const aw = 100 / nr.width * 400;
+                gsap.to(svgPath, { attr: { d: buildPath(svgCX, 10, aw) }, duration: 0.15, ease: "power1.out", overwrite: "auto" });
+            };
             if (leftBtn && rightBtn && leftBtn.el !== rightBtn.el) {
                 const range = rightBtn.center - leftBtn.center;
                 const t = range > 0 ? (relX - leftBtn.center) / range : 0;
@@ -317,16 +337,19 @@ function initNavDrag() {
                     + (leftBtn.rect.width - 100) / 2 * (1 - t) + (rightBtn.rect.width - 100) / 2 * t;
                 l = Math.max(5, Math.min(295, l));
                 gsap.to(indicator, { left: l, width: 100, scaleX: 1, duration: 0.1, ease: "power1.out", overwrite: "auto" });
+                updateArch(l);
             } else if (rightBtn) {
                 const r = rightBtn.rect;
                 let l = r.left - nr.left + (r.width - 100) / 2;
                 l = Math.max(5, Math.min(295, l));
                 gsap.to(indicator, { left: l, width: 100, duration: 0.12, ease: "power2.out", overwrite: "auto" });
+                updateArch(l);
             } else if (leftBtn) {
                 const r = leftBtn.rect;
                 let l = r.left - nr.left + (r.width - 100) / 2;
                 l = Math.max(5, Math.min(295, l));
                 gsap.to(indicator, { left: l, width: 100, duration: 0.12, ease: "power2.out", overwrite: "auto" });
+                updateArch(l);
             }
         }
 
@@ -349,25 +372,24 @@ function initNavDrag() {
         navbar.classList.add('nav-is-dragging');
         navbar.setPointerCapture(e.pointerId);
         evalTab(e.clientX);
-        // Jelly pop on press
+        // Lift indicator on press
         if (indicator) {
-            gsap.fromTo(indicator, { scaleY: 0.85, scaleX: 1.12 }, { scaleY: 1.08, scaleX: 0.94, duration: 0.5, ease: "elastic.out(1, 0.6)", overwrite: "auto" });
+            gsap.to(indicator, { top: -4, height: 'calc(100% + 8px)', borderRadius: 24, duration: 0.15, ease: "power2.out", overwrite: "auto" });
         }
-        gsap.to(navbar, { scale: 1.02, duration: 0.5, ease: "elastic.out(1, 0.4)", overwrite: "auto" });
-        // Subtle glow on drag
-        navbar.style.boxShadow = '0 8px 40px rgba(0,0,0,0.12), 0 0 24px rgba(255,255,255,0.15)';
     });
     navbar.addEventListener('pointermove', e => { if (isDragging) evalTab(e.clientX); });
     const stop = e => {
         isDragging = false;
         navbar.classList.remove('nav-is-dragging');
         try { navbar.releasePointerCapture(e.pointerId); } catch {}
-        // Settle back
+        // Settle indicator down
         if (indicator) {
-            gsap.to(indicator, { scaleY: 1, scaleX: 1, duration: 0.6, ease: "elastic.out(1, 0.5)", overwrite: "auto" });
+            gsap.to(indicator, { top: 5, height: 'calc(100% - 10px)', borderRadius: 20, duration: 0.4, ease: "elastic.out(1, 0.5)", overwrite: "auto" });
         }
-        gsap.to(navbar, { scale: 1, duration: 0.6, ease: "elastic.out(1, 0.4)", overwrite: "auto" });
-        navbar.style.boxShadow = '';
+        // Flatten arch
+        if (svgPath) {
+            gsap.to(svgPath, { attr: { d: buildPath(200, 0, 100) }, duration: 0.4, ease: "elastic.out(1, 0.4)", overwrite: "auto" });
+        }
         const active = navbar.querySelector('.nav-btn.is-active');
         if (active) snapIndicatorTo(active);
     };

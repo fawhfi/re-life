@@ -64,20 +64,7 @@ const state = {
 // ═══════════════════════════════════════════════════════════════════════
 // ═══════════════════════════════════════════════════════════════════════
 
-// ═══════════════════════════════════════════════════════════════════════
-// HEADER DRAG + NAV SWIPE
-// ═══════════════════════════════════════════════════════════════════════
-const TAB_ORDER = ['home', 'record', 'rewards', 'more'];
 
-function initDraggableBars() {
-    setupNavSwipe();
-}
-
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initDraggableBars);
-} else {
-    initDraggableBars();
-}
 
 document.addEventListener('DOMContentLoaded', async () => {
     // Detect login page vs main app

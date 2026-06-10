@@ -1343,6 +1343,7 @@ function renderRewards() {
 
     // Claimed coupons grid
     const grid = document.getElementById('rew-coupon-grid');
+    if (!grid) return;
     grid.innerHTML = state.claimedCoupons.map(c => `
         <button onclick="showCouponTicket('${c.code}')" class="rewards-coupon">
             <span style="font-size:20px">${c.image}</span>

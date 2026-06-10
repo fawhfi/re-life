@@ -308,19 +308,22 @@ function initNavDrag() {
                 const r = rightBtn.rect;
                 let l = r.left - nr.left, w = r.width, sx = 1;
                 const btnIdx = Array.from(btns).indexOf(rightBtn.el);
+                const btnLeft = r.left - nr.left;
+                const btnRight = r.right - nr.left;
 
-                const leftEdge = nr.left + r.width/2;
-                const rightEdge = nr.left + nr.width - r.width/2;
-                if (btnIdx === 0 && clientX < leftEdge) {
-                    const t = Math.min(1, (leftEdge - clientX) / 60);
-                    sx = 1 - t * 0.25;
-                    w = r.width * (1 - t * 0.3);
-                    l = r.left - nr.left + (r.width - w) / 2;
-                } else if (btnIdx === btnArray.length - 1 && clientX > rightEdge) {
-                    const t = Math.min(1, (clientX - rightEdge) / 60);
-                    sx = 1 - t * 0.25;
-                    w = r.width * (1 - t * 0.3);
-                    l = r.left - nr.left + (r.width - w) / 2;
+                // Left edge: anchor left, squish from right side
+                if (btnIdx === 0 && clientX < r.left + r.width/2) {
+                    const t = Math.min(1, (r.left + r.width/2 - clientX) / 50);
+                    sx = 1 - t * 0.2;
+                    w = r.width * (1 - t * 0.25);
+                    l = btnLeft; // stay against left edge
+                }
+                // Right edge: anchor right, squish from left side
+                if (btnIdx === btnArray.length - 1 && clientX > r.right - r.width/2) {
+                    const t = Math.min(1, (clientX - (r.right - r.width/2)) / 50);
+                    sx = 1 - t * 0.2;
+                    w = r.width * (1 - t * 0.25);
+                    l = btnRight - w; // stay against right edge
                 }
                 gsap.to(indicator, { left: l, width: w, scaleX: sx, duration: 0.12, ease: "power2.out", overwrite: "auto" });
             }

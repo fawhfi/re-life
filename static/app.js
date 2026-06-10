@@ -306,25 +306,21 @@ function initNavDrag() {
                 gsap.to(indicator, { left: l, width: w, scaleX: 1, duration: 0.1, ease: "power1.out", overwrite: "auto" });
             } else if (rightBtn) {
                 const r = rightBtn.rect;
-                let l = r.left - nr.left;
-                let w = r.width;
-                let sx = 1;
-                const btnIdx = btnArray.indexOf(rightBtn.el);
-                // Left edge compression
-                if (btnIdx === 0 && relX < r.left - nr.left + r.width/2) {
-                    const overshoot = Math.max(0, (r.left - nr.left + r.width/2 - relX) / 30);
-                    const squeeze = Math.min(0.3, overshoot * 0.08);
-                    sx = 1 - squeeze;
-                    w = r.width * (1 - squeeze);
-                    l = r.left - nr.left + (r.width - w) / 2; // keep centered
-                }
-                // Right edge compression
-                if (btnIdx === btnArray.length - 1 && relX > r.right - nr.left - r.width/2) {
-                    const overshoot = Math.max(0, (relX - (r.right - nr.left - r.width/2)) / 30);
-                    const squeeze = Math.min(0.3, overshoot * 0.08);
-                    sx = 1 - squeeze;
-                    w = r.width * (1 - squeeze);
-                    l = r.left - nr.left + (r.width - w) / 2; // keep centered
+                let l = r.left - nr.left, w = r.width, sx = 1;
+                const btnIdx = Array.from(btns).indexOf(rightBtn.el);
+
+                const leftEdge = nr.left + r.width/2;
+                const rightEdge = nr.left + nr.width - r.width/2;
+                if (btnIdx === 0 && clientX < leftEdge) {
+                    const t = Math.min(1, (leftEdge - clientX) / 60);
+                    sx = 1 - t * 0.25;
+                    w = r.width * (1 - t * 0.3);
+                    l = r.left - nr.left + (r.width - w) / 2;
+                } else if (btnIdx === btnArray.length - 1 && clientX > rightEdge) {
+                    const t = Math.min(1, (clientX - rightEdge) / 60);
+                    sx = 1 - t * 0.25;
+                    w = r.width * (1 - t * 0.3);
+                    l = r.left - nr.left + (r.width - w) / 2;
                 }
                 gsap.to(indicator, { left: l, width: w, scaleX: sx, duration: 0.12, ease: "power2.out", overwrite: "auto" });
             }

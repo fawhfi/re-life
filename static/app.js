@@ -309,15 +309,22 @@ function initNavDrag() {
                 let l = r.left - nr.left;
                 let w = r.width;
                 let sx = 1;
-                // Jelly compression at edges
-                if (rightBtn.el === btnArray[0] && relX < navLeft + r.width/2) {
-                    const overshoot = Math.max(0, (navLeft + r.width/2 - relX) / 40);
-                    w = Math.max(r.width * 0.7, r.width - overshoot * 8);
-                    sx = 1 - Math.min(0.15, overshoot * 0.03);
-                } else if (rightBtn.el === btnArray[btnArray.length-1] && relX > navRight - r.width/2) {
-                    const overshoot = Math.max(0, (relX - navRight + r.width/2) / 40);
-                    w = Math.max(r.width * 0.7, r.width - overshoot * 8);
-                    sx = 1 - Math.min(0.15, overshoot * 0.03);
+                const btnIdx = btnArray.indexOf(rightBtn.el);
+                // Left edge compression
+                if (btnIdx === 0 && relX < r.left - nr.left + r.width/2) {
+                    const overshoot = Math.max(0, (r.left - nr.left + r.width/2 - relX) / 30);
+                    const squeeze = Math.min(0.3, overshoot * 0.08);
+                    sx = 1 - squeeze;
+                    w = r.width * (1 - squeeze);
+                    l = r.left - nr.left + (r.width - w) / 2; // keep centered
+                }
+                // Right edge compression
+                if (btnIdx === btnArray.length - 1 && relX > r.right - nr.left - r.width/2) {
+                    const overshoot = Math.max(0, (relX - (r.right - nr.left - r.width/2)) / 30);
+                    const squeeze = Math.min(0.3, overshoot * 0.08);
+                    sx = 1 - squeeze;
+                    w = r.width * (1 - squeeze);
+                    l = r.left - nr.left + (r.width - w) / 2; // keep centered
                 }
                 gsap.to(indicator, { left: l, width: w, scaleX: sx, duration: 0.12, ease: "power2.out", overwrite: "auto" });
             }

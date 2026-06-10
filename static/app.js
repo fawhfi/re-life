@@ -255,8 +255,8 @@ function initNavDrag() {
         if (!indicator || !btn) return;
         const nr = navbar.getBoundingClientRect();
         const br = btn.getBoundingClientRect();
-        let targetX = br.left - nr.left + (br.width - 100) / 2; // center 100px indicator
-        let targetW = 100;
+        let targetX = br.left - nr.left + (br.width - 100) / 2;
+        targetX = Math.max(5, Math.min(295, targetX));
 
         const curX = parseFloat(indicator.style.left) || 0;
         const dx = targetX - curX;
@@ -306,16 +306,19 @@ function initNavDrag() {
             if (leftBtn && rightBtn && leftBtn.el !== rightBtn.el) {
                 const range = rightBtn.center - leftBtn.center;
                 const t = range > 0 ? (relX - leftBtn.center) / range : 0;
-                const l = leftBtn.rect.left - nr.left + t * (rightBtn.rect.left - leftBtn.rect.left)
+                let l = leftBtn.rect.left - nr.left + t * (rightBtn.rect.left - leftBtn.rect.left)
                     + (leftBtn.rect.width - 100) / 2 * (1 - t) + (rightBtn.rect.width - 100) / 2 * t;
+                l = Math.max(5, Math.min(295, l));
                 gsap.to(indicator, { left: l, width: 100, scaleX: 1, duration: 0.1, ease: "power1.out", overwrite: "auto" });
             } else if (rightBtn) {
                 const r = rightBtn.rect;
-                const l = r.left - nr.left + (r.width - 100) / 2;
+                let l = r.left - nr.left + (r.width - 100) / 2;
+                l = Math.max(5, Math.min(295, l));
                 gsap.to(indicator, { left: l, width: 100, duration: 0.12, ease: "power2.out", overwrite: "auto" });
             } else if (leftBtn) {
                 const r = leftBtn.rect;
-                const l = r.left - nr.left + (r.width - 100) / 2;
+                let l = r.left - nr.left + (r.width - 100) / 2;
+                l = Math.max(5, Math.min(295, l));
                 gsap.to(indicator, { left: l, width: 100, duration: 0.12, ease: "power2.out", overwrite: "auto" });
             }
         }

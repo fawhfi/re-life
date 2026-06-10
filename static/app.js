@@ -177,10 +177,13 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Init language from storage
     state.lang = safeStorage.get('RE_LIFE_LANG') || 'en';
-    // Fire i18n load but don't block render
-    if (typeof I18N !== 'undefined') I18N.load(state.lang).then(updateAllLabels);
     document.documentElement.lang = state.lang === 'zh' ? 'zh-HK' : 'en';
-    updateAllLabels();
+    // Load i18n then update labels — avoids showing English briefly
+    if (typeof I18N !== 'undefined') {
+        I18N.load(state.lang).then(updateAllLabels);
+    } else {
+        updateAllLabels();
+    }
 
     startClock();
     setupDragDrop();

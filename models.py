@@ -38,10 +38,17 @@ CLASSIFIER_NAME_POOL = {
 
 _model_path = root_dir / "models" / "model_INT8.onnx"
 _cnn_session: ort.InferenceSession | None = None
-if _model_path.exists():
-    _cnn_session = ort.InferenceSession(str(_model_path), providers=["CPUExecutionProvider"])
+_cnn_loaded = False
+
+def _ensure_cnn():
+    global _cnn_session, _cnn_loaded
+    if not _cnn_loaded:
+        if _model_path.exists():
+            _cnn_session = ort.InferenceSession(str(_model_path), providers=["CPUExecutionProvider"])
+        _cnn_loaded = True
 
 def classify_image(image_bytes: bytes) -> tuple[str, float]:
+    _ensure_cnn()
     if _cnn_session is None:
         raise RuntimeError("Classifier model not loaded")
     img = Image.open(io.BytesIO(image_bytes)).convert("RGB")

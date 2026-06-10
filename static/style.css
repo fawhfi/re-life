@@ -1861,6 +1861,7 @@ nav.nav, .app-nav {
     padding: 5px 6px;
     z-index: 100;
     overflow: visible;
+    isolation: isolate;
     box-shadow: 0 16px 40px rgba(0,0,0,0.10);
     transition: transform 0.35s cubic-bezier(.22,1,.36,1);
 }
@@ -1904,7 +1905,7 @@ body:has(.camera-modal.is-shown) .app-header,
     flex: 1;
     display: flex;
     position: relative;
-    z-index: 1;
+    z-index: 2;
     flex-direction: column;
     align-items: center;
     gap: 1px;

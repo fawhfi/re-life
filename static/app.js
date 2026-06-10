@@ -247,6 +247,7 @@ function initNavDrag() {
     if (!navbar) return;
     const indicator = document.getElementById('nav-indicator');
     const btns = navbar.querySelectorAll('.nav-btn');
+    const btnArray = Array.from(btns);
     let isDragging = false;
 
     // Position indicator under active tab initially
@@ -296,7 +297,6 @@ function initNavDrag() {
 
         // Find which two buttons the finger is between for smooth interpolation
         let leftBtn = null, rightBtn = null;
-        const btnArray = Array.from(btns);
         for (let i = 0; i < btnArray.length; i++) {
             const r = btnArray[i].getBoundingClientRect();
             const btnCenter = r.left - nr.left + r.width / 2;

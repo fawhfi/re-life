@@ -232,27 +232,22 @@ function initNavDrag() {
                 gsap.to(indicator, { left: l, width: 100, scaleX: 1, duration: 0.1, ease: "power1.out", overwrite: "auto" });
             } else if (rightBtn) {
                 const r = rightBtn.rect;
-                let l = r.left - nr.left + (r.width - 100) / 2;
-                let w = 100;
-                const isFirst = rightBtn.el === btnArray[0];
-                if (isFirst && clientX < r.left + r.width * 0.4) {
+                let l = r.left - nr.left + (r.width - 100) / 2, w = 100;
+                if (rightBtn.el === btnArray[0] && clientX < r.left + r.width * 0.4) {
                     const t = Math.min(1, (r.left + r.width * 0.4 - clientX) / 50);
-                    w = 100 * (1 - t * 0.25);
-                    l = r.left - nr.left + 3; // anchor left
+                    w = 100 * (1 - t * 0.3);
+                    l = r.left - nr.left + 2;
                 }
-                l = Math.max(5, Math.min(295, l));
                 gsap.to(indicator, { left: l, width: w, duration: 0.12, ease: "power2.out", overwrite: "auto" });
             } else if (leftBtn) {
                 const r = leftBtn.rect;
-                let l = r.left - nr.left + (r.width - 100) / 2;
-                let w = 100;
-                const isLast = leftBtn.el === btnArray[btnArray.length - 1];
-                if (isLast && clientX > r.right - r.width * 0.4) {
+                let l = r.left - nr.left + (r.width - 100) / 2, w = 100;
+                if (leftBtn.el === btnArray[btnArray.length - 1] && clientX > r.right - r.width * 0.4) {
                     const t = Math.min(1, (clientX - (r.right - r.width * 0.4)) / 50);
-                    w = 100 * (1 - t * 0.25);
-                    l = r.right - nr.left - w; // anchor right edge
+                    w = 100 * (1 - t * 0.3);
+                    // Keep right edge anchored: l + w = r.right - nr.left
+                    l = r.right - nr.left - w;
                 }
-                l = Math.max(5, Math.min(295, l));
                 gsap.to(indicator, { left: l, width: w, duration: 0.12, ease: "power2.out", overwrite: "auto" });
             }
         }
@@ -285,16 +280,19 @@ function initNavDrag() {
         navbar.style.boxShadow = '0 8px 40px rgba(0,0,0,0.12), 0 0 24px rgba(255,255,255,0.15)';
     });
     navbar.addEventListener('pointermove', e => { if (isDragging) evalTab(e.clientX); });
+    document.addEventListener('pointermove', e => { if (isDragging) evalTab(e.clientX); });
+    document.addEventListener('pointerup', stop);
+    document.addEventListener('pointercancel', stop);
     const stop = e => {
+        if (!isDragging) return;
         isDragging = false;
         navbar.classList.remove('nav-is-dragging');
         try { navbar.releasePointerCapture(e.pointerId); } catch {}
-        // Settle back
         if (indicator) {
-            gsap.to(indicator, { scaleY: 1, scaleX: 1, duration: 0.6, ease: "elastic.out(1, 0.5)", overwrite: "auto" });
+            gsap.killTweensOf(indicator, 'scaleY,scaleX');
+            gsap.to(indicator, { scaleY: 1, scaleX: 1, duration: 0.4, ease: "elastic.out(1, 0.5)", overwrite: "auto" });
         }
-        gsap.to(navbar, { scale: 1, duration: 0.6, ease: "elastic.out(1, 0.4)", overwrite: "auto" });
-        navbar.style.boxShadow = '';
+        gsap.to(navbar, { scale: 1, duration: 0.4, ease: "elastic.out(1, 0.4)", overwrite: "auto" });
         const active = navbar.querySelector('.nav-btn.is-active');
         if (active) snapIndicatorTo(active);
     };

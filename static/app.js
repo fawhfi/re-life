@@ -1614,11 +1614,9 @@ function initTheme() {
 
 function applyTheme(theme) {
     document.documentElement.setAttribute('data-theme', theme);
-    const icon = document.getElementById('theme-icon');
-    if (icon) icon.src = theme === 'dark' ? '/static/assets/DarkMode_Off.png' : '/static/assets/DarkMode_On.png';
-    const label = document.getElementById('theme-label');
-    if (label) label.textContent = theme === 'dark' ? tr('lightMode') : tr('darkMode');
     safeStorage.set('RE_LIFE_THEME', theme);
+    const sel = document.getElementById('theme-select');
+    if (sel) sel.value = theme;
 }
 
 function refreshGradeColors() {

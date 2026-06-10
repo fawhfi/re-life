@@ -64,6 +64,21 @@ const state = {
 // ═══════════════════════════════════════════════════════════════════════
 // ═══════════════════════════════════════════════════════════════════════
 
+// ═══════════════════════════════════════════════════════════════════════
+// HEADER DRAG + NAV SWIPE
+// ═══════════════════════════════════════════════════════════════════════
+const TAB_ORDER = ['home', 'record', 'rewards', 'more'];
+
+function initDraggableBars() {
+    setupNavSwipe();
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initDraggableBars);
+} else {
+    initDraggableBars();
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
     // Detect login page vs main app
     if (document.querySelector('.login-page')) {
@@ -433,6 +448,10 @@ function clearPreview() {
 // ═══════════════════════════════════════════════════════════════════════
 // 8b. CAMERA CAPTURE
 // ═══════════════════════════════════════════════════════════════════════
+
+let cameraStream = null;
+let cameraFacing = 'environment'; // 'environment' (rear) or 'user' (front)
+
 function zoneTap() {
     if (state.selectedFile) return; // preview is showing, ignore tap
     if (cameraAvailable) {
@@ -440,6 +459,99 @@ function zoneTap() {
     } else {
         triggerUpload();
     }
+}
+
+async function openCamera() {
+    const modal = document.getElementById('camera-modal');
+    const video = document.getElementById('camera-video');
+    if (!modal || !video) { cameraAvailable = false; triggerUpload(); return; }
+
+    // Show modal first so the video element is in the visible DOM
+    // (required by iOS Safari before attaching a stream)
+    modal.classList.add('is-shown');
+    document.body.style.overflow = 'hidden';
+    gsap.fromTo(modal, { y: '100%' }, { y: 0, duration: 0.3, ease: "power2.out" });
+    document.body.classList.add('camera-active');
+
+    // iOS-friendly constraints: avoid width/height which some iOS versions reject
+    const constraints = [
+        { video: { facingMode: cameraFacing }, audio: false },
+        { video: { facingMode: { ideal: cameraFacing } }, audio: false },
+        { video: true, audio: false },
+    ];
+
+    for (const c of constraints) {
+        try {
+            cameraStream = await navigator.mediaDevices.getUserMedia(c);
+            video.srcObject = cameraStream;
+            video.play().catch(() => {});
+            return; // success
+        } catch (_) {
+            // try next constraint set
+        }
+    }
+
+    // All attempts failed — camera unavailable, fall back to file picker permanently
+    cameraAvailable = false;
+    closeCamera();
+    triggerUpload();
+}
+
+function closeCamera() {
+    if (cameraStream) {
+        cameraStream.getTracks().forEach(t => t.stop());
+        cameraStream = null;
+    }
+    document.getElementById('camera-modal').classList.remove('is-shown');
+    document.getElementById('camera-video').srcObject = null;
+    document.body.style.overflow = '';
+    // Restore floating nav and header
+    document.body.classList.remove('camera-active');
+}
+
+function flipCamera() {
+    cameraFacing = cameraFacing === 'environment' ? 'user' : 'environment';
+    if (cameraStream) {
+        cameraStream.getTracks().forEach(t => t.stop());
+        cameraStream = null;
+    }
+    const video = document.getElementById('camera-video');
+    if (!video) return;
+
+    const constraints = [
+        { video: { facingMode: cameraFacing }, audio: false },
+        { video: { facingMode: { ideal: cameraFacing } }, audio: false },
+        { video: true, audio: false },
+    ];
+
+    (async () => {
+        for (const c of constraints) {
+            try {
+                cameraStream = await navigator.mediaDevices.getUserMedia(c);
+                video.srcObject = cameraStream;
+                video.play().catch(() => {});
+                return;
+            } catch (_) {}
+        }
+    })();
+}
+
+function capturePhoto() {
+    const video = document.getElementById('camera-video');
+    const canvas = document.getElementById('camera-canvas');
+
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+    canvas.toBlob(blob => {
+        if (!blob) { closeCamera(); return; }
+        const file = new File([blob], 'camera-photo.jpg', { type: 'image/jpeg' });
+        closeCamera();
+        processFile(file);
+    }, 'image/jpeg', 0.92);
+    playBeep('beep');
 }
 
 
@@ -1266,7 +1378,6 @@ async function initAccounts() {
         try {
             const user = await FB.getUserByName(stored);
             if (user) {
-                console.log("[App] initAccounts user:", { id: user.id, _key: user._key, earned_points: user.earned_points, spent_points: user.spent_points });
                 state.userId = user.id;
                 state.userKey = user._key || null;
                 state.spentPoints = user.spent_points || user.spentPoints || 0;
@@ -1703,64 +1814,4 @@ document.addEventListener('DOMContentLoaded', () => {
     document.body.addEventListener('click', addRippleEffect);
 });
 
-// ═══════════════════════════════════════════════════════════════════════
-// LIQUID GLASS — dynamic displacement map + chromatic aberration
-// ═══════════════════════════════════════════════════════════════════════
 
-function getDisplacementMap(w, h, r, depth) {
-    return "data:image/svg+xml;utf8," + encodeURIComponent(
-        `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">
-            <style>.m{mix-blend-mode:screen}</style>
-            <defs>
-                <linearGradient id="gy" x1="0" x2="0" y1="${Math.ceil(r/h*15)}%" y2="${Math.floor(100-r/h*15)}%">
-                    <stop offset="0%" stop-color="#0F0"/><stop offset="100%" stop-color="#000"/>
-                </linearGradient>
-                <linearGradient id="gx" x1="${Math.ceil(r/w*15)}%" x2="${Math.floor(100-r/w*15)}%" y1="0" y2="0">
-                    <stop offset="0%" stop-color="#F00"/><stop offset="100%" stop-color="#000"/>
-                </linearGradient>
-            </defs>
-            <rect width="${w}" height="${h}" fill="#808080"/>
-            <g filter="blur(2px)">
-                <rect width="${w}" height="${h}" fill="#000080"/>
-                <rect width="${w}" height="${h}" fill="url(#gy)" class="m"/>
-                <rect width="${w}" height="${h}" fill="url(#gx)" class="m"/>
-                <rect x="${depth}" y="${depth}" width="${w-2*depth}" height="${h-2*depth}" fill="#808080" rx="${r}" filter="blur(${depth}px)"/>
-            </g>
-        </svg>`);
-}
-
-function getDisplacementFilter(w, h, r, depth, strength, cab) {
-    const map = getDisplacementMap(w, h, r, depth);
-    return "data:image/svg+xml;utf8," + encodeURIComponent(
-        `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">
-            <defs>
-                <filter id="f" color-interpolation-filters="sRGB">
-                    <feImage width="${w}" height="${h}" href="${map}" result="dmap"/>
-                    <feDisplacementMap in="SourceGraphic" in2="dmap" scale="${strength+cab*2}" xChannelSelector="R" yChannelSelector="G"/>
-                    <feColorMatrix type="matrix" values="1 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 1 0" result="r"/>
-                    <feDisplacementMap in="SourceGraphic" in2="dmap" scale="${strength+cab}" xChannelSelector="R" yChannelSelector="G"/>
-                    <feColorMatrix type="matrix" values="0 0 0 0 0  0 1 0 0 0  0 0 0 0 0  0 0 0 1 0" result="g"/>
-                    <feDisplacementMap in="SourceGraphic" in2="dmap" scale="${strength}" xChannelSelector="R" yChannelSelector="G"/>
-                    <feColorMatrix type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 1 0 0  0 0 0 1 0" result="b"/>
-                    <feBlend in="r" in2="g" mode="screen"/><feBlend in2="b" mode="screen"/>
-                </filter>
-            </defs>
-        </svg>`) + "#f";
-}
-
-// THEME SYSTEM — just sets data-theme; colors defined in CSS
-// ═══════════════════════════════════════════════════════════════════════
-
-function initTheme() {
-    const saved = safeStorage.get('RE_LIFE_THEME') || 'light';
-    applyTheme(saved);
-    const sel = document.getElementById('theme-select');
-    if (sel) sel.value = saved;
-}
-
-function applyTheme(name) {
-    document.documentElement.setAttribute('data-theme', name);
-    safeStorage.set('RE_LIFE_THEME', name);
-    const sel = document.getElementById('theme-select');
-    if (sel) sel.value = name;
-}

@@ -348,20 +348,22 @@ function initNavDrag() {
         navbar.classList.add('nav-is-dragging');
         navbar.setPointerCapture(e.pointerId);
         evalTab(e.clientX);
-        // Jelly pop on press
+        // Jelly pop on press — indicator stretches + nav bulges
         if (indicator) {
-            gsap.fromTo(indicator, { scaleY: 0.9, scaleX: 1.08 }, { scaleY: 1.06, scaleX: 0.96, duration: 0.3, ease: "elastic.out(1, 0.5)", overwrite: "auto" });
+            gsap.fromTo(indicator, { scaleY: 0.85, scaleX: 1.12 }, { scaleY: 1.08, scaleX: 0.94, duration: 0.5, ease: "elastic.out(1, 0.6)", overwrite: "auto" });
         }
+        gsap.to(navbar, { scale: 1.02, duration: 0.5, ease: "elastic.out(1, 0.4)", overwrite: "auto" });
     });
     navbar.addEventListener('pointermove', e => { if (isDragging) evalTab(e.clientX); });
     const stop = e => {
         isDragging = false;
         navbar.classList.remove('nav-is-dragging');
         try { navbar.releasePointerCapture(e.pointerId); } catch {}
-        // Indicator settles back with jelly bounce
+        // Settle back
         if (indicator) {
-            gsap.to(indicator, { scaleY: 1, scaleX: 1, duration: 0.4, ease: "elastic.out(1, 0.4)", overwrite: "auto" });
+            gsap.to(indicator, { scaleY: 1, scaleX: 1, duration: 0.6, ease: "elastic.out(1, 0.5)", overwrite: "auto" });
         }
+        gsap.to(navbar, { scale: 1, duration: 0.6, ease: "elastic.out(1, 0.4)", overwrite: "auto" });
         const active = navbar.querySelector('.nav-btn.is-active');
         if (active) snapIndicatorTo(active);
     };

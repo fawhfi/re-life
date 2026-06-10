@@ -263,7 +263,7 @@ function initNavDrag() {
 
         gsap.to(indicator, {
             left: targetX,
-            width: targetW,
+            width: 100,
             scaleX: 1,
             duration: isDragging ? 0.15 : 0.4,
             ease: isDragging ? "power2.out" : "elastic.out(1, 0.5)",

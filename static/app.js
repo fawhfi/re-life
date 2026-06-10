@@ -1983,8 +1983,8 @@ function initLiquidGlass() {
         const w = Math.round(r.width), h = Math.round(r.height);
         curStrength += (targetStrength - curStrength) * 0.1;
         const filterUrl = getDisplacementFilter(w, h, 28, 4, Math.round(curStrength), 3);
-        nav.style.backdropFilter = `blur(2px) url('${filterUrl}') blur(2px) saturate(130%)`;
-        nav.style.webkitBackdropFilter = `blur(4px) saturate(130%)`;
+        nav.style.backdropFilter = `url('${filterUrl}') saturate(130%)`;
+        nav.style.webkitBackdropFilter = `blur(3px) saturate(130%)`;
         requestAnimationFrame(update);
     }
 

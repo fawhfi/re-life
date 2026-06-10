@@ -50,6 +50,7 @@
   "loginError": "Login failed. Try again.", "registerError": "Registration failed.",
   "usernameTaken": "Username already taken.",
   "darkMode": "Dark Mode", "lightMode": "Light Mode",
-  "debugOn": "🔧 Debug Mode: ON", "debugOff": "🔧 Debug Mode: OFF",
+  "theme": "Theme",
+"debugOn": "🔧 Debug Mode: ON", "debugOff": "🔧 Debug Mode: OFF",
   "langEng": "English", "langZh": "中文"
 }

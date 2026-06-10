@@ -50,6 +50,7 @@
   "loginError": "登入失敗，請重試。", "registerError": "註冊失敗。",
   "usernameTaken": "用戶名已被使用。",
   "darkMode": "深色模式", "lightMode": "淺色模式",
-  "debugOn": "🔧 除錯模式: 開", "debugOff": "🔧 除錯模式: 關",
+  "theme": "主題",
+"debugOn": "🔧 除錯模式: 開", "debugOff": "🔧 除錯模式: 關",
   "langEng": "英文", "langZh": "中文"
 }

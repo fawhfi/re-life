@@ -1767,6 +1767,7 @@ function updateAllLabels() {
         'lbl-marketplace': 'ecoMarketplace',
         'lbl-claimed-title': 'claimedCoupons',
         'lbl-settings': 'settings',
+        'lbl-theme': 'theme',
         'lbl-policy': 'policy',
         'logout-label': 'logout',
         'sound-label': 'soundOn',

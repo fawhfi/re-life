@@ -256,12 +256,14 @@ function initNavDrag() {
         const br = btn.getBoundingClientRect();
         let targetX = br.left - nr.left;
         let targetW = br.width;
-        // Clamp to nav bounds (account for padding: 5px 6px)
         const padX = 6;
         const maxRight = nr.width - padX;
+        const isLast = btn === btnArray[btnArray.length - 1];
+        // Nudge left slightly when on last tab so it doesn't hug the edge
+        if (isLast) targetX -= 4;
         if (targetX + targetW > maxRight) targetW = maxRight - targetX;
         if (targetX < padX) { targetW -= (padX - targetX); targetX = padX; }
-        targetW = Math.max(targetW, 20); // min width
+        targetW = Math.max(targetW, 20);
 
         const curX = parseFloat(indicator.style.left) || 0;
         const dx = targetX - curX;

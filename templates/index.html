@@ -176,11 +176,16 @@
         <div class="rewards-sub" id="lbl-rew-sub">Convert your choices into real-world action.</div>
         <div id="rew-shortcut" class="rewards-shortcut">
           <span class="text-sm font-bold" style="color:var(--color-emerald-200)" id="lbl-my-coupons">My Coupons</span>
+          <button class="rew-view-btn" onclick="document.getElementById('rew-coupons').scrollIntoView({behavior:'smooth'})" id="lbl-view-claimed">🎫 View Claimed</button>
         </div>
       </div>
       <div id="rew-alert" class="rewards-alert">⚠️ Not enough points.</div>
       <h3 class="section-title" id="lbl-marketplace">Eco-Marketplace</h3>
       <div id="rew-catalogue" class="flex-col gap-2"></div>
+      <div id="rew-coupons" style="margin-top:16px">
+        <h3 class="section-title mb-2" id="lbl-claimed-title">My Claimed Coupons</h3>
+        <div id="rew-coupon-grid" class="rewards-coupons"></div>
+      </div>
     </section>
 
     <!-- TAB: More -->

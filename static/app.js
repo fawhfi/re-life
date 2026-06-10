@@ -293,17 +293,33 @@ function initNavDrag() {
 
         // Smoothly interpolate indicator position between adjacent buttons
         if (indicator) {
+            const firstBtn = btnArray[0].getBoundingClientRect();
+            const lastBtn = btnArray[btnArray.length-1].getBoundingClientRect();
+            const navLeft = firstBtn.left - nr.left;
+            const navRight = lastBtn.right - nr.left;
+
             if (leftBtn && rightBtn && leftBtn.el !== rightBtn.el) {
                 const range = rightBtn.center - leftBtn.center;
                 const t = range > 0 ? (relX - leftBtn.center) / range : 0;
                 const l = leftBtn.rect.left - nr.left + t * (rightBtn.rect.left - leftBtn.rect.left);
                 const w = leftBtn.rect.width + t * (rightBtn.rect.width - leftBtn.rect.width);
-                // Jelly during drag: slight width overshoot in movement direction
-                const dragScale = 0.97 + 0.06 * Math.abs(t - 0.5) * 2; // narrower at midpoint, wider near edges
-                gsap.to(indicator, { left: l, width: w, scaleX: dragScale, duration: 0.1, ease: "power1.out", overwrite: "auto" });
+                gsap.to(indicator, { left: l, width: w, scaleX: 1, duration: 0.1, ease: "power1.out", overwrite: "auto" });
             } else if (rightBtn) {
                 const r = rightBtn.rect;
-                gsap.to(indicator, { left: r.left - nr.left, width: r.width, scaleX: 1, duration: 0.12, ease: "power2.out", overwrite: "auto" });
+                let l = r.left - nr.left;
+                let w = r.width;
+                let sx = 1;
+                // Jelly compression at edges
+                if (rightBtn.el === btnArray[0] && relX < navLeft + r.width/2) {
+                    const overshoot = Math.max(0, (navLeft + r.width/2 - relX) / 40);
+                    w = Math.max(r.width * 0.7, r.width - overshoot * 8);
+                    sx = 1 - Math.min(0.15, overshoot * 0.03);
+                } else if (rightBtn.el === btnArray[btnArray.length-1] && relX > navRight - r.width/2) {
+                    const overshoot = Math.max(0, (relX - navRight + r.width/2) / 40);
+                    w = Math.max(r.width * 0.7, r.width - overshoot * 8);
+                    sx = 1 - Math.min(0.15, overshoot * 0.03);
+                }
+                gsap.to(indicator, { left: l, width: w, scaleX: sx, duration: 0.12, ease: "power2.out", overwrite: "auto" });
             }
         }
 

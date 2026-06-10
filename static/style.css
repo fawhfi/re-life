@@ -842,18 +842,16 @@ body {
 
 /* ── Alternative Product ───────────────────────────────────────────── */
 .alternative-card {
-    background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%);
-    border: 2px solid var(--color-emerald-200);
+    background: var(--color-emerald-50);
+    border: 1px solid var(--color-emerald-200);
     border-radius: var(--radius-md);
     padding: 14px;
     margin-top: 10px;
     box-shadow: var(--shadow-sm);
     transition: box-shadow 0.2s;
 }
-
-[data-theme="dark"] .alternative-card {
-    background: linear-gradient(135deg, #0f2a1a 0%, #122418 100%);
-    border-color: var(--color-emerald-200);
+.alternative-card-label {
+    color: var(--color-emerald-700);
 }
 
 .alternative-card:hover {

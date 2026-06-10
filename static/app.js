@@ -343,12 +343,6 @@ function navigateTo(name) {
             animateNumber('rew-pts', cur, balance, 1000);
         }
     }
-        const ptsEl = document.getElementById('rew-pts');
-        if (ptsEl) {
-            const cur = parseInt(ptsEl.textContent) || 0;
-            animateNumber('rew-pts', cur, balance, 1000);
-        }
-    }
 }
 
 

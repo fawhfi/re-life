@@ -265,17 +265,24 @@ function initNavDrag() {
             left: targetX,
             width: 100,
             scaleX: 1,
-            duration: isDragging ? 0.15 : 0.4,
-            ease: isDragging ? "power2.out" : "elastic.out(1, 0.5)",
+            duration: isDragging ? 0.15 : 0.45,
+            ease: isDragging ? "power2.out" : "elastic.out(1, 0.6)",
             overwrite: "auto",
         });
-        // Jelly squash in direction of movement
+        // Jelly squash + indicator glow
         if (!isDragging && Math.abs(dx) > 10) {
             const dir = dx > 0 ? 1 : -1;
             gsap.fromTo(indicator, 
-                { scaleX: 1 + dir * 0.08 },
-                { scaleX: 1, duration: 0.5, ease: "elastic.out(1, 0.4)", overwrite: "auto" }
+                { scaleX: 1 + dir * 0.1, opacity: 0.14 },
+                { scaleX: 1, opacity: 0.10, duration: 0.6, ease: "elastic.out(1, 0.4)", overwrite: "auto" }
             );
+        }
+        // Bounce the nav button icon
+        if (!isDragging) {
+            const icon = btn.querySelector('.nav-btn-icon');
+            if (icon) {
+                gsap.fromTo(icon, { scale: 0.85 }, { scale: 1, duration: 0.4, ease: "back.out(2)", overwrite: "auto" });
+            }
         }
     }
 
@@ -342,11 +349,13 @@ function initNavDrag() {
         navbar.classList.add('nav-is-dragging');
         navbar.setPointerCapture(e.pointerId);
         evalTab(e.clientX);
-        // Jelly pop on press — indicator stretches + nav bulges
+        // Jelly pop on press
         if (indicator) {
             gsap.fromTo(indicator, { scaleY: 0.85, scaleX: 1.12 }, { scaleY: 1.08, scaleX: 0.94, duration: 0.5, ease: "elastic.out(1, 0.6)", overwrite: "auto" });
         }
         gsap.to(navbar, { scale: 1.02, duration: 0.5, ease: "elastic.out(1, 0.4)", overwrite: "auto" });
+        // Subtle glow on drag
+        navbar.style.boxShadow = '0 8px 40px rgba(0,0,0,0.12), 0 0 24px rgba(255,255,255,0.15)';
     });
     navbar.addEventListener('pointermove', e => { if (isDragging) evalTab(e.clientX); });
     const stop = e => {
@@ -358,6 +367,7 @@ function initNavDrag() {
             gsap.to(indicator, { scaleY: 1, scaleX: 1, duration: 0.6, ease: "elastic.out(1, 0.5)", overwrite: "auto" });
         }
         gsap.to(navbar, { scale: 1, duration: 0.6, ease: "elastic.out(1, 0.4)", overwrite: "auto" });
+        navbar.style.boxShadow = '';
         const active = navbar.querySelector('.nav-btn.is-active');
         if (active) snapIndicatorTo(active);
     };

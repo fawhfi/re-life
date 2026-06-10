@@ -972,6 +972,7 @@ function resetScan() {
 // ═══════════════════════════════════════════════════════════════════════
 
 async function loadRecords() {
+    if (typeof FB === 'undefined') { console.warn('[App] FB not ready, retrying...'); setTimeout(loadRecords, 500); return; }
     try {
         const items = await FB.getItems(state.userId, state.currentUser, state.userKey);
         state.records = items.map(it => ({
@@ -1416,6 +1417,7 @@ document.addEventListener('click', e => {
 // ═══════════════════════════════════════════════════════════════════════
 
 async function initAccounts() {
+    if (typeof FB === 'undefined') { console.warn('[App] FB not ready for initAccounts, retrying...'); setTimeout(initAccounts, 500); return; }
     const stored = safeStorage.get('RE_LIFE_CURRENT_USER');
     if (stored) {
         state.currentUser = stored;

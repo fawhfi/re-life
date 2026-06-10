@@ -1461,7 +1461,6 @@ async function initAccounts() {
         try {
             const user = await FB.getUserByName(stored);
             if (user) {
-                console.log("[App] initAccounts user:", { id: user.id, _key: user._key, earned_points: user.earned_points, spent_points: user.spent_points });
                 state.userId = user.id;
                 state.userKey = user._key || null;
                 state.spentPoints = user.spent_points || user.spentPoints || 0;

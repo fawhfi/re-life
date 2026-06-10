@@ -320,12 +320,26 @@ function initNavDrag() {
         }
     }
 
+    // Dynamic refraction — stronger during drag
+    const svgFilter = document.getElementById('liquid-distortion');
+    const displacementMap = svgFilter?.querySelector('feDisplacementMap');
+    let currentScale = 4;
+
+    function setRefraction(scale) {
+        if (!displacementMap) return;
+        currentScale += (scale - currentScale) * 0.15;
+        displacementMap.setAttribute('scale', String(Math.round(currentScale)));
+    }
+
     navbar.addEventListener('pointerdown', e => {
         if (e.button !== 0) return;
         isDragging = true;
         navbar.classList.add('nav-is-dragging');
         navbar.setPointerCapture(e.pointerId);
         evalTab(e.clientX);
+        // Animate refraction up
+        const step = () => { if (isDragging) { setRefraction(12); requestAnimationFrame(step); } else { setRefraction(4); } };
+        requestAnimationFrame(step);
     });
     navbar.addEventListener('pointermove', e => { if (isDragging) evalTab(e.clientX); });
     const stop = e => {

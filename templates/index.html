@@ -10,6 +10,15 @@
   <link rel="stylesheet" href="/static/style.css">
   <link rel="stylesheet" href="/static/css/theme.css">
   <link rel="icon" type="image/png" href="/static/assets/favicon.png">
+
+  <svg style="position:absolute;width:0;height:0;overflow:hidden" aria-hidden="true">
+    <defs>
+      <filter id="liquid-distortion">
+        <feTurbulence type="fractalNoise" baseFrequency="0.015" numOctaves="3" result="noise" />
+        <feDisplacementMap in="SourceGraphic" in2="noise" scale="4" xChannelSelector="R" yChannelSelector="G" />
+      </filter>
+    </defs>
+  </svg>
 </head>
 <body>
 <div class="app">

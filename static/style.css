@@ -1844,11 +1844,11 @@ body {
 }
 
 /* ── Bottom Nav ────────────────────────────────────────────────────── */
+/* ── Liquid Glass Nav ──────────────────────────────────────────────── */
 nav.nav, .app-nav {
     position: fixed;
     bottom: max(20px, env(safe-area-inset-bottom, 20px));
-    left: 0;
-    right: 0;
+    left: 0; right: 0;
     margin: 0 auto;
     width: calc(100% - 30px);
     max-width: 400px;
@@ -1856,15 +1856,101 @@ nav.nav, .app-nav {
     justify-content: space-around;
     align-items: center;
     gap: 0;
-    background: rgba(255,255,255,0.10);
-    backdrop-filter: blur(20px) brightness(1.15) saturate(150%);
-    -webkit-backdrop-filter: blur(20px) brightness(1.15) saturate(150%);
-    border: 1px solid rgba(255,255,255,0.3);
-    box-shadow: 0 4px 24px rgba(0,0,0,0.10), inset 0 1px 3px rgba(255,255,255,0.3);
-    border-radius: 24px;
-    padding: 5px 8px;
+    /* Glass base */
+    background:
+        linear-gradient(180deg,
+            rgba(255,255,255,0.18) 0%,
+            rgba(255,255,255,0.06) 40%,
+            rgba(255,255,255,0.10) 100%);
+    backdrop-filter: blur(35px) brightness(1.08) saturate(180%);
+    -webkit-backdrop-filter: blur(35px) brightness(1.08) saturate(180%);
+    border: 0.5px solid rgba(255,255,255,0.4);
+    border-radius: 30px;
+    padding: 6px 10px;
     z-index: 100;
-    overflow: visible;
+    overflow: hidden;
+    isolation: isolate;
+    /* Layered shadows */
+    box-shadow:
+        0 20px 50px rgba(0,0,0,0.10),
+        inset 0 1px 1px rgba(255,255,255,0.7),
+        inset 0 -1px 1px rgba(255,255,255,0.12);
+    transition: transform 0.3s cubic-bezier(.22,1,.36,1), box-shadow 0.3s ease;
+    will-change: transform;
+    filter: url(#liquid-distortion);
+}
+
+/* ── Top highlight layer ──────────────────────────────────────────── */
+nav.nav::before, .app-nav::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: linear-gradient(180deg,
+        rgba(255,255,255,0.5) 0%,
+        transparent 35%);
+    pointer-events: none;
+    z-index: 2;
+}
+
+/* ── Internal reflections ─────────────────────────────────────────── */
+nav.nav::after, .app-nav::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background:
+        radial-gradient(ellipse at 15% 20%, rgba(255,255,255,0.15) 0%, transparent 50%),
+        radial-gradient(ellipse at 85% 80%, rgba(255,255,255,0.08) 0%, transparent 40%);
+    pointer-events: none;
+    z-index: 1;
+    mix-blend-mode: soft-light;
+}
+
+/* ── Liquid active indicator ──────────────────────────────────────── */
+.nav-indicator {
+    position: absolute;
+    top: 4px;
+    height: calc(100% - 8px);
+    background: rgba(255,255,255,0.35);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 0.5px solid rgba(255,255,255,0.6);
+    border-radius: 24px;
+    pointer-events: none;
+    z-index: 1;
+    will-change: left, width, transform;
+    box-shadow:
+        0 4px 20px rgba(0,0,0,0.08),
+        inset 0 1px 2px rgba(255,255,255,0.5);
+    transition: left 0.35s cubic-bezier(.22,1,.36,1), width 0.35s cubic-bezier(.22,1,.36,1);
+}
+
+/* ── Drag state: jelly effect ─────────────────────────────────────── */
+.nav-is-dragging {
+    transform: scale(1.015);
+}
+.nav-is-dragging .nav-indicator {
+    top: 2px;
+    height: calc(100% - 4px);
+    border-radius: 26px;
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    background: rgba(255,255,255,0.45);
+    filter: blur(0.5px);
+    transition: left 0.08s linear, width 0.08s linear;
+}
+
+/* ── Fallback when backdrop-filter not supported ──────────────────── */
+@supports not ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+    nav.nav, .app-nav { background: rgba(255,255,255,0.85); }
+    .nav-indicator { background: rgba(255,255,255,0.6); }
+}
+
+/* ── Reduced motion ───────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+    nav.nav, .app-nav, .nav-indicator { transition-duration: 0.01ms !important; }
+    .nav-is-dragging { transform: none; }
 }
 @supports not ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
     nav.nav, .app-nav { background: rgba(255,255,255,0.88); }

@@ -343,6 +343,12 @@ function navigateTo(name) {
             animateNumber('rew-pts', cur, balance, 1000);
         }
     }
+        const ptsEl = document.getElementById('rew-pts');
+        if (ptsEl) {
+            const cur = parseInt(ptsEl.textContent) || 0;
+            animateNumber('rew-pts', cur, balance, 1000);
+        }
+    }
 }
 
 
@@ -1164,10 +1170,13 @@ function renderRewards() {
     }).join('');
 
     // GSAP staggered entrance for rewards
-    gsap.fromTo('#rew-catalogue .rewards-item', 
-        { opacity: 0, y: 16 }, 
-        { opacity: 1, y: 0, duration: 0.35, stagger: 0.05, ease: "power2.out" }
-    );
+    const items = document.querySelectorAll('#rew-catalogue .rewards-item');
+    if (items.length) {
+        gsap.fromTo(items, 
+            { opacity: 0, y: 16 }, 
+            { opacity: 1, y: 0, duration: 0.35, stagger: 0.05, ease: "power2.out" }
+        );
+    }
 
     // Claimed coupons grid
     const grid = document.getElementById('rew-coupon-grid');

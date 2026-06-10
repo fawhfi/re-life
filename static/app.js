@@ -190,9 +190,18 @@ function initNavDrag() {
         }
     }
 
-    // Initial snap
+    // Initial snap — ensure indicator is visible
+    if (indicator) {
+        indicator.style.opacity = '1';
+        indicator.style.display = '';
+        indicator.style.left = '0px';
+        indicator.style.width = '100px';
+    }
     const activeBtn = navbar.querySelector('.nav-btn.is-active');
-    if (activeBtn) snapIndicatorTo(activeBtn);
+    if (activeBtn) {
+        // Small delay to ensure DOM is settled
+        requestAnimationFrame(() => requestAnimationFrame(() => snapIndicatorTo(activeBtn)));
+    }
 
     function evalTab(clientX) {
         const nr = navbar.getBoundingClientRect();
@@ -223,14 +232,23 @@ function initNavDrag() {
                 gsap.to(indicator, { left: l, width: 100, scaleX: 1, duration: 0.1, ease: "power1.out", overwrite: "auto" });
             } else if (rightBtn) {
                 const r = rightBtn.rect;
-                let l = r.left - nr.left + (r.width - 100) / 2;
-                l = Math.max(5, Math.min(295, l));
-                gsap.to(indicator, { left: l, width: 100, duration: 0.12, ease: "power2.out", overwrite: "auto" });
+                let l = r.left - nr.left + (r.width - 100) / 2, w = 100;
+                if (rightBtn.el === btnArray[0] && clientX < r.left + r.width * 0.4) {
+                    const t = Math.min(1, (r.left + r.width * 0.4 - clientX) / 50);
+                    w = 100 * (1 - t * 0.3);
+                    l = r.left - nr.left + 2;
+                }
+                gsap.to(indicator, { left: l, width: w, duration: 0.12, ease: "power2.out", overwrite: "auto" });
             } else if (leftBtn) {
                 const r = leftBtn.rect;
-                let l = r.left - nr.left + (r.width - 100) / 2;
-                l = Math.max(5, Math.min(295, l));
-                gsap.to(indicator, { left: l, width: 100, duration: 0.12, ease: "power2.out", overwrite: "auto" });
+                let l = r.left - nr.left + (r.width - 100) / 2, w = 100;
+                if (leftBtn.el === btnArray[btnArray.length - 1] && clientX > r.right - r.width * 0.4) {
+                    const t = Math.min(1, (clientX - (r.right - r.width * 0.4)) / 50);
+                    w = 100 * (1 - t * 0.3);
+                    // Keep right edge anchored: l + w = r.right - nr.left
+                    l = r.right - nr.left - w;
+                }
+                gsap.to(indicator, { left: l, width: w, duration: 0.12, ease: "power2.out", overwrite: "auto" });
             }
         }
 
@@ -262,21 +280,24 @@ function initNavDrag() {
         navbar.style.boxShadow = '0 8px 40px rgba(0,0,0,0.12), 0 0 24px rgba(255,255,255,0.15)';
     });
     navbar.addEventListener('pointermove', e => { if (isDragging) evalTab(e.clientX); });
+    document.addEventListener('pointermove', e => { if (isDragging) evalTab(e.clientX); });
     const stop = e => {
+        if (!isDragging) return;
         isDragging = false;
         navbar.classList.remove('nav-is-dragging');
         try { navbar.releasePointerCapture(e.pointerId); } catch {}
-        // Settle back
         if (indicator) {
-            gsap.to(indicator, { scaleY: 1, scaleX: 1, duration: 0.6, ease: "elastic.out(1, 0.5)", overwrite: "auto" });
+            gsap.killTweensOf(indicator, 'scaleY,scaleX');
+            gsap.to(indicator, { scaleY: 1, scaleX: 1, duration: 0.4, ease: "elastic.out(1, 0.5)", overwrite: "auto" });
         }
-        gsap.to(navbar, { scale: 1, duration: 0.6, ease: "elastic.out(1, 0.4)", overwrite: "auto" });
-        navbar.style.boxShadow = '';
+        gsap.to(navbar, { scale: 1, duration: 0.4, ease: "elastic.out(1, 0.4)", overwrite: "auto" });
         const active = navbar.querySelector('.nav-btn.is-active');
         if (active) snapIndicatorTo(active);
     };
     navbar.addEventListener('pointerup', stop);
     navbar.addEventListener('pointercancel', stop);
+    document.addEventListener('pointerup', stop);
+    document.addEventListener('pointercancel', stop);
 
     // Update indicator when tab changes via click too
     window._snapNavIndicator = () => {
@@ -435,10 +456,6 @@ function clearPreview() {
 // ═══════════════════════════════════════════════════════════════════════
 // 8b. CAMERA CAPTURE
 // ═══════════════════════════════════════════════════════════════════════
-
-let cameraStream = null;
-let cameraFacing = 'environment'; // 'environment' (rear) or 'user' (front)
-
 function zoneTap() {
     if (state.selectedFile) return; // preview is showing, ignore tap
     if (cameraAvailable) {
@@ -446,99 +463,6 @@ function zoneTap() {
     } else {
         triggerUpload();
     }
-}
-
-async function openCamera() {
-    const modal = document.getElementById('camera-modal');
-    const video = document.getElementById('camera-video');
-    if (!modal || !video) { cameraAvailable = false; triggerUpload(); return; }
-
-    // Show modal first so the video element is in the visible DOM
-    // (required by iOS Safari before attaching a stream)
-    modal.classList.add('is-shown');
-    document.body.style.overflow = 'hidden';
-    gsap.fromTo(modal, { y: '100%' }, { y: 0, duration: 0.3, ease: "power2.out" });
-    document.body.classList.add('camera-active');
-
-    // iOS-friendly constraints: avoid width/height which some iOS versions reject
-    const constraints = [
-        { video: { facingMode: cameraFacing }, audio: false },
-        { video: { facingMode: { ideal: cameraFacing } }, audio: false },
-        { video: true, audio: false },
-    ];
-
-    for (const c of constraints) {
-        try {
-            cameraStream = await navigator.mediaDevices.getUserMedia(c);
-            video.srcObject = cameraStream;
-            video.play().catch(() => {});
-            return; // success
-        } catch (_) {
-            // try next constraint set
-        }
-    }
-
-    // All attempts failed — camera unavailable, fall back to file picker permanently
-    cameraAvailable = false;
-    closeCamera();
-    triggerUpload();
-}
-
-function closeCamera() {
-    if (cameraStream) {
-        cameraStream.getTracks().forEach(t => t.stop());
-        cameraStream = null;
-    }
-    document.getElementById('camera-modal').classList.remove('is-shown');
-    document.getElementById('camera-video').srcObject = null;
-    document.body.style.overflow = '';
-    // Restore floating nav and header
-    document.body.classList.remove('camera-active');
-}
-
-function flipCamera() {
-    cameraFacing = cameraFacing === 'environment' ? 'user' : 'environment';
-    if (cameraStream) {
-        cameraStream.getTracks().forEach(t => t.stop());
-        cameraStream = null;
-    }
-    const video = document.getElementById('camera-video');
-    if (!video) return;
-
-    const constraints = [
-        { video: { facingMode: cameraFacing }, audio: false },
-        { video: { facingMode: { ideal: cameraFacing } }, audio: false },
-        { video: true, audio: false },
-    ];
-
-    (async () => {
-        for (const c of constraints) {
-            try {
-                cameraStream = await navigator.mediaDevices.getUserMedia(c);
-                video.srcObject = cameraStream;
-                video.play().catch(() => {});
-                return;
-            } catch (_) {}
-        }
-    })();
-}
-
-function capturePhoto() {
-    const video = document.getElementById('camera-video');
-    const canvas = document.getElementById('camera-canvas');
-
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    const ctx = canvas.getContext('2d');
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-    canvas.toBlob(blob => {
-        if (!blob) { closeCamera(); return; }
-        const file = new File([blob], 'camera-photo.jpg', { type: 'image/jpeg' });
-        closeCamera();
-        processFile(file);
-    }, 'image/jpeg', 0.92);
-    playBeep('beep');
 }
 
 
@@ -1240,10 +1164,13 @@ function renderRewards() {
     }).join('');
 
     // GSAP staggered entrance for rewards
-    gsap.fromTo('#rew-catalogue .rewards-item', 
-        { opacity: 0, y: 16 }, 
-        { opacity: 1, y: 0, duration: 0.35, stagger: 0.05, ease: "power2.out" }
-    );
+    const items = document.querySelectorAll('#rew-catalogue .rewards-item');
+    if (items.length) {
+        gsap.fromTo(items, 
+            { opacity: 0, y: 16 }, 
+            { opacity: 1, y: 0, duration: 0.35, stagger: 0.05, ease: "power2.out" }
+        );
+    }
 
     // Claimed coupons grid
     const grid = document.getElementById('rew-coupon-grid');
@@ -1711,11 +1638,9 @@ function initTheme() {
 
 function applyTheme(theme) {
     document.documentElement.setAttribute('data-theme', theme);
-    const icon = document.getElementById('theme-icon');
-    if (icon) icon.src = theme === 'dark' ? '/static/assets/DarkMode_Off.png' : '/static/assets/DarkMode_On.png';
-    const label = document.getElementById('theme-label');
-    if (label) label.textContent = theme === 'dark' ? tr('lightMode') : tr('darkMode');
     safeStorage.set('RE_LIFE_THEME', theme);
+    const sel = document.getElementById('theme-select');
+    if (sel) sel.value = theme;
 }
 
 function refreshGradeColors() {

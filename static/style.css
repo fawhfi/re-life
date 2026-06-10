@@ -186,17 +186,17 @@ body {
     align-items: center;
     justify-content: space-between;
     padding: 12px 18px;
-    background: rgba(255, 255, 255, 0.85);
-    backdrop-filter: blur(25px) saturate(200%);
-    -webkit-backdrop-filter: blur(25px) saturate(200%);
-    border: 1px solid rgba(255, 255, 255, 0.25);
-    box-shadow: 0 10px 30px rgba(31, 38, 135, 0.06), 0 1px 0 rgba(255, 255, 255, 0.15) inset;
-    border-radius: 16px;
+    background: rgba(255,255,255,0.10);
+    backdrop-filter: blur(20px) brightness(1.15) saturate(150%);
+    -webkit-backdrop-filter: blur(20px) brightness(1.15) saturate(150%);
+    border: 1px solid rgba(255,255,255,0.3);
+    box-shadow: 0 4px 24px rgba(0,0,0,0.10), inset 0 1px 3px rgba(255,255,255,0.3);
+    border-radius: 20px;
     z-index: 100;
     transition: box-shadow 0.2s ease;
 }
 @supports not ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
-    .app-header { background: rgba(255,255,255,0.95); }
+    .app-header { background: rgba(255,255,255,0.88); }
 }
 
 .header-left {

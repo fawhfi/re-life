@@ -1753,6 +1753,7 @@ async function toggleLang() {
 function updateAllLabels() {
     // Map of element IDs → translation keys
     const map = {
+        'lbl-upload-text': 'uploadPhoto',
         'lbl-dispose-btn': 'toDispose',
         'lbl-purchase-btn': 'toPurchase',
         'lbl-dispose-sub': 'disposeSub',

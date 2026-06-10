@@ -1875,11 +1875,31 @@ nav.nav, .app-nav {
     will-change: left, width, top, height;
     transition: left 0.4s cubic-bezier(.22,1,.36,1), width 0.4s cubic-bezier(.22,1,.36,1);
 }
+/* Arch above indicator — gives the illusion of nav bulging locally */
+.nav-indicator::before {
+    content: '';
+    position: absolute;
+    top: -8px;
+    left: 4px;
+    right: 4px;
+    height: 12px;
+    background: rgba(255,255,255,0.08);
+    border-radius: 50%;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.2s;
+}
 .nav-is-dragging .nav-indicator {
     top: -6px;
     height: calc(100% + 12px);
     border-radius: 26px;
     background: rgba(255,255,255,0.16);
+}
+.nav-is-dragging .nav-indicator::before {
+    top: -14px;
+    height: 20px;
+    opacity: 1;
+    background: rgba(255,255,255,0.12);
 }
 
 /* Hide floating bars when camera is active */

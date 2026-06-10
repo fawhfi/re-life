@@ -256,10 +256,11 @@ function initNavDrag() {
         const br = btn.getBoundingClientRect();
         let targetX = br.left - nr.left;
         let targetW = br.width;
-        // Clamp to nav bounds
-        const maxRight = nr.width;
+        // Clamp to nav bounds (account for padding: 5px 6px)
+        const padX = 6;
+        const maxRight = nr.width - padX;
         if (targetX + targetW > maxRight) targetW = maxRight - targetX;
-        if (targetX < 0) { targetW += targetX; targetX = 0; }
+        if (targetX < padX) { targetW -= (padX - targetX); targetX = padX; }
         targetW = Math.max(targetW, 20); // min width
 
         const curX = parseFloat(indicator.style.left) || 0;
@@ -313,8 +314,9 @@ function initNavDrag() {
                 const t = range > 0 ? (relX - leftBtn.center) / range : 0;
                 let l = leftBtn.rect.left - nr.left + t * (rightBtn.rect.left - leftBtn.rect.left);
                 let w = leftBtn.rect.width + t * (rightBtn.rect.width - leftBtn.rect.width);
-                if (l + w > nr.width) w = nr.width - l;
-                if (l < 0) { w += l; l = 0; }
+                const padX = 6;
+                if (l + w > nr.width - padX) w = nr.width - padX - l;
+                if (l < padX) { w -= (padX - l); l = padX; }
                 w = Math.max(w, 20);
                 gsap.to(indicator, { left: l, width: w, scaleX: 1, duration: 0.1, ease: "power1.out", overwrite: "auto" });
             } else if (rightBtn) {

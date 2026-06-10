@@ -250,7 +250,7 @@ function initNavDrag() {
                 if (isLast && clientX > r.right - r.width * 0.4) {
                     const t = Math.min(1, (clientX - (r.right - r.width * 0.4)) / 50);
                     w = 100 * (1 - t * 0.25);
-                    l = r.right - nr.left - w - 3; // anchor right
+                    l = r.right - nr.left - w; // anchor right edge
                 }
                 l = Math.max(5, Math.min(295, l));
                 gsap.to(indicator, { left: l, width: w, duration: 0.12, ease: "power2.out", overwrite: "auto" });

@@ -1848,12 +1848,11 @@ nav.nav, .app-nav {
     background: rgba(255,255,255,0.10);
     backdrop-filter: blur(20px) saturate(150%);
     -webkit-backdrop-filter: blur(20px) saturate(150%);
-    border: none;
     border-radius: 28px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.08), 0 0 0 0.5px rgba(255,255,255,0.08);
     padding: 5px 6px;
     z-index: 100;
     overflow: visible;
-    box-shadow: 0 8px 32px rgba(0,0,0,0.08);
     transition: transform 0.35s cubic-bezier(.22,1,.36,1);
 }
 @supports not ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {

@@ -233,13 +233,27 @@ function initNavDrag() {
             } else if (rightBtn) {
                 const r = rightBtn.rect;
                 let l = r.left - nr.left + (r.width - 100) / 2;
+                let w = 100;
+                const isFirst = rightBtn.el === btnArray[0];
+                if (isFirst && clientX < r.left + r.width * 0.4) {
+                    const t = Math.min(1, (r.left + r.width * 0.4 - clientX) / 50);
+                    w = 100 * (1 - t * 0.25);
+                    l = r.left - nr.left + 3; // anchor left
+                }
                 l = Math.max(5, Math.min(295, l));
-                gsap.to(indicator, { left: l, width: 100, duration: 0.12, ease: "power2.out", overwrite: "auto" });
+                gsap.to(indicator, { left: l, width: w, duration: 0.12, ease: "power2.out", overwrite: "auto" });
             } else if (leftBtn) {
                 const r = leftBtn.rect;
                 let l = r.left - nr.left + (r.width - 100) / 2;
+                let w = 100;
+                const isLast = leftBtn.el === btnArray[btnArray.length - 1];
+                if (isLast && clientX > r.right - r.width * 0.4) {
+                    const t = Math.min(1, (clientX - (r.right - r.width * 0.4)) / 50);
+                    w = 100 * (1 - t * 0.25);
+                    l = r.right - nr.left - w - 3; // anchor right
+                }
                 l = Math.max(5, Math.min(295, l));
-                gsap.to(indicator, { left: l, width: 100, duration: 0.12, ease: "power2.out", overwrite: "auto" });
+                gsap.to(indicator, { left: l, width: w, duration: 0.12, ease: "power2.out", overwrite: "auto" });
             }
         }
 

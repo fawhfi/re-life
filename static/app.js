@@ -1976,25 +1976,9 @@ function initLiquidGlass() {
     const nav = document.querySelector('nav.nav');
     if (!nav) return;
 
-    let curStrength = 20, targetStrength = 20;
-
-    function update() {
-        const r = nav.getBoundingClientRect();
-        const w = Math.round(r.width), h = Math.round(r.height);
-        curStrength += (targetStrength - curStrength) * 0.06;
-        const filterUrl = getDisplacementFilter(w, h, 28, 3, Math.round(curStrength), 1);
-        nav.style.backdropFilter = `blur(1px) url('${filterUrl}') blur(1px) saturate(130%)`;
-        nav.style.webkitBackdropFilter = `blur(4px) saturate(130%)`;
-        requestAnimationFrame(update);
-    }
-
-    const obs = new MutationObserver(() => {
-        targetStrength = nav.classList.contains('nav-is-dragging') ? 40 : 20;
-    });
-    obs.observe(nav, { attributes: true, attributeFilter: ['class'] });
-    targetStrength = nav.classList.contains('nav-is-dragging') ? 40 : 20;
-    update();
-    new ResizeObserver(() => {}).observe(nav);
+    // Pure CSS glass — SVG filter causes icon edge artifacts
+    nav.style.backdropFilter = `blur(20px) saturate(160%)`;
+    nav.style.webkitBackdropFilter = `blur(20px) saturate(160%)`;
 }
 
 // THEME SYSTEM — just sets data-theme; colors defined in CSS

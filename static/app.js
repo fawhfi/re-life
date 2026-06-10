@@ -342,43 +342,26 @@ function initNavDrag() {
         }
     }
 
-    // Wave deformation during drag
-    function applyWave(clientX) {
-        const nr = navbar.getBoundingClientRect();
-        const relX = clientX - nr.left;
-        const t = relX / nr.width; // 0..1 across nav
-        // bend downward under finger, upward at edges
-        const bend = Math.sin(t * Math.PI) * 3; // 0-3px wave
-        const skew = (t - 0.5) * 1.5; // slight twist
-        gsap.to(navbar, {
-            y: bend,
-            skewX: skew,
-            borderRadius: `${24 + bend}px`,
-            duration: 0.12,
-            ease: "power1.out",
-            overwrite: "auto",
-        });
-    }
-
     navbar.addEventListener('pointerdown', e => {
         if (e.button !== 0) return;
         isDragging = true;
         navbar.classList.add('nav-is-dragging');
         navbar.setPointerCapture(e.pointerId);
         evalTab(e.clientX);
-    });
-    navbar.addEventListener('pointermove', e => {
-        if (isDragging) {
-            evalTab(e.clientX);
-            applyWave(e.clientX);
+        // Jelly pop on press
+        if (indicator) {
+            gsap.fromTo(indicator, { scaleY: 0.9, scaleX: 1.08 }, { scaleY: 1.06, scaleX: 0.96, duration: 0.3, ease: "elastic.out(1, 0.5)", overwrite: "auto" });
         }
     });
+    navbar.addEventListener('pointermove', e => { if (isDragging) evalTab(e.clientX); });
     const stop = e => {
         isDragging = false;
         navbar.classList.remove('nav-is-dragging');
         try { navbar.releasePointerCapture(e.pointerId); } catch {}
-        // Reset wave
-        gsap.to(navbar, { y: 0, skewX: 0, borderRadius: 28, duration: 0.4, ease: "elastic.out(1, 0.4)" });
+        // Indicator settles back with jelly bounce
+        if (indicator) {
+            gsap.to(indicator, { scaleY: 1, scaleX: 1, duration: 0.4, ease: "elastic.out(1, 0.4)", overwrite: "auto" });
+        }
         const active = navbar.querySelector('.nav-btn.is-active');
         if (active) snapIndicatorTo(active);
     };

@@ -305,21 +305,24 @@ function initNavDrag() {
                 const w = leftBtn.rect.width + t * (rightBtn.rect.width - leftBtn.rect.width);
                 gsap.to(indicator, { left: l, width: w, scaleX: 1, duration: 0.1, ease: "power1.out", overwrite: "auto" });
             } else if (rightBtn) {
+                // Finger is left of all buttons — rightBtn is first button
                 const r = rightBtn.rect;
-                let l = r.left - nr.left, w = r.width, sx = 1;
-                const isFirst = rightBtn.el === btnArray[0];
-                const isLast  = rightBtn.el === btnArray[btnArray.length - 1];
-
-                if (isFirst && clientX < r.left + r.width * 0.5) {
+                let l = r.left - nr.left, w = r.width;
+                if (rightBtn.el === btnArray[0] && clientX < r.left + r.width * 0.5) {
                     const t = Math.min(1, (r.left + r.width * 0.5 - clientX) / 50);
                     w = r.width * (1 - t * 0.3);
-                    l = r.left - nr.left;
-                } else if (isLast && clientX > r.right - r.width * 0.5) {
+                }
+                gsap.to(indicator, { left: l, width: w, duration: 0.12, ease: "power2.out", overwrite: "auto" });
+            } else if (leftBtn) {
+                // Finger is right of all buttons — leftBtn is last button
+                const r = leftBtn.rect;
+                let l = r.left - nr.left, w = r.width;
+                if (leftBtn.el === btnArray[btnArray.length - 1] && clientX > r.right - r.width * 0.5) {
                     const t = Math.min(1, (clientX - (r.right - r.width * 0.5)) / 50);
                     w = r.width * (1 - t * 0.3);
                     l = r.right - nr.left - w;
                 }
-                gsap.to(indicator, { left: l, width: w, scaleX: sx, duration: 0.12, ease: "power2.out", overwrite: "auto" });
+                gsap.to(indicator, { left: l, width: w, duration: 0.12, ease: "power2.out", overwrite: "auto" });
             }
         }
 

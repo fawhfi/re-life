@@ -1931,82 +1931,72 @@ document.addEventListener('DOMContentLoaded', () => {
 // LIQUID GLASS — dynamic displacement map + chromatic aberration
 // ═══════════════════════════════════════════════════════════════════════
 
-function getDisplacementMap(width, height, radius, depth) {
+function getDisplacementMap(w, h, r, depth) {
     return "data:image/svg+xml;utf8," + encodeURIComponent(
-        `<svg height="${height}" width="${width}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg">
-            <style>.mix{mix-blend-mode:screen}</style>
+        `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">
+            <style>.m{mix-blend-mode:screen}</style>
             <defs>
-                <linearGradient id="Y" x1="0" x2="0" y1="${Math.ceil(radius/height*15)}%" y2="${Math.floor(100-radius/height*15)}%">
+                <linearGradient id="gy" x1="0" x2="0" y1="${Math.ceil(r/h*15)}%" y2="${Math.floor(100-r/h*15)}%">
                     <stop offset="0%" stop-color="#0F0"/><stop offset="100%" stop-color="#000"/>
                 </linearGradient>
-                <linearGradient id="X" x1="${Math.ceil(radius/width*15)}%" x2="${Math.floor(100-radius/width*15)}%" y1="0" y2="0">
+                <linearGradient id="gx" x1="${Math.ceil(r/w*15)}%" x2="${Math.floor(100-r/w*15)}%" y1="0" y2="0">
                     <stop offset="0%" stop-color="#F00"/><stop offset="100%" stop-color="#000"/>
                 </linearGradient>
             </defs>
-            <rect x="0" y="0" height="${height}" width="${width}" fill="#808080"/>
+            <rect width="${w}" height="${h}" fill="#808080"/>
             <g filter="blur(2px)">
-                <rect x="0" y="0" height="${height}" width="${width}" fill="#000080"/>
-                <rect x="0" y="0" height="${height}" width="${width}" fill="url(#Y)" class="mix"/>
-                <rect x="0" y="0" height="${height}" width="${width}" fill="url(#X)" class="mix"/>
-                <rect x="${depth}" y="${depth}" height="${height-2*depth}" width="${width-2*depth}" fill="#808080" rx="${radius}" ry="${radius}" filter="blur(${depth}px)"/>
+                <rect width="${w}" height="${h}" fill="#000080"/>
+                <rect width="${w}" height="${h}" fill="url(#gy)" class="m"/>
+                <rect width="${w}" height="${h}" fill="url(#gx)" class="m"/>
+                <rect x="${depth}" y="${depth}" width="${w-2*depth}" height="${h-2*depth}" fill="#808080" rx="${r}" filter="blur(${depth}px)"/>
             </g>
         </svg>`);
 }
 
-function getDisplacementFilter(width, height, radius, depth, strength, cab) {
-    const mapUrl = getDisplacementMap(width, height, radius, depth);
+function getDisplacementFilter(w, h, r, depth, strength, cab) {
+    const map = getDisplacementMap(w, h, r, depth);
     return "data:image/svg+xml;utf8," + encodeURIComponent(
-        `<svg height="${height}" width="${width}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg">
+        `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">
             <defs>
-                <filter id="d" color-interpolation-filters="sRGB">
-                    <feImage x="0" y="0" height="${height}" width="${width}" href="${mapUrl}" result="map"/>
-                    <feDisplacementMap in="SourceGraphic" in2="map" scale="${strength+cab*2}" xChannelSelector="R" yChannelSelector="G"/>
+                <filter id="f" color-interpolation-filters="sRGB">
+                    <feImage width="${w}" height="${h}" href="${map}" result="dmap"/>
+                    <feDisplacementMap in="SourceGraphic" in2="dmap" scale="${strength+cab*2}" xChannelSelector="R" yChannelSelector="G"/>
                     <feColorMatrix type="matrix" values="1 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 1 0" result="r"/>
-                    <feDisplacementMap in="SourceGraphic" in2="map" scale="${strength+cab}" xChannelSelector="R" yChannelSelector="G"/>
+                    <feDisplacementMap in="SourceGraphic" in2="dmap" scale="${strength+cab}" xChannelSelector="R" yChannelSelector="G"/>
                     <feColorMatrix type="matrix" values="0 0 0 0 0  0 1 0 0 0  0 0 0 0 0  0 0 0 1 0" result="g"/>
-                    <feDisplacementMap in="SourceGraphic" in2="map" scale="${strength}" xChannelSelector="R" yChannelSelector="G"/>
+                    <feDisplacementMap in="SourceGraphic" in2="dmap" scale="${strength}" xChannelSelector="R" yChannelSelector="G"/>
                     <feColorMatrix type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 1 0 0  0 0 0 1 0" result="b"/>
                     <feBlend in="r" in2="g" mode="screen"/><feBlend in2="b" mode="screen"/>
                 </filter>
             </defs>
-        </svg>`) + "#d";
+        </svg>`) + "#f";
 }
 
 function initLiquidGlass() {
     const nav = document.querySelector('nav.nav');
     if (!nav) return;
 
-    let currentStrength = 40;
-    let targetStrength = 40;
+    let curStrength = 40, targetStrength = 40;
 
-    function updateFilter() {
-        const rect = nav.getBoundingClientRect();
-        const w = Math.round(rect.width);
-        const h = Math.round(rect.height);
-        const r = 24; // border-radius
-        const cab = 2; // chromatic aberration
-
-        currentStrength += (targetStrength - currentStrength) * 0.12;
-        const filterUrl = getDisplacementFilter(w, h, r, 8, Math.round(currentStrength), cab);
-        nav.style.backdropFilter = `blur(18px) brightness(1.15) saturate(150%) url(${filterUrl})`;
-        nav.style.webkitBackdropFilter = `blur(18px) brightness(1.15) saturate(150%)`;
-        requestAnimationFrame(updateFilter);
+    function update() {
+        const r = nav.getBoundingClientRect();
+        const w = Math.round(r.width), h = Math.round(r.height);
+        curStrength += (targetStrength - curStrength) * 0.1;
+        const filterUrl = getDisplacementFilter(w, h, 28, 6, Math.round(curStrength), 2);
+        nav.style.backdropFilter = `blur(15px) url('${filterUrl}') blur(15px) saturate(160%)`;
+        nav.style.webkitBackdropFilter = `blur(30px) saturate(160%)`;
+        requestAnimationFrame(update);
     }
 
-    // Ramp strength during drag
-    const observer = new MutationObserver(() => {
+    const obs = new MutationObserver(() => {
         targetStrength = nav.classList.contains('nav-is-dragging') ? 80 : 40;
     });
-    observer.observe(nav, { attributes: true, attributeFilter: ['class'] });
+    obs.observe(nav, { attributes: true, attributeFilter: ['class'] });
     targetStrength = nav.classList.contains('nav-is-dragging') ? 80 : 40;
-
-    updateFilter();
-
-    // Redraw on resize
+    update();
     new ResizeObserver(() => {}).observe(nav);
 }
 
-// ═══════════════════════════════════════════════════════════════════════
 // THEME SYSTEM — just sets data-theme; colors defined in CSS
 // ═══════════════════════════════════════════════════════════════════════
 

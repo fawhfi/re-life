@@ -64,103 +64,7 @@ const state = {
 // ═══════════════════════════════════════════════════════════════════════
 // ═══════════════════════════════════════════════════════════════════════
 
-// ═══════════════════════════════════════════════════════════════════════
-// HEADER DRAG + NAV SWIPE
-// ═══════════════════════════════════════════════════════════════════════
 
-function setupFluidDraggable(element) {
-    if (!element) return;
-
-    let isDragging = false;
-    let startX, startY;
-    let translateX = 0;
-    let translateY = 0;
-
-    element.addEventListener('pointerdown', (e) => {
-        if (e.target.closest('button') || e.target.closest('input') || e.target.closest('select') || e.target.id === 'hdr-avatar') {
-            return;
-        }
-
-        isDragging = true;
-        startX = e.clientX - translateX;
-        startY = e.clientY - translateY;
-
-        element.setPointerCapture(e.pointerId);
-        element.style.transition = 'none';
-    });
-
-    element.addEventListener('pointermove', (e) => {
-        if (!isDragging) return;
-
-        let nextX = e.clientX - startX;
-        let nextY = e.clientY - startY;
-
-        const rect = element.getBoundingClientRect();
-        const appContainer = element.closest('.app') || document.body;
-        const containerRect = appContainer.getBoundingClientRect();
-
-        const originalLeft = element.offsetLeft;
-        const originalTop = element.offsetTop;
-
-        const minX = -originalLeft;
-        const maxX = containerRect.width - originalLeft - rect.width;
-        const minY = -originalTop;
-        const maxY = containerRect.height - originalTop - rect.height;
-
-        translateX = Math.max(minX, Math.min(nextX, maxX));
-        translateY = Math.max(minY, Math.min(nextY, maxY));
-
-        element.style.transform = `translate3d(${translateX}px, ${translateY}px, 0)`;
-    });
-
-    const stopDrag = (e) => {
-        if (!isDragging) return;
-        isDragging = false;
-        element.releasePointerCapture(e.pointerId);
-    };
-
-    element.addEventListener('pointerup', stopDrag);
-    element.addEventListener('pointercancel', stopDrag);
-}
-
-const TAB_ORDER = ['home', 'record', 'rewards', 'more'];
-
-function setupNavSwipe() {
-    const nav = document.querySelector('nav.nav');
-    if (!nav) return;
-
-    let startX = 0;
-    let startY = 0;
-
-    nav.addEventListener('touchstart', (e) => {
-        startX = e.touches[0].clientX;
-        startY = e.touches[0].clientY;
-    }, { passive: true });
-
-    nav.addEventListener('touchend', (e) => {
-        const dx = e.changedTouches[0].clientX - startX;
-        const dy = e.changedTouches[0].clientY - startY;
-
-        if (Math.abs(dx) < 30 || Math.abs(dx) < Math.abs(dy)) return;
-
-        const currentIdx = TAB_ORDER.indexOf(state.activeTab);
-        if (dx < 0 && currentIdx < TAB_ORDER.length - 1) {
-            navigateTo(TAB_ORDER[currentIdx + 1]);
-        } else if (dx > 0 && currentIdx > 0) {
-            navigateTo(TAB_ORDER[currentIdx - 1]);
-        }
-    });
-}
-
-function initDraggableBars() {
-    setupNavSwipe();
-}
-
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initDraggableBars);
-} else {
-    initDraggableBars();
-}
 
 document.addEventListener('DOMContentLoaded', async () => {
     // Detect login page vs main app
@@ -177,10 +81,13 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Init language from storage
     state.lang = safeStorage.get('RE_LIFE_LANG') || 'en';
-    // Fire i18n load but don't block render
-    if (typeof I18N !== 'undefined') I18N.load(state.lang).then(updateAllLabels);
     document.documentElement.lang = state.lang === 'zh' ? 'zh-HK' : 'en';
-    updateAllLabels();
+    // Load i18n then update labels — avoids showing English briefly
+    if (typeof I18N !== 'undefined') {
+        I18N.load(state.lang).then(updateAllLabels);
+    } else {
+        updateAllLabels();
+    }
 
     startClock();
     setupDragDrop();
@@ -244,6 +151,7 @@ function initNavDrag() {
     if (!navbar) return;
     const indicator = document.getElementById('nav-indicator');
     const btns = navbar.querySelectorAll('.nav-btn');
+    const btnArray = Array.from(btns);
     let isDragging = false;
 
     // Position indicator under active tab initially
@@ -251,25 +159,34 @@ function initNavDrag() {
         if (!indicator || !btn) return;
         const nr = navbar.getBoundingClientRect();
         const br = btn.getBoundingClientRect();
-        const targetX = br.left - nr.left;
+        let targetX = br.left - nr.left + (br.width - 100) / 2;
+        targetX = Math.max(5, Math.min(295, targetX));
+
         const curX = parseFloat(indicator.style.left) || 0;
         const dx = targetX - curX;
 
         gsap.to(indicator, {
             left: targetX,
-            width: br.width,
+            width: 100,
             scaleX: 1,
-            duration: isDragging ? 0.15 : 0.4,
-            ease: isDragging ? "power2.out" : "elastic.out(1, 0.5)",
+            duration: isDragging ? 0.15 : 0.45,
+            ease: isDragging ? "power2.out" : "elastic.out(1, 0.6)",
             overwrite: "auto",
         });
-        // Jelly squash in direction of movement
+        // Jelly squash + indicator glow
         if (!isDragging && Math.abs(dx) > 10) {
             const dir = dx > 0 ? 1 : -1;
             gsap.fromTo(indicator, 
-                { scaleX: 1 + dir * 0.08 },
-                { scaleX: 1, duration: 0.5, ease: "elastic.out(1, 0.4)", overwrite: "auto" }
+                { scaleX: 1 + dir * 0.1, opacity: 0.14 },
+                { scaleX: 1, opacity: 0.10, duration: 0.6, ease: "elastic.out(1, 0.4)", overwrite: "auto" }
             );
+        }
+        // Bounce the nav button icon
+        if (!isDragging) {
+            const icon = btn.querySelector('.nav-btn-icon');
+            if (icon) {
+                gsap.fromTo(icon, { scale: 0.85 }, { scale: 1, duration: 0.4, ease: "back.out(2)", overwrite: "auto" });
+            }
         }
     }
 
@@ -283,7 +200,6 @@ function initNavDrag() {
 
         // Find which two buttons the finger is between for smooth interpolation
         let leftBtn = null, rightBtn = null;
-        const btnArray = Array.from(btns);
         for (let i = 0; i < btnArray.length; i++) {
             const r = btnArray[i].getBoundingClientRect();
             const btnCenter = r.left - nr.left + r.width / 2;
@@ -293,17 +209,28 @@ function initNavDrag() {
 
         // Smoothly interpolate indicator position between adjacent buttons
         if (indicator) {
+            const firstBtn = btnArray[0].getBoundingClientRect();
+            const lastBtn = btnArray[btnArray.length-1].getBoundingClientRect();
+            const navLeft = firstBtn.left - nr.left;
+            const navRight = lastBtn.right - nr.left;
+
             if (leftBtn && rightBtn && leftBtn.el !== rightBtn.el) {
                 const range = rightBtn.center - leftBtn.center;
                 const t = range > 0 ? (relX - leftBtn.center) / range : 0;
-                const l = leftBtn.rect.left - nr.left + t * (rightBtn.rect.left - leftBtn.rect.left);
-                const w = leftBtn.rect.width + t * (rightBtn.rect.width - leftBtn.rect.width);
-                // Jelly during drag: slight width overshoot in movement direction
-                const dragScale = 0.97 + 0.06 * Math.abs(t - 0.5) * 2; // narrower at midpoint, wider near edges
-                gsap.to(indicator, { left: l, width: w, scaleX: dragScale, duration: 0.1, ease: "power1.out", overwrite: "auto" });
+                let l = leftBtn.rect.left - nr.left + t * (rightBtn.rect.left - leftBtn.rect.left)
+                    + (leftBtn.rect.width - 100) / 2 * (1 - t) + (rightBtn.rect.width - 100) / 2 * t;
+                l = Math.max(5, Math.min(295, l));
+                gsap.to(indicator, { left: l, width: 100, scaleX: 1, duration: 0.1, ease: "power1.out", overwrite: "auto" });
             } else if (rightBtn) {
                 const r = rightBtn.rect;
-                gsap.to(indicator, { left: r.left - nr.left, width: r.width, scaleX: 1, duration: 0.12, ease: "power2.out", overwrite: "auto" });
+                let l = r.left - nr.left + (r.width - 100) / 2;
+                l = Math.max(5, Math.min(295, l));
+                gsap.to(indicator, { left: l, width: 100, duration: 0.12, ease: "power2.out", overwrite: "auto" });
+            } else if (leftBtn) {
+                const r = leftBtn.rect;
+                let l = r.left - nr.left + (r.width - 100) / 2;
+                l = Math.max(5, Math.min(295, l));
+                gsap.to(indicator, { left: l, width: 100, duration: 0.12, ease: "power2.out", overwrite: "auto" });
             }
         }
 
@@ -326,12 +253,25 @@ function initNavDrag() {
         navbar.classList.add('nav-is-dragging');
         navbar.setPointerCapture(e.pointerId);
         evalTab(e.clientX);
+        // Jelly pop on press
+        if (indicator) {
+            gsap.fromTo(indicator, { scaleY: 0.85, scaleX: 1.12 }, { scaleY: 1.08, scaleX: 0.94, duration: 0.5, ease: "elastic.out(1, 0.6)", overwrite: "auto" });
+        }
+        gsap.to(navbar, { scale: 1.02, duration: 0.5, ease: "elastic.out(1, 0.4)", overwrite: "auto" });
+        // Subtle glow on drag
+        navbar.style.boxShadow = '0 8px 40px rgba(0,0,0,0.12), 0 0 24px rgba(255,255,255,0.15)';
     });
     navbar.addEventListener('pointermove', e => { if (isDragging) evalTab(e.clientX); });
     const stop = e => {
         isDragging = false;
         navbar.classList.remove('nav-is-dragging');
         try { navbar.releasePointerCapture(e.pointerId); } catch {}
+        // Settle back
+        if (indicator) {
+            gsap.to(indicator, { scaleY: 1, scaleX: 1, duration: 0.6, ease: "elastic.out(1, 0.5)", overwrite: "auto" });
+        }
+        gsap.to(navbar, { scale: 1, duration: 0.6, ease: "elastic.out(1, 0.4)", overwrite: "auto" });
+        navbar.style.boxShadow = '';
         const active = navbar.querySelector('.nav-btn.is-active');
         if (active) snapIndicatorTo(active);
     };
@@ -971,6 +911,7 @@ function resetScan() {
 // ═══════════════════════════════════════════════════════════════════════
 
 async function loadRecords() {
+    if (typeof FB === 'undefined') { console.warn('[App] FB not ready, retrying...'); setTimeout(loadRecords, 500); return; }
     try {
         const items = await FB.getItems(state.userId, state.currentUser, state.userKey);
         state.records = items.map(it => ({
@@ -1306,6 +1247,7 @@ function renderRewards() {
 
     // Claimed coupons grid
     const grid = document.getElementById('rew-coupon-grid');
+    if (!grid) return;
     grid.innerHTML = state.claimedCoupons.map(c => `
         <button onclick="showCouponTicket('${c.code}')" class="rewards-coupon">
             <span style="font-size:20px">${c.image}</span>
@@ -1415,6 +1357,7 @@ document.addEventListener('click', e => {
 // ═══════════════════════════════════════════════════════════════════════
 
 async function initAccounts() {
+    if (typeof FB === 'undefined') { console.warn('[App] FB not ready for initAccounts, retrying...'); setTimeout(initAccounts, 500); return; }
     const stored = safeStorage.get('RE_LIFE_CURRENT_USER');
     if (stored) {
         state.currentUser = stored;
@@ -1422,7 +1365,6 @@ async function initAccounts() {
         try {
             const user = await FB.getUserByName(stored);
             if (user) {
-                console.log("[App] initAccounts user:", { id: user.id, _key: user._key, earned_points: user.earned_points, spent_points: user.spent_points });
                 state.userId = user.id;
                 state.userKey = user._key || null;
                 state.spentPoints = user.spent_points || user.spentPoints || 0;
@@ -1436,8 +1378,8 @@ async function initAccounts() {
 
 function updateHeaderUI() {
     const avatarEl = document.getElementById('hdr-avatar');
-    if (state.userAvatar && state.userAvatar.startsWith('data:')) {
-        avatarEl.innerHTML = `<img src="${state.userAvatar}" style="width:100%;height:100%;border-radius:50%;object-fit:cover">`;
+    if (state.userAvatar && state.userAvatar.startsWith('data:') && state.userAvatar.length > 100) {
+        avatarEl.innerHTML = `<img src="${state.userAvatar}" style="width:100%;height:100%;border-radius:50%;object-fit:cover" onerror="this.parentElement.textContent='👤'">`;
         avatarEl.style.background = 'none';
     } else {
         avatarEl.textContent = state.userAvatar || '👤';
@@ -1647,72 +1589,6 @@ function toggleRegister() {
     document.getElementById('register-error').textContent = '';
 }
 
-async function handleLogin(e) {
-    e.preventDefault();
-    const errorEl = document.getElementById('login-error');
-    const btn = document.getElementById('login-submit-btn');
-    errorEl.textContent = '';
-    const username = document.getElementById('login-username').value.trim();
-    const password = document.getElementById('login-password').value;
-    if (!username) {
-        errorEl.textContent = loginLang === 'zh' ? '請輸入用戶名' : 'Please enter a username';
-        return;
-    }
-    if (!password) {
-        errorEl.textContent = loginLang === 'zh' ? '請輸入密碼' : 'Please enter a password';
-        return;
-    }
-    btn.textContent = '...';
-    try {
-        const user = await FB.loginUser(username, password);
-        safeStorage.set('RE_LIFE_CURRENT_USER', user.displayName);
-        safeStorage.set('RE_LIFE_USER_AVATAR', user.photoUrl || '👤');
-        window.location.replace('/');
-    } catch (err) {
-        if (err.message === 'USER_NOT_FOUND') {
-            errorEl.textContent = loginLang === 'zh' ? '用戶不存在，請先註冊' : 'User not found. Please register first.';
-        } else if (err.message === 'WRONG_PASSWORD') {
-            errorEl.textContent = loginLang === 'zh' ? '密碼錯誤' : 'Wrong password.';
-        } else {
-            errorEl.textContent = STRINGS[loginLang].loginError;
-        }
-    }
-    btn.innerHTML = '<span>' + STRINGS[loginLang].loginBtn + '</span>';
-}
-
-async function handleRegister(e) {
-    e.preventDefault();
-    const errorEl = document.getElementById('register-error');
-    const btn = document.getElementById('register-submit-btn');
-    errorEl.textContent = '';
-    const username = document.getElementById('reg-username').value.trim();
-    const password = document.getElementById('reg-password').value;
-    if (!username || username.length < 2) {
-        errorEl.textContent = loginLang === 'zh' ? '用戶名至少需要2個字符' : 'Username must be at least 2 characters';
-        return;
-    }
-    if (!password || password.length < 4) {
-        errorEl.textContent = loginLang === 'zh' ? '密碼至少需要4個字符' : 'Password must be at least 4 characters';
-        return;
-    }
-    btn.textContent = '...';
-    try {
-        const user = await FB.createUser(username, password);
-        safeStorage.set('RE_LIFE_CURRENT_USER', user.displayName);
-        safeStorage.set('RE_LIFE_USER_AVATAR', '👤');
-        window.location.replace('/');
-    } catch (err) {
-        if (err.message === 'USERNAME_TAKEN') {
-            errorEl.textContent = loginLang === 'zh' ? '用戶名已被使用' : 'Username already taken';
-        } else if (err.message && err.message.includes('permission')) {
-            errorEl.textContent = 'Firestore permissions error — check security rules';
-        } else {
-            errorEl.textContent = (err.message || STRINGS[loginLang].registerError);
-        }
-    }
-    btn.innerHTML = '<span>' + STRINGS[loginLang].createAccountBtn + '</span>';
-}
-
 // ═══════════════════════════════════════════════════════════════════════
 // 15. LANGUAGE
 // ═══════════════════════════════════════════════════════════════════════
@@ -1732,6 +1608,7 @@ async function toggleLang() {
 function updateAllLabels() {
     // Map of element IDs → translation keys
     const map = {
+        'lbl-upload-text': 'uploadPhoto',
         'lbl-dispose-btn': 'toDispose',
         'lbl-purchase-btn': 'toPurchase',
         'lbl-dispose-sub': 'disposeSub',
@@ -1924,20 +1801,4 @@ document.addEventListener('DOMContentLoaded', () => {
     document.body.addEventListener('click', addRippleEffect);
 });
 
-// ═══════════════════════════════════════════════════════════════════════
-// THEME SYSTEM — just sets data-theme; colors defined in CSS
-// ═══════════════════════════════════════════════════════════════════════
 
-function initTheme() {
-    const saved = safeStorage.get('RE_LIFE_THEME') || 'light';
-    applyTheme(saved);
-    const sel = document.getElementById('theme-select');
-    if (sel) sel.value = saved;
-}
-
-function applyTheme(name) {
-    document.documentElement.setAttribute('data-theme', name);
-    safeStorage.set('RE_LIFE_THEME', name);
-    const sel = document.getElementById('theme-select');
-    if (sel) sel.value = name;
-}

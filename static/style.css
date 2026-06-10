@@ -842,18 +842,16 @@ body {
 
 /* ── Alternative Product ───────────────────────────────────────────── */
 .alternative-card {
-    background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%);
-    border: 2px solid var(--color-emerald-200);
+    background: var(--color-emerald-50);
+    border: 1px solid var(--color-emerald-200);
     border-radius: var(--radius-md);
     padding: 14px;
     margin-top: 10px;
     box-shadow: var(--shadow-sm);
     transition: box-shadow 0.2s;
 }
-
-[data-theme="dark"] .alternative-card {
-    background: linear-gradient(135deg, #0f2a1a 0%, #122418 100%);
-    border-color: var(--color-emerald-200);
+.alternative-card-label {
+    color: var(--color-emerald-700);
 }
 
 .alternative-card:hover {
@@ -861,26 +859,18 @@ body {
 }
 
 .alternative-card-label {
-    font-size: 8px;
-    font-weight: 700;
+    font-size: 10px;
+    font-weight: var(--weight-bold);
     text-transform: uppercase;
     color: var(--color-emerald-700);
     letter-spacing: 0.05em;
     margin-bottom: 4px;
 }
 
-[data-theme="dark"] .alternative-card-label {
-    color: var(--color-emerald-700);
-}
-
 .alternative-card-name {
     font-size: 13px;
-    font-weight: 700;
+    font-weight: var(--weight-bold);
     color: var(--color-gray-800);
-}
-
-[data-theme="dark"] .alternative-card-name {
-    color: var(--color-emerald-200);
 }
 
 .alternative-card-ratings {
@@ -1509,10 +1499,12 @@ body {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 8px;
+    background: transparent;
 }
 
 .rewards-coupon {
-    background: #f0f4ec;
+    background: var(--color-gray-50);
+    color: var(--color-gray-700);
     padding: 10px;
     border-radius: var(--radius-md);
     border: 1px solid rgba(0, 0, 0, 0.04);
@@ -1523,6 +1515,7 @@ body {
     gap: 6px;
     overflow: hidden;
     min-width: 0;
+    font-family: inherit;
 }
 .rewards-coupon > * {
     overflow: hidden;
@@ -1847,8 +1840,7 @@ body {
 nav.nav, .app-nav {
     position: fixed;
     bottom: max(20px, env(safe-area-inset-bottom, 20px));
-    left: 0;
-    right: 0;
+    left: 0; right: 0;
     margin: 0 auto;
     width: calc(100% - 30px);
     max-width: 400px;
@@ -1857,37 +1849,36 @@ nav.nav, .app-nav {
     align-items: center;
     gap: 0;
     background: rgba(255,255,255,0.10);
-    backdrop-filter: blur(20px) brightness(1.15) saturate(150%);
-    -webkit-backdrop-filter: blur(20px) brightness(1.15) saturate(150%);
-    border: 1px solid rgba(255,255,255,0.3);
-    box-shadow: 0 4px 24px rgba(0,0,0,0.10), inset 0 1px 3px rgba(255,255,255,0.3);
-    border-radius: 24px;
-    padding: 5px 8px;
+    backdrop-filter: blur(20px) saturate(150%);
+    -webkit-backdrop-filter: blur(20px) saturate(150%);
+    border-radius: 28px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.08), 0 0 0 0.5px rgba(255,255,255,0.08);
+    padding: 5px 6px;
     z-index: 100;
     overflow: visible;
+    transition: transform 0.35s cubic-bezier(.22,1,.36,1);
 }
 @supports not ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
-    nav.nav, .app-nav { background: rgba(255,255,255,0.88); }
+    nav.nav, .app-nav { background: rgba(255,255,255,0.85); }
 }
 
 /* Sliding nav indicator */
 .nav-indicator {
     position: absolute;
-    top: 3px;
-    height: calc(100% - 6px);
-    background: var(--color-primary);
-    border-radius: 18px;
+    top: 5px;
+    height: calc(100% - 10px);
+    background: rgba(255,255,255,0.10);
+    border-radius: 20px;
     pointer-events: none;
-    z-index: 0;
-    will-change: left, width;
-    opacity: 0.08;
-    transition: top 0.2s, height 0.2s, opacity 0.2s, border-radius 0.2s;
+    z-index: 1;
+    will-change: left, width, top, height, border-radius;
+    transition: left 0.4s cubic-bezier(.22,1,.36,1), width 0.4s cubic-bezier(.22,1,.36,1);
 }
 .nav-is-dragging .nav-indicator {
-    top: -3px;
-    height: calc(100% + 6px);
-    border-radius: 20px;
-    opacity: 0.14;
+    top: -4px;
+    height: calc(100% + 8px);
+    border-radius: 24px;
+    background: rgba(255,255,255,0.14);
 }
 
 /* Hide floating bars when camera is active */
@@ -1906,7 +1897,7 @@ body:has(.camera-modal.is-shown) .app-header,
     flex: 1;
     display: flex;
     position: relative;
-    z-index: 1;
+    z-index: 2;
     flex-direction: column;
     align-items: center;
     gap: 1px;
@@ -1933,7 +1924,8 @@ body:has(.camera-modal.is-shown) .app-header,
 }
 
 .nav-btn-icon {
-    font-size: 16px;
+    font-size: 20px;
+    line-height: 1;
     width: 24px;
     height: 24px;
     display: flex;

@@ -190,9 +190,18 @@ function initNavDrag() {
         }
     }
 
-    // Initial snap
+    // Initial snap — ensure indicator is visible
+    if (indicator) {
+        indicator.style.opacity = '1';
+        indicator.style.display = '';
+        indicator.style.left = '0px';
+        indicator.style.width = '100px';
+    }
     const activeBtn = navbar.querySelector('.nav-btn.is-active');
-    if (activeBtn) snapIndicatorTo(activeBtn);
+    if (activeBtn) {
+        // Small delay to ensure DOM is settled
+        requestAnimationFrame(() => requestAnimationFrame(() => snapIndicatorTo(activeBtn)));
+    }
 
     function evalTab(clientX) {
         const nr = navbar.getBoundingClientRect();

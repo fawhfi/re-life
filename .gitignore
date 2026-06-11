@@ -1,0 +1,12 @@
+.gitignore
+.env
+__pycache__
+uploads
+%SystemDrive%
+Python
+*/metadata.json
+patches
+node_modules/
+frontend/dist/
+frontend/node_modules/
+.vscode/

@@ -22,7 +22,7 @@ app = FastAPI(title="Re-Life API")
 
 # ── CORS ────────────────────────────────────────────────────────────────────
 app.add_middleware(CORSMiddleware,
-    allow_origins=["http://localhost:8000", "http://127.0.0.1:8000",
+    allow_origins=["http://localhost:8000", "http://127.0.0.1:8000", "http://localhost:5173", "http://127.0.0.1:5173",
                    "https://re-life-9123f.web.app", "https://re-life-9123f.firebaseapp.com"],
     allow_methods=["GET", "POST", "DELETE"], allow_headers=["*"])
 
@@ -42,6 +42,19 @@ app.add_middleware(SecurityHeadersMiddleware)
 
 # ── Static files ────────────────────────────────────────────────────────────
 app.mount("/static", StaticFiles(directory=root_dir / "static"), name="static")
+
+# ── React frontend (built files or dev proxy) ───────────────────────────────
+REACT_DIST = root_dir / "frontend" / "dist"
+if REACT_DIST.exists():
+    app.mount("/assets", StaticFiles(directory=REACT_DIST / "assets"), name="react-assets")
+
+    @app.get("/{full_path:path}")
+    async def spa_fallback(full_path: str):
+        """Serve React index.html for all non-API routes (SPA fallback)."""
+        index_path = REACT_DIST / "index.html"
+        if index_path.exists():
+            return HTMLResponse(index_path.read_text(encoding="utf-8"))
+        return HTMLResponse("<h1>Frontend not built — run: cd frontend && npm run build</h1>", 404)
 
 # ── Helpers ─────────────────────────────────────────────────────────────────
 

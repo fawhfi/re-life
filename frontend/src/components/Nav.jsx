@@ -66,9 +66,7 @@ export default function Nav() {
       nav.classList.remove('nav-is-dragging');
       if (indicator) {
         gsap.killTweensOf(indicator);
-        indicator.style.top = ''; indicator.style.height = '';
-        indicator.style.opacity = ''; indicator.style.background = '';
-        gsap.to(indicator, { scaleY: 1, scaleX: 1, duration: 0.4, ease: 'elastic.out(1, 0.5)', overwrite: 'auto' });
+        indicator.style.cssText = '';
       }
       const btn = nav.querySelector(`[data-tab="${activeTab}"]`);
       if (btn) snapTo(btn);

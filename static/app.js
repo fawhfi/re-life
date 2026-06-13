@@ -60,11 +60,8 @@ const state = {
 
 
 // ═══════════════════════════════════════════════════════════════════════
-// 5. INITIALIZATION  (sound/beep in utils.js)
+// 4. INITIALIZATION
 // ═══════════════════════════════════════════════════════════════════════
-// ═══════════════════════════════════════════════════════════════════════
-
-
 
 document.addEventListener('DOMContentLoaded', async () => {
     // Detect login page vs main app
@@ -143,7 +140,7 @@ function startClock() {
 
 
 // ═══════════════════════════════════════════════════════════════════════
-// 5.5 NAV BAR DRAG/SWIPE
+// 5. NAVIGATION
 // ═══════════════════════════════════════════════════════════════════════
 
 function initNavDrag() {
@@ -168,19 +165,11 @@ function initNavDrag() {
         gsap.to(indicator, {
             left: targetX,
             width: 100,
-            scaleX: 1,
             duration: isDragging ? 0.15 : 0.45,
             ease: isDragging ? "power2.out" : "elastic.out(1, 0.6)",
             overwrite: "auto",
         });
-        // Jelly squash + indicator glow
-        if (!isDragging && Math.abs(dx) > 10) {
-            const dir = dx > 0 ? 1 : -1;
-            gsap.fromTo(indicator, 
-                { scaleX: 1 + dir * 0.1, opacity: 0.14 },
-                { scaleX: 1, opacity: 0.10, duration: 0.6, ease: "elastic.out(1, 0.4)", overwrite: "auto" }
-            );
-        }
+
         // Bounce the nav button icon
         if (!isDragging) {
             const icon = btn.querySelector('.nav-btn-icon');
@@ -192,8 +181,6 @@ function initNavDrag() {
 
     // Initial snap — ensure indicator is visible
     if (indicator) {
-        indicator.style.opacity = '1';
-        indicator.style.display = '';
         indicator.style.left = '0px';
         indicator.style.width = '100px';
     }
@@ -229,7 +216,7 @@ function initNavDrag() {
                 let l = leftBtn.rect.left - nr.left + t * (rightBtn.rect.left - leftBtn.rect.left)
                     + (leftBtn.rect.width - 100) / 2 * (1 - t) + (rightBtn.rect.width - 100) / 2 * t;
                 l = Math.max(5, Math.min(295, l));
-                gsap.to(indicator, { left: l, width: 100, scaleX: 1, duration: 0.1, ease: "power1.out", overwrite: "auto" });
+                gsap.to(indicator, { left: l, width: 100, duration: 0.1, ease: "power1.out", overwrite: "auto" });
             } else if (rightBtn) {
                 const r = rightBtn.rect;
                 let l = r.left - nr.left + (r.width - 100) / 2, w = 100;
@@ -271,13 +258,8 @@ function initNavDrag() {
         navbar.classList.add('nav-is-dragging');
         navbar.setPointerCapture(e.pointerId);
         evalTab(e.clientX);
-        // Jelly pop on press
-        if (indicator) {
-            gsap.fromTo(indicator, { scaleY: 0.85, scaleX: 1.12 }, { scaleY: 1.08, scaleX: 0.94, duration: 0.5, ease: "elastic.out(1, 0.6)", overwrite: "auto" });
-        }
-        gsap.to(navbar, { scale: 1.02, duration: 0.5, ease: "elastic.out(1, 0.4)", overwrite: "auto" });
-        // Subtle glow on drag
-        navbar.style.boxShadow = '0 8px 40px rgba(0,0,0,0.12), 0 0 24px rgba(255,255,255,0.15)';
+
+
     });
     navbar.addEventListener('pointermove', e => { if (isDragging) evalTab(e.clientX); });
     document.addEventListener('pointermove', e => { if (isDragging) evalTab(e.clientX); });
@@ -287,10 +269,10 @@ function initNavDrag() {
         navbar.classList.remove('nav-is-dragging');
         try { navbar.releasePointerCapture(e.pointerId); } catch {}
         if (indicator) {
-            gsap.killTweensOf(indicator, 'scaleY,scaleX');
-            gsap.to(indicator, { scaleY: 1, scaleX: 1, duration: 0.4, ease: "elastic.out(1, 0.5)", overwrite: "auto" });
+            gsap.killTweensOf(indicator);
+            indicator.style.transform = '';
         }
-        gsap.to(navbar, { scale: 1, duration: 0.4, ease: "elastic.out(1, 0.4)", overwrite: "auto" });
+
         const active = navbar.querySelector('.nav-btn.is-active');
         if (active) snapIndicatorTo(active);
     };
@@ -454,7 +436,7 @@ function clearPreview() {
 
 
 // ═══════════════════════════════════════════════════════════════════════
-// 8b. CAMERA CAPTURE
+// 9. CAMERA
 // ═══════════════════════════════════════════════════════════════════════
 function zoneTap() {
     if (state.selectedFile) return; // preview is showing, ignore tap
@@ -831,7 +813,7 @@ function resetScan() {
 
 
 // ═══════════════════════════════════════════════════════════════════════
-// 10. RECORDS
+// 11. RECORDS
 // ═══════════════════════════════════════════════════════════════════════
 
 async function loadRecords() {
@@ -1120,7 +1102,7 @@ async function loadFact() {
 
 
 // ═══════════════════════════════════════════════════════════════════════
-// 12. REWARDS
+// 13. REWARDS
 // ═══════════════════════════════════════════════════════════════════════
 
 async function loadRewards() {
@@ -1227,7 +1209,7 @@ function showRewardAlert(msg) {
 
 
 // ═══════════════════════════════════════════════════════════════════════
-// 13. MODALS
+// 14. MODALS
 // ═══════════════════════════════════════════════════════════════════════
 
 function showAlert(title, body, icon) {
@@ -1280,7 +1262,7 @@ document.addEventListener('click', e => {
 
 
 // ═══════════════════════════════════════════════════════════════════════
-// 14. USER ACCOUNTS
+// 15. ACCOUNTS
 // ═══════════════════════════════════════════════════════════════════════
 
 async function initAccounts() {
@@ -1517,7 +1499,7 @@ function toggleRegister() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════
-// 15. LANGUAGE
+// 16. LANGUAGE
 // ═══════════════════════════════════════════════════════════════════════
 
 async function toggleLang() {
@@ -1618,7 +1600,7 @@ function updateAllLabels() {
 
 
 // ═══════════════════════════════════════════════════════════════════════
-// 16. SETTINGS
+// 17. SETTINGS
 // ═══════════════════════════════════════════════════════════════════════
 
 function toggleSound() {

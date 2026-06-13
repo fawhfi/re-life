@@ -1,0 +1,14 @@
+.env
+__pycache__/
+uploads/
+node_modules/
+frontend/dist/
+frontend/node_modules/
+.vscode/
+*.pyc
+.DS_Store
+.codegraph
+.gitignore
+patches
+Python
+%SystemDrive%

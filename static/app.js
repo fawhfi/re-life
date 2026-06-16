@@ -79,6 +79,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Init language from storage
     state.lang = safeStorage.get('RE_LIFE_LANG') || 'en';
     document.documentElement.lang = state.lang === 'zh' ? 'zh-HK' : 'en';
+    // Update language indicator immediately
+    const langInd = document.getElementById('lang-ind');
+    if (langInd) langInd.textContent = state.lang === 'en' ? 'Eng' : '中文';
     // Load i18n then update labels — avoids showing English briefly
     if (typeof I18N !== 'undefined') {
         I18N.load(state.lang).then(updateAllLabels);
@@ -1270,7 +1273,6 @@ async function initAccounts() {
     const stored = safeStorage.get('RE_LIFE_CURRENT_USER');
     if (stored) {
         state.currentUser = stored;
-        state.userAvatar = safeStorage.get('RE_LIFE_USER_AVATAR') || user.photoUrl || '👤';
         try {
             const user = await FB.getUserByName(stored);
             if (user) {
@@ -1279,8 +1281,16 @@ async function initAccounts() {
                 state.spentPoints = user.spent_points || user.spentPoints || 0;
                 state.earnedPoints = user.earned_points || user.earnedPoints || 0;
                 state.claimedCoupons = user.claimed_coupons || [];
+                // Sync avatar from Firebase, fallback to localStorage
+                state.userAvatar = user.photoUrl || safeStorage.get('RE_LIFE_USER_AVATAR') || '👤';
+                safeStorage.set('RE_LIFE_USER_AVATAR', state.userAvatar);
+            } else {
+                state.userAvatar = safeStorage.get('RE_LIFE_USER_AVATAR') || '👤';
             }
-        } catch (_) { /* offline */ }
+        } catch (_) {
+            // Offline — use localStorage
+            state.userAvatar = safeStorage.get('RE_LIFE_USER_AVATAR') || '👤';
+        }
     }
     updateHeaderUI();
 }

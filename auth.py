@@ -14,6 +14,9 @@ _cleanup_counter = 0
 # ── Firebase DB helpers ─────────────────────────────────────────────────────
 
 async def db_put(path: str, data):
+    # Sanitize path to prevent path traversal
+    if ".." in path or path.startswith("/"):
+        raise ValueError("Invalid database path")
     try:
         async with httpx.AsyncClient(timeout=10) as c:
             r = await c.put(f"{FIREBASE_DB_URL}/{path}.json", json=data)
@@ -25,6 +28,9 @@ async def db_put(path: str, data):
         raise
 
 async def db_get(path: str):
+    # Sanitize path to prevent path traversal
+    if ".." in path or path.startswith("/"):
+        raise ValueError("Invalid database path")
     try:
         async with httpx.AsyncClient(timeout=10) as c:
             res = await c.get(f"{FIREBASE_DB_URL}/{path}.json")
@@ -37,6 +43,9 @@ async def db_get(path: str):
         raise
 
 async def db_del(path: str):
+    # Sanitize path to prevent path traversal
+    if ".." in path or path.startswith("/"):
+        raise ValueError("Invalid database path")
     try:
         async with httpx.AsyncClient(timeout=10) as c:
             await c.delete(f"{FIREBASE_DB_URL}/{path}.json")
@@ -238,7 +247,10 @@ async def update_password(email: str, new_password: str) -> bool:
         return False
     if FIREBASE_DB_URL:
         try:
-            await db_put(f"users/{user['key']}/passwordHash", new_password)
+            from argon2 import PasswordHasher
+            ph = PasswordHasher(time_cost=3, memory_cost=65536, parallelism=1, hash_len=32, salt_len=16)
+            password_hash = ph.hash(new_password)
+            await db_put(f"users/{user['key']}/passwordHash", password_hash)
             return True
         except Exception as e:
             print(f"[Auth] update_password failed: {e}")

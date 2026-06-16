@@ -96,9 +96,11 @@ async def forgot_password(request: Request, data: dict):
     await check_rate_limit(request, 3, 120)
     email = (data.get("email") or "").strip().lower()
     if not email: return JSONResponse({"error": "Email required"}, 400)
+    user = await get_user_by_email(email)
+    if not user:
+        # Return success to prevent user enumeration
+        return JSONResponse({"ok": True})
     dev_code = await send_reset_code(email)
-    if dev_code is None and not await get_user_by_email(email):
-        return JSONResponse({"error": "No account found"}, 400)
     return JSONResponse({"ok": True, **({"dev_code": dev_code} if dev_code else {})})
 
 @app.post("/api/reset-password")
@@ -112,6 +114,8 @@ async def reset_password(request: Request, data: dict):
     user = await verify_reset_code(email, code)
     if not user:
         return JSONResponse({"error": "Invalid or expired code"}, 400)
+    if not await update_password(email, password):
+        return JSONResponse({"error": "Failed to update password"}, 500)
     return JSONResponse({"ok": True, "displayName": user.get("displayName", ""), "email": email})
 
 # ── Scan endpoints ──────────────────────────────────────────────────────────
@@ -137,7 +141,7 @@ async def scan_item_ai(request: Request, file: UploadFile = File(...), mode: str
                 ai = await ai_analyze(contents, sid)
                 break
             except Exception as e:
-                ai_error = traceback.format_exc()
+                ai_error = str(e)
                 print(f"[AI] Error attempt {attempt+1}: {ai_error[:200]}")
                 if attempt < 2:
                     import asyncio; await asyncio.sleep(1)
@@ -147,7 +151,8 @@ async def scan_item_ai(request: Request, file: UploadFile = File(...), mode: str
             cat, conf = classify_image(contents)
             ai = classifier_response(cat, conf, mode)
         except Exception as cls_e:
-            return JSONResponse({"classifier_fallback": True, "ai_error": str(cls_e), "mode": mode, "schema_id": sid}, 400)
+            print(f"[Classifier] CNN fallback error: {str(cls_e)}")
+            return JSONResponse({"error": "Image analysis failed", "mode": mode, "schema_id": sid}, 500)
 
     ext = Path(str(file.filename)).suffix or ".png"
     fn = f"{uuid.uuid4()}{ext}"

@@ -5,7 +5,7 @@
 import axios from 'axios';
 import { storage } from '../utils/storage';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://re-life-five.vercel.app';
 
 /**
  * 创建 Axios 实例

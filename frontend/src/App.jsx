@@ -184,9 +184,9 @@ export default function App() {
     async function loadData() {
       setSyncState('同步中');
       const [newsRes, rewardsRes, factRes] = await Promise.allSettled([
-        fetch(`/api/news?ts=${Date.now()}`, { cache: 'no-store' }),
-        fetch('/api/rewards', { cache: 'no-store' }),
-        fetch('/api/fact', { cache: 'no-store' }),
+        fetch(`https://re-life-five.vercel.app/api/news?ts=${Date.now()}`, { cache: 'no-store' }),
+        fetch('https://re-life-five.vercel.app/api/rewards', { cache: 'no-store' }),
+        fetch('https://re-life-five.vercel.app/api/fact', { cache: 'no-store' }),
       ]);
 
       if (!alive) return;

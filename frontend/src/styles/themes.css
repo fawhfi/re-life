@@ -1,0 +1,81 @@
+/* ============================================================================
+   主题系统
+   ============================================================================ */
+
+/* Light Theme (默认) */
+[data-theme="light"] {
+  --bg-primary: #ffffff;
+  --bg-secondary: #f9fafb;
+  --bg-card: #ffffff;
+  --text-primary: #111827;
+  --text-secondary: #374151;
+  --text-muted: #6b7280;
+  --border-color: #e5e7eb;
+  --accent-primary: #059669;
+  --accent-hover: #047857;
+}
+
+/* Dark Theme */
+[data-theme="dark"] {
+  --bg-primary: #111827;
+  --bg-secondary: #1f2937;
+  --bg-card: #1f2937;
+  --text-primary: #f9fafb;
+  --text-secondary: #e5e7eb;
+  --text-muted: #9ca3af;
+  --border-color: #374151;
+  --accent-primary: #10b981;
+  --accent-hover: #059669;
+}
+
+/* Forest Theme */
+[data-theme="forest"] {
+  --bg-primary: #0f2a1f;
+  --bg-secondary: #1a3d2e;
+  --bg-card: #1a3d2e;
+  --text-primary: #d1fae5;
+  --text-secondary: #a7f3d0;
+  --text-muted: #6ee7b7;
+  --border-color: #2d5a47;
+  --accent-primary: #34d399;
+  --accent-hover: #10b981;
+}
+
+/* Ocean Theme */
+[data-theme="ocean"] {
+  --bg-primary: #0c1f2e;
+  --bg-secondary: #1a3547;
+  --bg-card: #1a3547;
+  --text-primary: #dbeafe;
+  --text-secondary: #bfdbfe;
+  --text-muted: #93c5fd;
+  --border-color: #2d4a5e;
+  --accent-primary: #3b82f6;
+  --accent-hover: #2563eb;
+}
+
+/* Sunset Theme */
+[data-theme="sunset"] {
+  --bg-primary: #2e1a0c;
+  --bg-secondary: #47291a;
+  --bg-card: #47291a;
+  --text-primary: #fed7aa;
+  --text-secondary: #fdba74;
+  --text-muted: #fb923c;
+  --border-color: #5e3d2d;
+  --accent-primary: #f97316;
+  --accent-hover: #ea580c;
+}
+
+/* Midnight Theme */
+[data-theme="midnight"] {
+  --bg-primary: #0a0a0f;
+  --bg-secondary: #141420;
+  --bg-card: #1a1a2e;
+  --text-primary: #e2e8f0;
+  --text-secondary: #cbd5e1;
+  --text-muted: #94a3b8;
+  --border-color: #2d3148;
+  --accent-primary: #8b5cf6;
+  --accent-hover: #7c3aed;
+}

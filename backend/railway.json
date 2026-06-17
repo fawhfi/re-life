@@ -1,0 +1,11 @@
+# Railway 部署配置
+# 后端部署到 Railway 的配置文件
+
+[build]
+builder = "nixpacks"
+
+[deploy]
+startCommand = "uvicorn main:app --host 0.0.0.0 --port $PORT"
+healthcheckPath = "/api/health"
+restartPolicyType = "on-failure"
+restartPolicyMaxRetries = 10

@@ -1,0 +1,71 @@
+/* Navigation 样式 */
+.nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 64px;
+  background: var(--bg-card);
+  border-top: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  padding: 0 16px;
+  z-index: 100;
+  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.nav-indicator {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 3px;
+  background: var(--accent-primary);
+  transition: all 0.3s ease;
+}
+
+.nav-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 8px 16px;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: color var(--transition-fast);
+  text-decoration: none;
+  min-width: 64px;
+}
+
+.nav-btn:hover {
+  color: var(--text-primary);
+}
+
+.nav-btn.is-active {
+  color: var(--accent-primary);
+}
+
+.nav-btn-icon {
+  font-size: 1.5rem;
+  transition: transform var(--transition-fast);
+}
+
+.nav-btn:active .nav-btn-icon {
+  transform: scale(0.9);
+}
+
+@media (max-width: 640px) {
+  .nav {
+    height: 56px;
+  }
+
+  .nav-btn {
+    padding: 4px 8px;
+    min-width: 56px;
+  }
+}

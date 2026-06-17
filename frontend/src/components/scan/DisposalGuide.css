@@ -1,0 +1,38 @@
+/* 处理指南样式 */
+.disposal-guide {
+  background: var(--bg-secondary);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  margin: 16px 0;
+  border-left: 4px solid var(--accent-primary);
+}
+
+.disposal-guide-title {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 16px;
+}
+
+.disposal-guide-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+  font-size: 0.875rem;
+}
+
+.disposal-guide-label {
+  font-weight: 600;
+  color: var(--text-primary);
+  min-width: 80px;
+}
+
+.disposal-guide-precaution {
+  margin-top: 12px;
+  padding: 12px;
+  background: rgba(234, 179, 8, 0.1);
+  border-radius: var(--radius-sm);
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  border-left: 3px solid var(--color-yellow-500);
+}

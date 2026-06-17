@@ -26,6 +26,17 @@ export async function verifyCode(email, code) {
 }
 
 /**
+ * 使用密码登录
+ * @param {string} email - 邮箱地址
+ * @param {string} password - 密码
+ * @returns {Promise<Object>} 响应数据
+ */
+export async function loginWithPassword(email, password) {
+  const response = await apiClient.post('/login', { email, password });
+  return response.data;
+}
+
+/**
  * 发送密码重置验证码
  * @param {string} email - 邮箱地址
  * @returns {Promise<Object>} 响应数据

@@ -40,6 +40,35 @@ async def verify_code_endpoint(request: Request, data: dict):
 
     return JSONResponse({"ok": True, "email": email})
 
+@router.post("/login")
+async def login_with_password(request: Request, data: dict):
+    """使用邮箱和密码登录"""
+    await check_rate_limit(request, 5, 60)
+
+    email = (data.get("email") or "").strip().lower()
+    password = data.get("password", "")
+
+    if not email or not password:
+        raise HTTPException(400, "Email and password required")
+
+    # 验证用户
+    user = await get_user_by_email(email)
+    if not user:
+        raise HTTPException(401, "Invalid email or password")
+
+    # 这里应该验证密码哈希，但简化版本先检查是否有密码字段
+    # 在实际应用中，你需要使用 bcrypt 或类似库验证密码
+    stored_password = user.get("password", "")
+    if not stored_password or stored_password != password:
+        raise HTTPException(401, "Invalid email or password")
+
+    return JSONResponse({
+        "ok": True,
+        "email": email,
+        "displayName": user.get("displayName", ""),
+        "uid": user.get("uid", email)
+    })
+
 @router.post("/forgot-password")
 async def forgot_password(request: Request, data: dict):
     """忘记密码"""

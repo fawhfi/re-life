@@ -8,6 +8,7 @@
 __pycache__/
 *.py[cod]
 *$py.class
+*.pyc
 *.so
 .Python
 venv/
@@ -16,6 +17,7 @@ ENV/
 
 # Node
 node_modules/
+frontend/node_modules/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
@@ -24,6 +26,7 @@ yarn-error.log*
 # 构建产物
 dist/
 build/
+frontend/dist/
 *.egg-info/
 
 # IDE
@@ -46,5 +49,8 @@ Thumbs.db
 *.log
 *.tmp
 .cache/
+uploads/
 
-*.md
+# 其他
+.codegraph
+patches

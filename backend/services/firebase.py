@@ -5,22 +5,30 @@ from core.config import FIREBASE_DB_URL
 async def get_user_by_email(email: str) -> dict | None:
     """通过邮箱获取用户"""
     if not FIREBASE_DB_URL:
+        print(f"[Firebase] FIREBASE_DB_URL not configured")
         return None
 
     try:
         async with httpx.AsyncClient(timeout=10) as client:
             res = await client.get(f"{FIREBASE_DB_URL}/users.json")
             if res.status_code != 200:
+                print(f"[Firebase] Failed to fetch users: {res.status_code}")
                 return None
 
             users = res.json()
             if not users:
+                print(f"[Firebase] No users found")
                 return None
 
+            print(f"[Firebase] Searching for email: {email}")
             for key, data in users.items():
-                if isinstance(data, dict) and data.get("email") == email:
-                    return {"key": key, **data}
+                if isinstance(data, dict):
+                    user_email = data.get("email", "").lower()
+                    print(f"[Firebase] Checking user {key}: {user_email}")
+                    if user_email == email.lower():
+                        return {"key": key, **data}
 
+        print(f"[Firebase] User not found for email: {email}")
         return None
     except Exception as e:
         print(f"[Firebase] get_user_by_email failed: {e}")

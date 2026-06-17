@@ -1,10 +1,14 @@
 """认证 API 路由"""
 from fastapi import APIRouter, Request, HTTPException
 from fastapi.responses import JSONResponse
+from argon2 import PasswordHasher
+from argon2.exceptions import VerifyMismatchError
 
 from core.security import check_rate_limit
 from services.email import send_verification_code, verify_code
 from services.firebase import get_user_by_email, update_password
+
+ph = PasswordHasher()
 
 router = APIRouter()
 
@@ -56,17 +60,21 @@ async def login_with_password(request: Request, data: dict):
     if not user:
         raise HTTPException(401, "Invalid email or password")
 
-    # 这里应该验证密码哈希，但简化版本先检查是否有密码字段
-    # 在实际应用中，你需要使用 bcrypt 或类似库验证密码
-    stored_password = user.get("password", "")
-    if not stored_password or stored_password != password:
+    # 验证 Argon2 密码哈希
+    password_hash = user.get("passwordHash", "")
+    if not password_hash:
+        raise HTTPException(401, "Invalid email or password")
+
+    try:
+        ph.verify(password_hash, password)
+    except VerifyMismatchError:
         raise HTTPException(401, "Invalid email or password")
 
     return JSONResponse({
         "ok": True,
         "email": email,
         "displayName": user.get("displayName", ""),
-        "uid": user.get("uid", email)
+        "uid": user.get("userId", user.get("uid", email))
     })
 
 @router.post("/forgot-password")

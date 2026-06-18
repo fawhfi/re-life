@@ -2,8 +2,6 @@
 __pycache__/
 uploads/
 node_modules/
-frontend/dist/
-frontend/node_modules/
 .vscode/
 *.pyc
 .DS_Store

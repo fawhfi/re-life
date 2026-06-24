@@ -152,6 +152,46 @@ def _extract_json(text):
             except: pass
     return None
 
+async def _call_openai_compat(api_key: str, base_url: str, model_id: str, prompt: str, b64: str, mime: str) -> str:
+    async with httpx.AsyncClient(timeout=120) as client:
+        r = await client.post(
+            f"{base_url}/chat/completions",
+            headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+            json={
+                "model": model_id,
+                "messages": [
+                    {"role": "system", "content": "You are an environmental packaging evaluator. Respond with ONLY a single JSON object."},
+                    {"role": "user", "content": [{"type": "text", "text": prompt}, {"type": "image_url", "image_url": {"url": f"data:{mime};base64,{b64}"}}]},
+                ],
+                "max_tokens": 4096, "temperature": 0.6, "stream": False,
+            },
+        )
+        r.raise_for_status()
+    return r.json()["choices"][0]["message"]["content"]
+
+async def _call_gemini(prompt: str, b64: str, mime: str) -> str:
+    async with httpx.AsyncClient(timeout=60) as client:
+        r = await client.post(
+            f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent?key={GEMINI_API_KEY}",
+            headers={"Content-Type": "application/json"},
+            json={"contents": [{"parts": [{"text": "You are an environmental packaging evaluator. Respond with ONLY a single JSON object.\n\n" + prompt}, {"inline_data": {"mime_type": mime, "data": b64}}]}]},
+        )
+        r.raise_for_status()
+    return r.json()["candidates"][0]["content"]["parts"][0]["text"]
+
+async def _call_claude(prompt: str, b64: str, mime: str) -> str:
+    async with httpx.AsyncClient(timeout=60) as client:
+        r = await client.post(
+            "https://api.anthropic.com/v1/messages",
+            headers={"x-api-key": CLAUDE_API_KEY, "anthropic-version": "2023-06-01", "Content-Type": "application/json"},
+            json={
+                "model": CLAUDE_MODEL, "max_tokens": 4096,
+                "system": "You are an environmental packaging evaluator. Respond with ONLY a single JSON object.",
+                "messages": [{"role": "user", "content": [{"type": "image", "source": {"type": "base64", "media_type": mime, "data": b64}}, {"type": "text", "text": prompt}]}],
+            },
+        )
+        r.raise_for_status()
+    return r.json()["content"][0]["text"]
 
 async def ai_analyze(image_bytes: bytes, sid: str) -> dict:
     """Route to the correct AI provider based on DEFAULT_AI_MODEL."""

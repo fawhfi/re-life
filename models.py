@@ -193,6 +193,45 @@ async def _call_claude(prompt: str, b64: str, mime: str) -> str:
         r.raise_for_status()
     return r.json()["content"][0]["text"]
 
+async def _call_nvidia_stream(api_key: str, model_id: str, prompt: str, b64: str, mime: str) -> str:
+    """Call NVIDIA API with streaming to avoid truncated responses."""
+    payload = {
+        "model": model_id,
+        "messages": [
+            {"role": "system", "content": "You are an environmental packaging evaluator. Respond with ONLY a single JSON object."},
+            {"role": "user", "content": [{"type": "text", "text": prompt}, {"type": "image_url", "image_url": {"url": f"data:{mime};base64,{b64}"}}]},
+        ],
+        "max_tokens": 8192, "temperature": 0.6, "top_p": 0.95,
+        "stream": True,
+        "chat_template_kwargs": {"enable_thinking": True},
+    }
+    async with httpx.AsyncClient(timeout=180) as client:
+        async with client.stream(
+            "POST", "https://integrate.api.nvidia.com/v1/chat/completions",
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "Accept": "text/event-stream",
+                "Content-Type": "application/json",
+            },
+            json=payload,
+        ) as response:
+            response.raise_for_status()
+            full_text = ""
+            async for line in response.aiter_lines():
+                if line and line.startswith("data: "):
+                    data = line[6:]
+                    if data == "[DONE]":
+                        break
+                    try:
+                        chunk = json.loads(data)
+                        delta = chunk.get("choices", [{}])[0].get("delta", {})
+                        content = delta.get("content", "")
+                        if content:
+                            full_text += content
+                    except json.JSONDecodeError:
+                        continue
+            return full_text
+
 async def ai_analyze(image_bytes: bytes, sid: str) -> dict:
     """Route to the correct AI provider based on DEFAULT_AI_MODEL."""
     compressed, mime = _compress_image(image_bytes)
@@ -200,7 +239,7 @@ async def ai_analyze(image_bytes: bytes, sid: str) -> dict:
     model = DEFAULT_AI_MODEL
 
     if model == "nvidia" and NVIDIA_API_KEY:
-        content = await _call_openai_compat(NVIDIA_API_KEY, "https://integrate.api.nvidia.com/v1", NVIDIA_MODEL, _AI_PROMPT, b64, mime)
+        content = await _call_nvidia_stream(NVIDIA_API_KEY, NVIDIA_MODEL, _AI_PROMPT, b64, mime)
     elif model == "openai" and OPENAI_API_KEY:
         content = await _call_openai_compat(OPENAI_API_KEY, "https://api.openai.com/v1", OPENAI_MODEL, _AI_PROMPT, b64, mime)
     elif model == "deepseek" and DEEPSEEK_API_KEY:

@@ -1,5 +1,5 @@
 """Re-Life AI models — CNN classifier + multi-model AI providers."""
-import io, base64, random, httpx
+import io, base64, random, httpx, json
 import numpy as np
 import onnxruntime as ort
 from PIL import Image

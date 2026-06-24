@@ -153,7 +153,7 @@ def _extract_json(text):
     return None
 
 async def _call_openai_compat(api_key: str, base_url: str, model_id: str, prompt: str, b64: str, mime: str) -> str:
-    async with httpx.AsyncClient(timeout=120) as client:
+    async with httpx.AsyncClient(timeout=180) as client:
         r = await client.post(
             f"{base_url}/chat/completions",
             headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
@@ -163,7 +163,7 @@ async def _call_openai_compat(api_key: str, base_url: str, model_id: str, prompt
                     {"role": "system", "content": "You are an environmental packaging evaluator. Respond with ONLY a single JSON object."},
                     {"role": "user", "content": [{"type": "text", "text": prompt}, {"type": "image_url", "image_url": {"url": f"data:{mime};base64,{b64}"}}]},
                 ],
-                "max_tokens": 4096, "temperature": 0.6, "stream": False,
+                "max_tokens": 8192, "temperature": 0.6, "stream": False,
             },
         )
         r.raise_for_status()
@@ -213,6 +213,14 @@ async def ai_analyze(image_bytes: bytes, sid: str) -> dict:
         raise Exception(f"Model '{model}' not available")
 
     j = _extract_json(content)
+    j = _extract_json(content)
+    if not j:
+        # Try to fix truncated JSON by appending closing braces
+        if content and content.strip().startswith('{'):
+            fixed = content.strip()
+            open_b = fixed.count('{') - fixed.count('}')
+            fixed += '}' * open_b
+            j = _extract_json(fixed)
     if not j:
         raise Exception(f"AI returned non-JSON: {(content or '')[:200]}")
 

@@ -1866,13 +1866,17 @@ nav.nav, .app-nav {
 .nav-indicator {
     position: absolute;
     top: 5px;
+    left: 0;
+    width: 100px;
     height: calc(100% - 10px);
     background: rgba(0,0,0,0.06);
     border-radius: 20px;
     pointer-events: none;
     z-index: 1;
-    will-change: left, width, top, height, border-radius;
-    transition: left 0.4s cubic-bezier(.22,1,.36,1), width 0.4s cubic-bezier(.22,1,.36,1);
+    transform-origin: left center;
+    will-change: transform;
+    transform: translate3d(0, 0, 0) scaleX(1);
+    transition: none;
 }
 .nav-is-dragging .nav-indicator {
     top: -4px;
@@ -2742,12 +2746,73 @@ body:has(.camera-modal.is-shown) .app-header,
 
 /* -- Reduced Motion --------------------------------------------------- */
 @media (prefers-reduced-motion: reduce) {
-    *, *::before, *::after {
+    *, *::before, *::after,
+    html.perf-lite *, html.perf-lite *::before, html.perf-lite *::after {
         animation-duration: 0.01ms !important;
         animation-iteration-count: 1 !important;
         transition-duration: 0.01ms !important;
         scroll-behavior: auto !important;
     }
+}
+
+html.perf-lite .app::before {
+    display: none;
+}
+
+html.perf-lite .login-card,
+html.perf-lite .card,
+html.perf-lite .tips-card,
+html.perf-lite .fact-card,
+html.perf-lite .rewards-wallet,
+html.perf-lite .result-card,
+html.perf-lite .record-card,
+html.perf-lite .rewards-item,
+html.perf-lite .rewards-coupon,
+html.perf-lite .app-header,
+html.perf-lite nav.nav,
+html.perf-lite .app-nav,
+html.perf-lite .modal,
+html.perf-lite .upload-zone {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    box-shadow: var(--shadow-sm);
+}
+
+html.perf-lite .card,
+html.perf-lite .scan-btn,
+html.perf-lite .tab,
+html.perf-lite .modal,
+html.perf-lite .nav-btn-icon {
+    will-change: auto;
+    transform: none;
+}
+
+html.perf-lite .record-card,
+html.perf-lite .rewards-coupon {
+    animation: none !important;
+}
+
+html.perf-lite .overall-bar-fill,
+html.perf-lite .criterion-bar-fill,
+html.perf-lite .nav-indicator,
+html.perf-lite .nav-btn.is-active .nav-btn-icon,
+html.perf-lite .anim-entrance {
+    animation: none !important;
+    transition: none !important;
+}
+
+html.perf-lite .overall-bar-fill::after,
+html.perf-lite .criterion-bar-fill::after {
+    display: none;
+}
+
+html.perf-lite .nav-btn.is-active .nav-btn-icon {
+    filter: none;
+}
+
+html.perf-lite .record-card:hover,
+html.perf-lite .nav-btn:hover {
+    box-shadow: inherit;
 }
 
 /* ── Nav bar drag/swipe ────────────────────────────────────────────── */

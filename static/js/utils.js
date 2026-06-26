@@ -4,6 +4,25 @@
    renderStars (which needs document.getElementById).
    ═══════════════════════════════════════════════════════════════════════ */
 
+const MOTION_PROFILE = (() => {
+    const reducedMotion = !!(typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+    const doc = typeof document !== 'undefined' ? document.documentElement : null;
+    const forcedLite = !!(doc && doc.classList.contains('perf-lite'));
+    const connection = typeof navigator !== 'undefined' ? (navigator.connection || navigator.mozConnection || navigator.webkitConnection) : null;
+    const saveData = !!(connection && connection.saveData);
+    const deviceMemory = typeof navigator !== 'undefined' && typeof navigator.deviceMemory === 'number' ? navigator.deviceMemory : null;
+    const hardwareConcurrency = typeof navigator !== 'undefined' && typeof navigator.hardwareConcurrency === 'number' ? navigator.hardwareConcurrency : null;
+    const lowEnd = forcedLite || saveData || (!!deviceMemory && deviceMemory <= 4) || (!!hardwareConcurrency && hardwareConcurrency <= 4);
+    return { reducedMotion, lowEnd, motionEnabled: !(reducedMotion || lowEnd) };
+})();
+
+if (typeof document !== 'undefined' && document.documentElement && (MOTION_PROFILE.lowEnd || MOTION_PROFILE.reducedMotion)) {
+    document.documentElement.classList.add('perf-lite');
+}
+if (typeof window !== 'undefined') {
+    window.RELIFE_PERF = MOTION_PROFILE;
+}
+
 function esc(s) {
     const d = document.createElement('div');
     d.textContent = s;
@@ -64,14 +83,21 @@ const safeStorage = {
 function animateNumber(elementId, start, end, duration = 800) {
     const obj = document.getElementById(elementId);
     if (!obj) return;
-    if (start === end) { obj.textContent = end; return; }
+    const target = Number(end);
+    const initial = Number(start);
+    if (!MOTION_PROFILE.motionEnabled || !Number.isFinite(target) || !Number.isFinite(initial) || initial === target) {
+        obj.textContent = Number.isFinite(target) ? target.toLocaleString() : String(end);
+        return;
+    }
+    const decimals = String(end).includes('.') ? Math.min(1, String(end).split('.')[1].length) : 0;
     let startTimestamp = null;
     const step = (timestamp) => {
         if (!startTimestamp) startTimestamp = timestamp;
         const progress = Math.min((timestamp - startTimestamp) / duration, 1);
         const ease = 1 - Math.pow(1 - progress, 5);
-        obj.textContent = Math.floor(ease * (end - start) + start).toLocaleString();
-        if (progress < 1) { requestAnimationFrame(step); } else { obj.textContent = end.toLocaleString(); }
+        const value = initial + (target - initial) * ease;
+        obj.textContent = decimals ? value.toFixed(decimals) : Math.floor(value).toLocaleString();
+        if (progress < 1) { requestAnimationFrame(step); } else { obj.textContent = decimals ? target.toFixed(decimals) : target.toLocaleString(); }
     };
     requestAnimationFrame(step);
 }

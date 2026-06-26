@@ -1,7 +1,7 @@
 /* ═══════════════════════════════════════════════════════════════════════
    Re-Life — Firebase Realtime Database Helpers
    Attached to window.FB for use by app.js (non-module).
-   Config fetched from server (/api/config) — set via Vercel env vars.
+   Config is loaded from /api/config when window.FIREBASE_CONFIG is empty.
    ═══════════════════════════════════════════════════════════════════════ */
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-app.js";
@@ -20,10 +20,23 @@ let db = null;
 
 async function initFB() {
     if (db) return;
-    const config = window.FIREBASE_CONFIG || {};
+    const config = await loadConfig();
     const app = initializeApp(config);
     db = getDatabase(app);
     console.log("[FB] Initialized");
+}
+
+async function loadConfig() {
+    if (window.FIREBASE_CONFIG && Object.keys(window.FIREBASE_CONFIG).length) {
+        return window.FIREBASE_CONFIG;
+    }
+    const response = await fetch("/api/config", {
+        headers: { Accept: "application/json" },
+    });
+    if (!response.ok) throw new Error("FIREBASE_CONFIG_FETCH_FAILED");
+    const config = await response.json();
+    window.FIREBASE_CONFIG = config;
+    return config;
 }
 
 // ═══════════════════════════════════════════════════════════════════════

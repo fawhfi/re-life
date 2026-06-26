@@ -5,7 +5,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 from dotenv import load_dotenv
-import uuid, os, json, random, traceback, time
+import uuid, os, random, traceback, time
 from pathlib import Path
 from datetime import datetime
 
@@ -22,8 +22,12 @@ app = FastAPI(title="Re-Life API")
 
 # ── CORS ────────────────────────────────────────────────────────────────────
 app.add_middleware(CORSMiddleware,
-    allow_origins=["http://localhost:8000", "http://127.0.0.1:8000", "http://localhost:5173", "http://127.0.0.1:5173",
-                   "https://re-life-9123f.web.app", "https://re-life-9123f.firebaseapp.com"],
+    allow_origins=[
+        "http://localhost:8000",
+        "http://127.0.0.1:8000",
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+    ],
     allow_methods=["GET", "POST", "DELETE"], allow_headers=["*"])
 
 # ── Security Headers ────────────────────────────────────────────────────────
@@ -43,32 +47,29 @@ app.add_middleware(SecurityHeadersMiddleware)
 # ── Static files ────────────────────────────────────────────────────────────
 app.mount("/static", StaticFiles(directory=root_dir / "static"), name="static")
 
-# ── Helpers ─────────────────────────────────────────────────────────────────
-
-def _inject_firebase_config(html: str) -> str:
-    config_json = json.dumps(FIREBASE_CONFIG)
-    safe_json = config_json.replace("</", "<\\/")
-    return html.replace("</head>", f"<script>window.FIREBASE_CONFIG = {safe_json};</script>\n</head>")
-
 def _page(path: str) -> str:
     return (root_dir / "templates" / path).read_text(encoding="utf-8")
 
 # ── Pages ───────────────────────────────────────────────────────────────────
 
+@app.get("/api/config")
+async def firebase_config():
+    return JSONResponse(get_firebase_config())
+
 @app.get("/", response_class=HTMLResponse)
 async def root(request: Request):
     await check_rate_limit(request, 60, 60)
-    return HTMLResponse(_inject_firebase_config(_page("index.html")))
+    return HTMLResponse(_page("index.html"))
 
 @app.get("/login", response_class=HTMLResponse)
 async def login(request: Request):
     await check_rate_limit(request, 5, 60)
-    return HTMLResponse(_inject_firebase_config(_page("login.html")))
+    return HTMLResponse(_page("login.html"))
 
 @app.get("/register", response_class=HTMLResponse)
 async def register(request: Request):
     await check_rate_limit(request, 5, 60)
-    return HTMLResponse(_inject_firebase_config(_page("register.html")))
+    return HTMLResponse(_page("register.html"))
 
 # ── Auth endpoints ──────────────────────────────────────────────────────────
 

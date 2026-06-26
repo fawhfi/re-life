@@ -58,6 +58,9 @@ const state = {
     debugMode: false,
 };
 
+const PERF = (typeof window !== 'undefined' && window.RELIFE_PERF) ? window.RELIFE_PERF : { reducedMotion: false, lowEnd: false, motionEnabled: true };
+const MOTION_ENABLED = PERF.motionEnabled !== false;
+
 
 // ═══════════════════════════════════════════════════════════════════════
 // 4. INITIALIZATION
@@ -96,8 +99,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     setScanModeUI('dispose');
     updateHeaderUI();
 
-    // Critical: load user + records first
-    const [_, __] = await Promise.all([initAccounts(), loadRecords()]);
+    // Critical: load user before records so we never paint another user's data
+    await initAccounts();
+    await loadRecords();
 
     // Non-critical: lazy load in background
     requestIdleCallback ? requestIdleCallback(() => {
@@ -154,6 +158,26 @@ function initNavDrag() {
     const btnArray = Array.from(btns);
     let isDragging = false;
 
+    if (indicator) {
+        indicator.style.transformOrigin = 'left center';
+        indicator.style.transform = 'translate3d(0, 0, 0) scaleX(1)';
+    }
+
+    function setIndicator(targetX, scaleX, duration, ease) {
+        if (!indicator) return;
+        if (MOTION_ENABLED) {
+            gsap.to(indicator, {
+                x: targetX,
+                scaleX,
+                duration,
+                ease,
+                overwrite: "auto",
+            });
+        } else {
+            indicator.style.transform = `translate3d(${targetX}px, 0, 0) scaleX(${scaleX})`;
+        }
+    }
+
     // Position indicator under active tab initially
     function snapIndicatorTo(btn) {
         if (!indicator || !btn) return;
@@ -161,20 +185,10 @@ function initNavDrag() {
         const br = btn.getBoundingClientRect();
         let targetX = br.left - nr.left + (br.width - 100) / 2;
         targetX = Math.max(5, Math.min(295, targetX));
-
-        const curX = parseFloat(indicator.style.left) || 0;
-        const dx = targetX - curX;
-
-        gsap.to(indicator, {
-            left: targetX,
-            width: 100,
-            duration: isDragging ? 0.15 : 0.45,
-            ease: isDragging ? "power2.out" : "elastic.out(1, 0.6)",
-            overwrite: "auto",
-        });
+        setIndicator(targetX, 1, isDragging ? 0.15 : 0.45, isDragging ? "power2.out" : "elastic.out(1, 0.6)");
 
         // Bounce the nav button icon
-        if (!isDragging) {
+        if (!isDragging && MOTION_ENABLED) {
             const icon = btn.querySelector('.nav-btn-icon');
             if (icon) {
                 gsap.fromTo(icon, { scale: 0.85 }, { scale: 1, duration: 0.4, ease: "back.out(2)", overwrite: "auto" });
@@ -183,10 +197,6 @@ function initNavDrag() {
     }
 
     // Initial snap — ensure indicator is visible
-    if (indicator) {
-        indicator.style.left = '0px';
-        indicator.style.width = '100px';
-    }
     const activeBtn = navbar.querySelector('.nav-btn.is-active');
     if (activeBtn) {
         // Small delay to ensure DOM is settled
@@ -208,18 +218,13 @@ function initNavDrag() {
 
         // Smoothly interpolate indicator position between adjacent buttons
         if (indicator) {
-            const firstBtn = btnArray[0].getBoundingClientRect();
-            const lastBtn = btnArray[btnArray.length-1].getBoundingClientRect();
-            const navLeft = firstBtn.left - nr.left;
-            const navRight = lastBtn.right - nr.left;
-
             if (leftBtn && rightBtn && leftBtn.el !== rightBtn.el) {
                 const range = rightBtn.center - leftBtn.center;
                 const t = range > 0 ? (relX - leftBtn.center) / range : 0;
                 let l = leftBtn.rect.left - nr.left + t * (rightBtn.rect.left - leftBtn.rect.left)
                     + (leftBtn.rect.width - 100) / 2 * (1 - t) + (rightBtn.rect.width - 100) / 2 * t;
                 l = Math.max(5, Math.min(295, l));
-                gsap.to(indicator, { left: l, width: 100, duration: 0.1, ease: "power1.out", overwrite: "auto" });
+                setIndicator(l, 1, 0.1, "power1.out");
             } else if (rightBtn) {
                 const r = rightBtn.rect;
                 let l = r.left - nr.left + (r.width - 100) / 2, w = 100;
@@ -228,7 +233,7 @@ function initNavDrag() {
                     w = 100 * (1 - t * 0.3);
                     l = r.left - nr.left + 2;
                 }
-                gsap.to(indicator, { left: l, width: w, duration: 0.12, ease: "power2.out", overwrite: "auto" });
+                setIndicator(l, w / 100, 0.12, "power2.out");
             } else if (leftBtn) {
                 const r = leftBtn.rect;
                 let l = r.left - nr.left + (r.width - 100) / 2, w = 100;
@@ -238,7 +243,7 @@ function initNavDrag() {
                     // Keep right edge anchored: l + w = r.right - nr.left
                     l = r.right - nr.left - w;
                 }
-                gsap.to(indicator, { left: l, width: w, duration: 0.12, ease: "power2.out", overwrite: "auto" });
+                setIndicator(l, w / 100, 0.12, "power2.out");
             }
         }
 
@@ -316,7 +321,9 @@ function navigateTo(name) {
     nextTab.classList.add('active');
 
     // Animate new tab in
-    gsap.fromTo(nextTab, { opacity: 0, y: 8 }, { opacity: 1, y: 0, duration: 0.3, ease: "power2.out" });
+    if (MOTION_ENABLED) {
+        gsap.fromTo(nextTab, { opacity: 0, y: 8 }, { opacity: 1, y: 0, duration: 0.3, ease: "power2.out" });
+    }
 
     if (name === 'record') loadRecords();
     if (name === 'rewards') {
@@ -350,7 +357,9 @@ function setScanModeUI(mode) {
     const active = document.querySelector(`.scan-btn--${mode}`);
     if (active) {
         active.classList.add('scan-btn--active');
-        gsap.fromTo(active, { scale: 0.92 }, { scale: 1.04, duration: 0.35, ease: "elastic.out(1, 0.4)" });
+        if (MOTION_ENABLED) {
+            gsap.fromTo(active, { scale: 0.92 }, { scale: 1.04, duration: 0.35, ease: "elastic.out(1, 0.4)" });
+        }
     }
 }
 
@@ -374,7 +383,9 @@ function setupDragDrop() {
         e.preventDefault();
         if (!zone.classList.contains('drag-over')) {
             zone.classList.add('drag-over');
-            gsap.to(zone, { scale: 1.02, duration: 0.2, ease: "power2.out" });
+            if (MOTION_ENABLED) {
+                gsap.to(zone, { scale: 1.02, duration: 0.2, ease: "power2.out" });
+            }
         }
     });
     zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
@@ -416,7 +427,9 @@ function showPreview(dataUrl) {
     document.getElementById('upload-preview-img').src = dataUrl;
     preview.classList.add('is-shown');
     zone.classList.add('has-image');
-    gsap.from(preview, { scale: 0.9, opacity: 0, duration: 0.35, ease: "back.out(1.4)" });
+    if (MOTION_ENABLED) {
+        gsap.from(preview, { scale: 0.9, opacity: 0, duration: 0.35, ease: "back.out(1.4)" });
+    }
 }
 
 function clearPreview() {
@@ -460,7 +473,9 @@ async function doScan() {
 
     const status = document.getElementById('scan-status');
     status.classList.add('is-shown');
-    gsap.fromTo(status, { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.3 });
+    if (MOTION_ENABLED) {
+        gsap.fromTo(status, { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.3 });
+    }
     document.getElementById('scan-result').classList.add('hidden');
 
     try {
@@ -580,7 +595,9 @@ function showScanResult(item) {
     const result = document.getElementById('scan-result');
     result.classList.remove('hidden');
     // GSAP entrance animation
-    gsap.fromTo(result, { opacity: 0, y: 20, scale: 0.97 }, { opacity: 1, y: 0, scale: 1, duration: 0.4, ease: "power2.out" });
+    if (MOTION_ENABLED) {
+        gsap.fromTo(result, { opacity: 0, y: 20, scale: 0.97 }, { opacity: 1, y: 0, scale: 1, duration: 0.4, ease: "power2.out" });
+    }
 
     // Image
     const imgContainer = document.getElementById('result-img');
@@ -588,6 +605,8 @@ function showScanResult(item) {
     if (item.image_url) {
         const img = document.createElement('img');
         img.src = item.image_url;
+        img.decoding = 'async';
+        img.loading = 'eager';
         img.style.cssText = 'width:100%;height:100%;object-fit:cover;border-radius:12px';
         imgContainer.textContent = '';
         imgContainer.appendChild(img);
@@ -627,7 +646,9 @@ function showScanResult(item) {
         document.getElementById('alt-name').textContent = item.alternative.name;
         renderStars('alt-eco-stars', item.alternative.eco_rate);
         renderStars('alt-recycle-stars', item.alternative.recycle_rate);
-        gsap.from(alt, { opacity: 0, y: 12, duration: 0.35, ease: "power2.out" });
+        if (MOTION_ENABLED) {
+            gsap.from(alt, { opacity: 0, y: 12, duration: 0.35, ease: "power2.out" });
+        }
     } else {
         alt.classList.add('hidden');
     }
@@ -655,7 +676,9 @@ function showScanResult(item) {
     const barFill = document.getElementById('ov-bar-fill');
     if (barFill) {
         barFill.style.transformOrigin = 'left center';
-        gsap.fromTo(barFill, { scaleX: 0 }, { scaleX: overall / 100, duration: 0.8, ease: "power3.out" });
+        if (MOTION_ENABLED) {
+            gsap.fromTo(barFill, { scaleX: 0 }, { scaleX: overall / 100, duration: 0.8, ease: "power3.out" });
+        }
         barFill.style.backgroundColor = grade.color;
         barFill.style.width = `${overall}%`; // set actual width for layout
     }
@@ -738,6 +761,7 @@ function addScanToRecord() {
     }
 
     record.userId = state.userId || null;
+    record.userName = state.currentUser || null;
 
     // Disable add button
     const addBtn = document.getElementById('lbl-add-record');
@@ -792,7 +816,9 @@ async function handleSwapProof(e) {
         btn.textContent = '✅ +' + points + ' Points Earned!';
         btn.style.background = 'var(--color-emerald-700)';
         btn.disabled = true;
-        gsap.fromTo(btn, { scale: 1 }, { scale: 1.1, duration: 0.15, yoyo: true, repeat: 1, ease: "power2.out" });
+        if (MOTION_ENABLED) {
+            gsap.fromTo(btn, { scale: 1 }, { scale: 1.1, duration: 0.15, yoyo: true, repeat: 1, ease: "power2.out" });
+        }
     }
     // Refresh points display
     if (state.activeTab === 'rewards') renderRewards();
@@ -802,10 +828,16 @@ async function handleSwapProof(e) {
 function resetScan() {
     const result = document.getElementById('scan-result');
     if (!result.classList.contains('hidden')) {
-        gsap.to(result, { opacity: 0, scale: 0.95, y: -10, duration: 0.25, ease: "power2.in", onComplete: () => {
+        if (MOTION_ENABLED) {
+            gsap.to(result, { opacity: 0, scale: 0.95, y: -10, duration: 0.25, ease: "power2.in", onComplete: () => {
+                result.classList.add('hidden');
+                result.style.opacity = ''; result.style.transform = '';
+            }});
+        } else {
             result.classList.add('hidden');
-            result.style.opacity = ''; result.style.transform = '';
-        }});
+            result.style.opacity = '';
+            result.style.transform = '';
+        }
     } else {
         result.classList.add('hidden');
     }
@@ -905,7 +937,7 @@ function renderRecords() {
         }
 
         const photoHtml = r.image_url
-            ? `<img src="${esc(r.image_url)}" style="width:100%;height:100%;object-fit:cover;border-radius:8px" alt="">`
+            ? `<img src="${esc(r.image_url)}" loading="lazy" decoding="async" style="width:100%;height:100%;object-fit:cover;border-radius:8px" alt="">`
             : (r.image || '📦');
 
         return `
@@ -944,10 +976,15 @@ function renderRecords() {
     }).join('');
 
     // GSAP staggered card entrance
-    gsap.fromTo('#records-list .record-card', 
-        { opacity: 0, y: 24 }, 
-        { opacity: 1, y: 0, duration: 0.4, stagger: 0.06, ease: "power2.out" }
-    );
+    if (MOTION_ENABLED) {
+        const cards = Array.from(document.querySelectorAll('#records-list .record-card')).slice(0, 8);
+        if (cards.length) {
+            gsap.fromTo(cards,
+                { opacity: 0, y: 24 },
+                { opacity: 1, y: 0, duration: 0.4, stagger: 0.06, ease: "power2.out" }
+            );
+        }
+    }
 }
 
 async function deleteRecord(id) {
@@ -955,7 +992,12 @@ async function deleteRecord(id) {
         await FB.deleteItem(id);
         const card = document.getElementById(`rec-${id}`);
         if (card) {
-            gsap.to(card, { opacity: 0, scaleY: 0, transformOrigin: 'top center', duration: 0.25, ease: "power2.in", onComplete: () => { card.style.display = 'none'; loadRecords(); } });
+            if (MOTION_ENABLED) {
+                gsap.to(card, { opacity: 0, scaleY: 0, transformOrigin: 'top center', duration: 0.25, ease: "power2.in", onComplete: () => { card.style.display = 'none'; loadRecords(); } });
+            } else {
+                card.style.display = 'none';
+                loadRecords();
+            }
         }
     } catch (e) {
         console.error('Failed to delete record:', e);
@@ -968,7 +1010,7 @@ function viewRecordDetail(id) {
 
     const grade = getGrade(r.overall_score || 50);
     const photoHtml = r.image_url
-        ? `<img src="${esc(r.image_url)}" style="width:100%;max-height:200px;object-fit:cover;border-radius:12px;margin-bottom:12px" alt="">`
+        ? `<img src="${esc(r.image_url)}" loading="lazy" decoding="async" style="width:100%;max-height:200px;object-fit:cover;border-radius:12px;margin-bottom:12px" alt="">`
         : `<div style="font-size:48px;text-align:center;margin-bottom:12px">${r.image || '📦'}</div>`;
 
     const guideHtml = (r.disposal_guide || r.material) ? `
@@ -1018,10 +1060,11 @@ function updateStats() {
     const recycleEl = document.getElementById('stat-recycle');
 
     const animateEl = (el, value) => {
+        if (!el) return;
         el.textContent = value;
+        if (!MOTION_ENABLED) return;
         el.classList.remove('anim-entrance');
-        void el.offsetWidth; // force reflow
-        el.classList.add('anim-entrance');
+        requestAnimationFrame(() => el.classList.add('anim-entrance'));
     };
 
     animateEl(itemsEl, n);
@@ -1150,9 +1193,10 @@ function renderRewards() {
 
     // GSAP staggered entrance for rewards
     const items = document.querySelectorAll('#rew-catalogue .rewards-item');
-    if (items.length) {
-        gsap.fromTo(items, 
-            { opacity: 0, y: 16 }, 
+    if (MOTION_ENABLED && items.length) {
+        const animItems = Array.from(items).slice(0, 8);
+        gsap.fromTo(animItems,
+            { opacity: 0, y: 16 },
             { opacity: 1, y: 0, duration: 0.35, stagger: 0.05, ease: "power2.out" }
         );
     }
@@ -1224,7 +1268,7 @@ function showAlert(title, body, icon) {
     const overlay = document.getElementById('modal-overlay');
     overlay.classList.add('is-shown');
     const modal = overlay.querySelector('.modal');
-    if (modal) gsap.fromTo(modal, { scale: 0.85, opacity: 0, y: 16 }, { scale: 1, opacity: 1, y: 0, duration: 0.35, ease: "back.out(1.4)" });
+    if (modal && MOTION_ENABLED) gsap.fromTo(modal, { scale: 0.85, opacity: 0, y: 16 }, { scale: 1, opacity: 1, y: 0, duration: 0.35, ease: "back.out(1.4)" });
 }
 
 function showConfirm(msg, onConfirm) {
@@ -1298,7 +1342,7 @@ async function initAccounts() {
 function updateHeaderUI() {
     const avatarEl = document.getElementById('hdr-avatar');
     if (state.userAvatar && state.userAvatar.startsWith('data:') && state.userAvatar.length > 100) {
-        avatarEl.innerHTML = `<img src="${state.userAvatar}" style="width:100%;height:100%;border-radius:50%;object-fit:cover" onerror="this.parentElement.textContent='👤'">`;
+        avatarEl.innerHTML = `<img src="${state.userAvatar}" decoding="async" style="width:100%;height:100%;border-radius:50%;object-fit:cover" onerror="this.parentElement.textContent='👤'">`;
         avatarEl.style.background = 'none';
     } else {
         avatarEl.textContent = state.userAvatar || '👤';
@@ -1333,7 +1377,7 @@ function handleAvatarClick() {
         `<button class="btn btn--outline btn--full" onclick="closeModal()">${tr('closeBtn')}</button>`;
     document.getElementById('modal-overlay').classList.add('is-shown');
     const modal = document.querySelector('#modal-overlay .modal');
-    if (modal) gsap.fromTo(modal, { scale: 0.85, opacity: 0, y: 16 }, { scale: 1, opacity: 1, y: 0, duration: 0.35, ease: "back.out(1.4)" });
+    if (modal && MOTION_ENABLED) gsap.fromTo(modal, { scale: 0.85, opacity: 0, y: 16 }, { scale: 1, opacity: 1, y: 0, duration: 0.35, ease: "back.out(1.4)" });
 }
 
 function uploadAvatar() {
@@ -1717,5 +1761,3 @@ document.addEventListener('DOMContentLoaded', () => {
 
     document.body.addEventListener('click', addRippleEffect);
 });
-
-

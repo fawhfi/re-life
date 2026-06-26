@@ -4,6 +4,18 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
   <title>Re-Life — Create Account</title>
+  <script>
+    (function () {
+      try {
+        const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+        const lowEnd = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches)
+          || !!(connection && connection.saveData)
+          || (typeof navigator.deviceMemory === 'number' && navigator.deviceMemory > 0 && navigator.deviceMemory <= 4)
+          || (typeof navigator.hardwareConcurrency === 'number' && navigator.hardwareConcurrency > 0 && navigator.hardwareConcurrency <= 4);
+        if (lowEnd) document.documentElement.classList.add('perf-lite');
+      } catch (_) {}
+    })();
+  </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap" rel="stylesheet">

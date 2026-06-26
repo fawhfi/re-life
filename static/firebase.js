@@ -1,7 +1,7 @@
 /* ═══════════════════════════════════════════════════════════════════════
    Re-Life — Firebase Realtime Database Helpers
    Attached to window.FB for use by app.js (non-module).
-   Config fetched from server (/api/config) — set via Vercel env vars.
+   Config is loaded from /api/config when window.FIREBASE_CONFIG is empty.
    ═══════════════════════════════════════════════════════════════════════ */
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-app.js";
@@ -20,10 +20,23 @@ let db = null;
 
 async function initFB() {
     if (db) return;
-    const config = window.FIREBASE_CONFIG || {};
+    const config = await loadConfig();
     const app = initializeApp(config);
     db = getDatabase(app);
     console.log("[FB] Initialized");
+}
+
+async function loadConfig() {
+    if (window.FIREBASE_CONFIG && Object.keys(window.FIREBASE_CONFIG).length) {
+        return window.FIREBASE_CONFIG;
+    }
+    const response = await fetch("/api/config", {
+        headers: { Accept: "application/json" },
+    });
+    if (!response.ok) throw new Error("FIREBASE_CONFIG_FETCH_FAILED");
+    const config = await response.json();
+    window.FIREBASE_CONFIG = config;
+    return config;
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -193,6 +206,7 @@ const FB = {
                 status: item.mode || "dispose", description: item.description || "",
                 photoUrl: item.image_url || "", dealtWithMethod: item.disposal_guide || "",
                 dealtWithDate: null, userId: item.userId || null,
+                userName: item.userName || null,
                 eco_rate: item.eco_rate || 3, recycle_rate: item.recycle_rate || 4,
                 overall_score: item.overall_score || 50, material: item.material || "",
                 grade: item.grade || "", brand: item.brand || "", category: item.category || "",
@@ -208,6 +222,7 @@ const FB = {
     },
 
     async getItems(userId = null, displayName = null, userKey = null) {
+        if (!userId && !displayName && !userKey) return [];
         await FB._ensure();
         try {
             const snap = await get(ref(db, "items"));
@@ -215,13 +230,13 @@ const FB = {
             const val = snap.val();
             let items = Object.keys(val).map(id => ({ id, ...val[id] }));
             items.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
-            if (userId) {
+            if (userId || displayName || userKey) {
                 items = items.filter(it => {
                     const owner = it.userId || it.userid || it.user || it.userName || it.username || "";
-                    if (!owner) return true;
-                    if (owner === userId) return true;       // short ID (usr_xxx)
-                    if (owner === userKey) return true;      // Firebase push key (-Oxxx)
-                    if (owner === displayName) return true;   // username string
+                    if (!owner) return false;
+                    if (userId && owner === userId) return true;       // short ID (usr_xxx)
+                    if (userKey && owner === userKey) return true;     // Firebase push key (-Oxxx)
+                    if (displayName && owner === displayName) return true;   // username string
                     return false;
                 });
             }

@@ -1,0 +1,27 @@
+from pathlib import Path
+import unittest
+
+
+class PerformanceModeTests(unittest.TestCase):
+    def test_low_end_mode_is_wired_into_templates(self):
+        index = Path("templates/index.html").read_text(encoding="utf-8")
+        login = Path("templates/login.html").read_text(encoding="utf-8")
+        register = Path("templates/register.html").read_text(encoding="utf-8")
+
+        for html in (index, login, register):
+            self.assertIn("perf-lite", html)
+
+    def test_motion_heavy_paths_use_lightweight_gates(self):
+        style = Path("static/style.css").read_text(encoding="utf-8")
+        utils = Path("static/js/utils.js").read_text(encoding="utf-8")
+        app = Path("static/app.js").read_text(encoding="utf-8")
+
+        self.assertIn("window.RELIFE_PERF", utils)
+        self.assertIn("MOTION_ENABLED", app)
+        self.assertIn("loading=\"lazy\"", app)
+        self.assertIn("decoding=\"async\"", app)
+        self.assertIn("html.perf-lite", style)
+        self.assertIn("will-change: transform", style)
+        self.assertNotIn("will-change: left, width", style)
+        self.assertNotIn("transition: left 0.4s", style)
+        self.assertNotIn("void el.offsetWidth", app)

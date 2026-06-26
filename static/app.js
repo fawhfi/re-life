@@ -99,8 +99,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     setScanModeUI('dispose');
     updateHeaderUI();
 
-    // Critical: load user + records first
-    const [_, __] = await Promise.all([initAccounts(), loadRecords()]);
+    // Critical: load user before records so we never paint another user's data
+    await initAccounts();
+    await loadRecords();
 
     // Non-critical: lazy load in background
     requestIdleCallback ? requestIdleCallback(() => {
@@ -760,6 +761,7 @@ function addScanToRecord() {
     }
 
     record.userId = state.userId || null;
+    record.userName = state.currentUser || null;
 
     // Disable add button
     const addBtn = document.getElementById('lbl-add-record');

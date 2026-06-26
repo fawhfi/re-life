@@ -29,3 +29,8 @@ class SmokeTests(unittest.TestCase):
         self.assertIn("/static/app.js", home.text)
         self.assertIn("/static/firebase.js", home.text)
         self.assertIn("gsap.min.js", home.text)
+        self.assertNotIn('gsap@3.12.5/dist/gsap.min.js" defer', home.text)
+        self.assertLess(
+            home.text.index("gsap.min.js"),
+            home.text.index("/static/app.js"),
+        )

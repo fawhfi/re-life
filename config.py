@@ -13,6 +13,7 @@ GEMINI_API_KEY   = os.getenv("GEMINI_API", "")
 GEMINI_MODEL     = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
 DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API", "")
 CLAUDE_API_KEY   = os.getenv("CLAUDE_API", "")
+CLAUDE_MODEL     = os.getenv("CLAUDE_MODEL", "claude-3-5-sonnet-latest")
 
 AVAILABLE_MODELS = []
 if NVIDIA_API_KEY:   AVAILABLE_MODELS.append("nvidia")

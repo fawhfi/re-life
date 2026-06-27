@@ -4,7 +4,7 @@ from PIL import Image
 from pathlib import Path
 from config import (
     NVIDIA_API_KEY, NVIDIA_MODEL, OPENAI_API_KEY, OPENAI_MODEL,
-    GEMINI_API_KEY, GEMINI_MODEL, DEEPSEEK_API_KEY, CLAUDE_API_KEY,
+    GEMINI_API_KEY, GEMINI_MODEL, DEEPSEEK_API_KEY, CLAUDE_API_KEY, CLAUDE_MODEL,
     DEFAULT_AI_MODEL, AVAILABLE_MODELS,
 )
 from data import HK_DISPOSAL
@@ -264,7 +264,6 @@ async def ai_analyze(image_bytes: bytes, sid: str) -> dict:
     else:
         raise Exception(f"Model '{model}' not available")
 
-    j = _extract_json(content)
     j = _extract_json(content)
     if not j:
         # Try to fix truncated JSON by appending closing braces

@@ -30,7 +30,7 @@ class CaptionModelConfig:
     dropout: float = 0.1
     max_text_len: int = 48
     image_grid_size: int = 4
-    pretrained: bool = False
+    pretrained: bool = True
 
 
 def _build_backbone(pretrained: bool) -> nn.Module:
@@ -265,7 +265,7 @@ def build_model(
     dropout: float = 0.1,
     max_text_len: int = 48,
     image_grid_size: int = 4,
-    pretrained: bool = False,
+    pretrained: bool = True,
 ) -> WasteCaptionTransformer:
     return WasteCaptionTransformer(
         CaptionModelConfig(

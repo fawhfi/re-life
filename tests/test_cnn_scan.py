@@ -1,4 +1,5 @@
 from pathlib import Path
+from inspect import signature
 import unittest
 
 from fastapi.testclient import TestClient
@@ -6,6 +7,7 @@ from fastapi.testclient import TestClient
 from models import classifier_response
 from main import app
 from nlp import build_tokenizer
+from nlp.model import build_model
 
 
 class CnnScanTests(unittest.TestCase):
@@ -55,6 +57,9 @@ class CnnScanTests(unittest.TestCase):
         tokenizer = build_tokenizer()
 
         self.assertGreaterEqual(tokenizer.vocab_size, 80)
+
+    def test_training_defaults_use_pretrained_backbone(self):
+        self.assertTrue(signature(build_model).parameters["pretrained"].default)
 
     def test_scan_ui_no_longer_allows_score_dragging(self):
         app = Path("static/app.js").read_text(encoding="utf-8")

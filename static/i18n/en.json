@@ -19,6 +19,101 @@
   "criteria": "Weighted Criteria", "showDetails": "Show Details", "hideDetails": "Hide Details",
   "disposalGuide": "Disposal Guide", "material": "Material", "method": "Method",
   "location": "Location", "precaution": "Precaution",
+  "weather": {
+    "header": {
+      "defaultTitle": "Hong Kong weather",
+      "tapForDetails": "Tap for details",
+      "ariaDetails": "Tap for weather details."
+    },
+    "detail": {
+      "temperature": "Temperature",
+      "location": "Location",
+      "updated": "Updated",
+      "source": "Source",
+      "liveData": "Live data",
+      "close": "Close"
+    },
+    "location": {
+      "hongKong": "Hong Kong"
+    },
+    "source": {
+      "hkoOpenData": "HKO Open Data",
+      "fallback": "Fallback"
+    },
+    "summary": {
+      "default": "Hong Kong weather",
+      "Sunny": "Sunny",
+      "Sunny periods": "Sunny periods",
+      "Sunny intervals": "Sunny intervals",
+      "Sunny intervals with showers": "Sunny intervals with showers",
+      "Sunny periods with showers": "Sunny periods with showers",
+      "Cloudy": "Cloudy",
+      "Overcast": "Overcast",
+      "Light rain": "Light rain",
+      "Rain": "Rain",
+      "Heavy rain": "Heavy rain",
+      "Thunderstorms": "Thunderstorms",
+      "Fine": "Fine",
+      "Mainly cloudy": "Mainly cloudy",
+      "Cloudy at night": "Cloudy at night",
+      "Fine with mist": "Fine with mist",
+      "Cloudy with mist": "Cloudy with mist",
+      "Hazy": "Hazy",
+      "Mainly cloudy at night": "Mainly cloudy at night",
+      "Fine at night": "Fine at night",
+      "Windy": "Windy",
+      "Dry": "Dry",
+      "Humid": "Humid",
+      "Fog": "Fog",
+      "Mist": "Mist",
+      "Haze": "Haze",
+      "Hot": "Hot",
+      "Warm": "Warm",
+      "Cool": "Cool",
+      "Cold": "Cold",
+      "Rainy day": "Rainy day",
+      "Sunny day": "Sunny day",
+      "Hazy air": "Hazy air",
+      "Cloudy day": "Cloudy day",
+      "Hot day": "Hot day",
+      "Cool day": "Cool day",
+      "Windy day": "Windy day"
+    },
+    "callout": {
+      "default": {
+        "title": "Hong Kong weather",
+        "body": "Small habits make the city easier to breathe in. Recycle what you can and keep the air cleaner."
+      },
+      "Rainy day": {
+        "title": "Rainy day",
+        "body": "Too much greenhouse gas traps more heat and moisture. Recycling helps keep the buildup in check."
+      },
+      "Sunny day": {
+        "title": "Sunny day",
+        "body": "If you want more days like this, keep recycling so the Earth stays lighter and cleaner."
+      },
+      "Hazy air": {
+        "title": "Hazy air",
+        "body": "When the air hangs heavy, every recycled item helps reduce the pressure on the atmosphere."
+      },
+      "Cloudy day": {
+        "title": "Cloudy day",
+        "body": "Grey skies still deserve a cleaner city. Small recycling habits add up faster than they look."
+      },
+      "Hot day": {
+        "title": "Hot day",
+        "body": "Hotter days are easier to live with when we cut waste and emissions together. Recycle what you can."
+      },
+      "Cool day": {
+        "title": "Cool day",
+        "body": "Cool weather feels better when we keep carbon down. Recycling is one small part of that."
+      },
+      "Windy day": {
+        "title": "Windy day",
+        "body": "Fresh wind feels better when the air stays clean. Recycling helps keep the long game on track."
+      }
+    }
+  },
   "disposeBadge": "TO DISPOSE", "purchaseBadge": "TO PURCHASE",
   "ecoGradeLabel": "Eco Grade", "rewards": "Rewards", "more": "More",
   "pointsBalance": "Eco Points Balance", "pointsAvail": "Points available",

@@ -287,19 +287,19 @@
     </div>
     <div class="weather-panel-grid">
       <div class="weather-panel-stat weather-panel-stat--primary">
-        <span class="weather-panel-stat-label">Temperature</span>
+        <span class="weather-panel-stat-label" id="lbl-weather-temperature">Temperature</span>
         <strong class="weather-panel-stat-value" id="weather-detail-temp">--°C</strong>
       </div>
       <div class="weather-panel-stat weather-panel-stat--primary">
-        <span class="weather-panel-stat-label">Location</span>
+        <span class="weather-panel-stat-label" id="lbl-weather-location">Location</span>
         <strong class="weather-panel-stat-value" id="weather-detail-location">Hong Kong</strong>
       </div>
       <div class="weather-panel-stat weather-panel-stat--meta">
-        <span class="weather-panel-stat-label">Updated</span>
+        <span class="weather-panel-stat-label" id="lbl-weather-updated">Updated</span>
         <strong class="weather-panel-stat-value" id="weather-detail-updated">Live data</strong>
       </div>
       <div class="weather-panel-stat weather-panel-stat--meta">
-        <span class="weather-panel-stat-label">Source</span>
+        <span class="weather-panel-stat-label" id="lbl-weather-source">Source</span>
         <strong class="weather-panel-stat-value" id="weather-detail-source">HKO Open Data</strong>
       </div>
     </div>
@@ -307,7 +307,7 @@
       <div class="weather-panel-callout-title" id="weather-detail-callout-title">Hong Kong weather</div>
       <div class="weather-panel-callout-body" id="weather-detail-callout">Small habits make the city easier to breathe in.</div>
     </div>
-    <button class="btn btn--primary btn--full" type="button" onclick="closeWeatherDetails()">Close</button>
+    <button class="btn btn--primary btn--full" type="button" id="lbl-weather-close" onclick="closeWeatherDetails()">Close</button>
   </div>
 </div>
 

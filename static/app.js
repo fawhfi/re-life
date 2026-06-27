@@ -65,6 +65,21 @@ const state = {
 
 const PERF = (typeof window !== 'undefined' && window.RELIFE_PERF) ? window.RELIFE_PERF : { reducedMotion: false, lowEnd: false, motionEnabled: true };
 const MOTION_ENABLED = PERF.motionEnabled !== false;
+const NEWS_CACHE_KEY = 'RE_LIFE_NEWS_CACHE';
+const NEWS_FALLBACK_ITEMS = [
+    { title: 'HK expands GREEN@COMMUNITY recycling network', source: 'SCMP', link: '', snippet: '' },
+    { title: 'New sorting systems improve plastic recovery', source: 'BBC News', link: '', snippet: '' },
+    { title: 'Ocean cleanup projects scale up across Asia', source: 'Reuters', link: '', snippet: '' },
+    { title: 'Cities push harder on waste reduction policies', source: 'The Guardian', link: '', snippet: '' },
+    { title: 'Fresh recycling habits cut carbon at home', source: 'CNN', link: '', snippet: '' },
+];
+let tipsSwitchTimer = null;
+let tipsRenderToken = 0;
+
+function weatherTr(key, fallback) {
+    const value = tr(key);
+    return value === key ? fallback : value;
+}
 
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -92,9 +107,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (langInd) langInd.textContent = state.lang === 'en' ? 'Eng' : '中文';
     // Load i18n then update labels — avoids showing English briefly
     if (typeof I18N !== 'undefined') {
-        I18N.load(state.lang).then(updateAllLabels);
+        I18N.load(state.lang).then(() => {
+            updateAllLabels();
+            updateWeatherUI();
+        });
     } else {
         updateAllLabels();
+        updateWeatherUI();
     }
 
     startClock();
@@ -104,17 +123,27 @@ document.addEventListener('DOMContentLoaded', async () => {
     setScanModeUI('dispose');
     updateHeaderUI();
     loadHeaderWeather();
+    loadTips();
 
     // Critical: load user before records so we never paint another user's data
     await initAccounts();
     await loadRecords();
 
     // Non-critical: lazy load in background
-    requestIdleCallback ? requestIdleCallback(() => {
-        loadTips(); loadRewards(); loadFact(); detectCamera();
-    }) : setTimeout(() => {
-        loadTips(); loadRewards(); loadFact(); detectCamera();
-    }, 500);
+    const runBackgroundLoads = () => {
+        loadRewards();
+        loadFact();
+        detectCamera();
+    };
+    if (typeof window.requestIdleCallback === 'function') {
+        try {
+            window.requestIdleCallback(runBackgroundLoads, { timeout: 1200 });
+        } catch (_) {
+            setTimeout(runBackgroundLoads, 500);
+        }
+    } else {
+        setTimeout(runBackgroundLoads, 500);
+    }
 });
 
 let cameraAvailable = false;
@@ -193,16 +222,20 @@ function updateWeatherUI() {
     const emojiEl = document.getElementById('header-weather-emoji');
     const tempEl = document.getElementById('header-weather-temp');
     const cityEl = document.getElementById('header-weather-city');
+    const localizedSummary = localizeWeatherSummary(weather.summary);
+    const defaultTitle = weatherTr('weather.header.defaultTitle', 'Hong Kong weather');
 
     if (emojiEl) emojiEl.textContent = weather.emoji || '🌤️';
     if (tempEl) tempEl.textContent = Number.isFinite(weather.temperature) ? `${Math.round(weather.temperature)}°` : '--°';
-    if (cityEl) cityEl.textContent = weather.location || 'Hong Kong';
+    if (cityEl) cityEl.textContent = localizeWeatherLocation(weather.location);
 
     if (widget) {
-        const readableSummary = weather.summary || 'Hong Kong weather';
+        const readableSummary = localizedSummary || defaultTitle;
         const readableTemp = Number.isFinite(weather.temperature) ? ` • ${Math.round(weather.temperature)}°C` : '';
-        widget.title = `${readableSummary}${readableTemp} • Tap for details`;
-        widget.setAttribute('aria-label', `${readableSummary}${readableTemp}. Tap for weather details.`);
+        const tapForDetails = weatherTr('weather.header.tapForDetails', 'Tap for details');
+        const ariaDetails = weatherTr('weather.header.ariaDetails', 'Tap for weather details.');
+        widget.title = `${readableSummary}${readableTemp} • ${tapForDetails}`;
+        widget.setAttribute('aria-label', `${readableSummary}${readableTemp}. ${ariaDetails}`);
         widget.setAttribute('aria-expanded', state.weatherDetailsOpen ? 'true' : 'false');
         widget.classList.toggle('is-loading', !weather.loaded);
         if (!weather.loaded && !state.weather) {
@@ -273,10 +306,10 @@ async function refreshHeaderWeather() {
 }
 
 function formatWeatherUpdatedAt(value) {
-    if (!value) return 'Live data';
+    if (!value) return weatherTr('weather.detail.liveData', state.lang === 'zh' ? '即時資料' : 'Live data');
     const stamp = new Date(value);
-    if (Number.isNaN(stamp.getTime())) return 'Live data';
-    return stamp.toLocaleString('en-HK', {
+    if (Number.isNaN(stamp.getTime())) return weatherTr('weather.detail.liveData', state.lang === 'zh' ? '即時資料' : 'Live data');
+    return stamp.toLocaleString(state.lang === 'zh' ? 'zh-HK' : 'en-HK', {
         month: 'short',
         day: 'numeric',
         hour: '2-digit',
@@ -295,11 +328,72 @@ function getWeatherDetailModel() {
         updated_at: null,
         source: 'HKO Open Data',
         callout: {
-            title: 'Hong Kong weather',
-            body: 'Small habits make the city easier to breathe in. Recycle what you can and keep the air cleaner.',
+            title: weatherTr('weather.callout.default.title', 'Hong Kong weather'),
+            body: weatherTr(
+                'weather.callout.default.body',
+                'Small habits make the city easier to breathe in. Recycle what you can and keep the air cleaner.',
+            ),
         },
     };
     return { ...fallback, ...weather, callout: { ...fallback.callout, ...(weather.callout || {}) } };
+}
+
+function getWeatherLanguage() {
+    return state.lang === 'zh' ? 'zh' : 'en';
+}
+
+function localizeWeatherSummary(summary) {
+    const defaultSummary = weatherTr('weather.summary.default', 'Hong Kong weather');
+    const key = !summary || summary === 'Hong Kong weather' ? 'weather.summary.default' : `weather.summary.${summary}`;
+    return weatherTr(key, summary || defaultSummary);
+}
+
+function localizeWeatherLocation(location) {
+    if (getWeatherLanguage() !== 'zh') {
+        return location || weatherTr('weather.location.hongKong', 'Hong Kong');
+    }
+    if (!location || location === 'Hong Kong') {
+        return weatherTr('weather.location.hongKong', '香港');
+    }
+    return location;
+}
+
+function localizeWeatherSource(source) {
+    if (getWeatherLanguage() !== 'zh') {
+        return source || weatherTr('weather.source.hkoOpenData', 'HKO Open Data');
+    }
+    if (source === 'Fallback') {
+        return weatherTr('weather.source.fallback', '後備資料');
+    }
+    if (!source || source === 'HKO Open Data') {
+        return weatherTr('weather.source.hkoOpenData', '香港天文台開放資料');
+    }
+    return source;
+}
+
+function localizeWeatherCallout(model) {
+    const defaultTitle = weatherTr('weather.callout.default.title', 'Hong Kong weather');
+    const defaultBody = weatherTr(
+        'weather.callout.default.body',
+        'Small habits make the city easier to breathe in. Recycle what you can and keep the air cleaner.',
+    );
+    const key = (model?.callout?.title && model.callout.title !== 'Hong Kong weather')
+        ? model.callout.title
+        : (model?.summary && model.summary !== 'Hong Kong weather')
+            ? model.summary
+            : 'default';
+    return {
+        title: weatherTr(`weather.callout.${key}.title`, defaultTitle),
+        body: weatherTr(`weather.callout.${key}.body`, defaultBody),
+    };
+}
+
+function getWeatherSubtitle(model) {
+    const baseLocation = localizeWeatherLocation(model.location);
+    if (model.temperature_place && model.temperature_place !== model.location) {
+        return state.lang === 'zh' ? `${baseLocation} · ${model.temperature_place}` : `${baseLocation} • ${model.temperature_place}`;
+    }
+    return baseLocation;
 }
 
 function renderWeatherDetails() {
@@ -313,21 +407,23 @@ function renderWeatherDetails() {
     const sourceEl = document.getElementById('weather-detail-source');
     const calloutTitleEl = document.getElementById('weather-detail-callout-title');
     const calloutEl = document.getElementById('weather-detail-callout');
+    const closeButton = document.querySelector('.weather-close');
+    const callout = localizeWeatherCallout(model);
 
-    if (titleEl) titleEl.textContent = model.summary || 'Hong Kong weather';
+    if (titleEl) titleEl.textContent = localizeWeatherSummary(model.summary);
     if (subtitleEl) {
-        const station = model.temperature_place && model.temperature_place !== model.location ? ` • ${model.temperature_place}` : '';
-        subtitleEl.textContent = `${model.location || 'Hong Kong'}${station}`;
+        subtitleEl.textContent = getWeatherSubtitle(model);
     }
     if (emojiEl) emojiEl.textContent = model.emoji || '🌤️';
     if (tempEl) tempEl.textContent = Number.isFinite(model.temperature) ? `${Math.round(model.temperature)}°C` : '--°C';
-    if (locationEl) locationEl.textContent = model.location || 'Hong Kong';
+    if (locationEl) locationEl.textContent = localizeWeatherLocation(model.location);
     if (updatedEl) updatedEl.textContent = formatWeatherUpdatedAt(model.updated_at);
-    if (sourceEl) sourceEl.textContent = model.source || 'HKO Open Data';
-    if (calloutTitleEl) calloutTitleEl.textContent = model.callout?.title || 'Hong Kong weather';
+    if (sourceEl) sourceEl.textContent = localizeWeatherSource(model.source);
+    if (calloutTitleEl) calloutTitleEl.textContent = callout.title;
     if (calloutEl) {
-        calloutEl.textContent = model.callout?.body || 'Small habits make the city easier to breathe in.';
+        calloutEl.textContent = callout.body;
     }
+    if (closeButton) closeButton.setAttribute('aria-label', weatherTr('weather.detail.close', tr('closeBtn')));
 }
 
 function openWeatherDetails() {
@@ -1282,20 +1378,67 @@ function updateStats() {
 // ═══════════════════════════════════════════════════════════════════════
 
 async function loadTips() {
-    try {
-        const res = await fetch('/api/news');
-        const news = await res.json();
-        state.tips = news.map(n => ({
-            title: n.title,
-            source: n.source,
-            snippet: '',
-            link: n.link || '',
-        }));
-        renderTipsDots();
-        showTip(0);
-    } catch (e) {
-        console.error('Failed to load news:', e);
+    const cachedTips = readCachedNews();
+    if (cachedTips.length) {
+        applyTips(cachedTips);
+    } else {
+        applyTips(NEWS_FALLBACK_ITEMS);
     }
+
+    const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    const timeoutId = controller ? window.setTimeout(() => controller.abort(), 4500) : null;
+    try {
+        const res = await fetch('/api/news', {
+            headers: { Accept: 'application/json' },
+            ...(controller ? { signal: controller.signal } : {}),
+        });
+        if (!res.ok) throw new Error(`news ${res.status}`);
+        const news = await res.json();
+        const items = normalizeNewsItems(news);
+        if (items.length) {
+            applyTips(items);
+            writeCachedNews(items);
+        }
+    } catch (e) {
+        if (!e || e.name !== 'AbortError') {
+            console.warn('Green news fallback used:', e);
+        }
+    } finally {
+        if (timeoutId) clearTimeout(timeoutId);
+    }
+}
+
+function readCachedNews() {
+    try {
+        const raw = safeStorage.get(NEWS_CACHE_KEY);
+        if (!raw) return [];
+        const parsed = JSON.parse(raw);
+        return normalizeNewsItems(parsed);
+    } catch (_) {
+        return [];
+    }
+}
+
+function writeCachedNews(items) {
+    try {
+        safeStorage.set(NEWS_CACHE_KEY, JSON.stringify(items.slice(0, 8)));
+    } catch (_) {}
+}
+
+function normalizeNewsItems(news) {
+    if (!Array.isArray(news)) return [];
+    return news.map(n => ({
+        title: String(n?.title || '').trim(),
+        source: String(n?.source || '').trim() || 'Google News',
+        snippet: String(n?.snippet || '').trim(),
+        link: String(n?.link || '').trim(),
+    })).filter(item => item.title);
+}
+
+function applyTips(items) {
+    state.tips = items.length ? items : NEWS_FALLBACK_ITEMS.slice();
+    renderTipsDots();
+    showTip(0);
 }
 
 function renderTipsDots() {
@@ -1310,11 +1453,14 @@ function showTip(index) {
     state.currentTipIndex = index;
     const tip = state.tips[index];
     if (!tip) return;
+    const renderToken = ++tipsRenderToken;
     const titleEl = document.getElementById('tips-title');
     const snippetEl = document.getElementById('tips-snippet');
     if (titleEl) titleEl.classList.add('is-switching');
     if (snippetEl) snippetEl.classList.add('is-switching');
-    setTimeout(() => {
+    if (tipsSwitchTimer) clearTimeout(tipsSwitchTimer);
+    tipsSwitchTimer = setTimeout(() => {
+        if (renderToken !== tipsRenderToken) return;
         if (titleEl) {
             if (tip.link) {
                 titleEl.innerHTML = `<a href="${esc(tip.link)}" target="_blank" style="color:inherit;text-decoration:underline">${esc(tip.title)}</a>`;
@@ -1764,6 +1910,7 @@ async function toggleLang() {
     const langInd = document.getElementById('lang-ind');
     if (langInd) langInd.textContent = state.lang === 'en' ? 'Eng' : '中文';
     updateAllLabels();
+    updateWeatherUI();
     if (state.activeTab === 'record') renderRecords();
     if (state.activeTab === 'rewards') renderRewards();
 }
@@ -1799,6 +1946,11 @@ function updateAllLabels() {
         'lbl-disp-method': 'method',
         'lbl-disp-location': 'location',
         'lbl-fact-title': 'didYouKnow',
+        'lbl-weather-temperature': 'weather.detail.temperature',
+        'lbl-weather-location': 'weather.detail.location',
+        'lbl-weather-updated': 'weather.detail.updated',
+        'lbl-weather-source': 'weather.detail.source',
+        'lbl-weather-close': 'weather.detail.close',
         'lbl-rew-balance': 'pointsBalance',
         'lbl-rew-sub': 'rewardsSub',
         'lbl-my-coupons': 'myCoupons',

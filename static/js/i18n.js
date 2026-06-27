@@ -8,6 +8,16 @@ const I18N = (() => {
     let _currentLang = 'en';
     let _loaded = false;
 
+    function getNestedValue(source, key) {
+        if (!key) return undefined;
+        return String(key).split('.').reduce((acc, part) => {
+            if (acc && typeof acc === 'object' && Object.prototype.hasOwnProperty.call(acc, part)) {
+                return acc[part];
+            }
+            return undefined;
+        }, source);
+    }
+
     async function load(lang) {
         if (_loaded && lang === _currentLang) return;
         // Try localStorage cache first
@@ -47,7 +57,8 @@ const I18N = (() => {
     }
 
     function tr(key) {
-        return _strings[key] || key;
+        const value = getNestedValue(_strings, key);
+        return typeof value === 'string' ? value : key;
     }
 
     function getLang() { return _currentLang; }

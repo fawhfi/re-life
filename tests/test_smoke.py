@@ -67,11 +67,18 @@ class SmokeTests(unittest.TestCase):
     def test_weather_details_panel_is_wired_into_the_template(self):
         template = Path("templates/index.html").read_text(encoding="utf-8")
         app_js = Path("static/app.js").read_text(encoding="utf-8")
+        style = Path("static/style.css").read_text(encoding="utf-8")
+        theme = Path("static/css/theme.css").read_text(encoding="utf-8")
 
         self.assertIn('id="weather-overlay"', template)
         self.assertIn('id="weather-panel"', template)
         self.assertIn('onclick="toggleWeatherDetails()"', template)
         self.assertIn('id="weather-detail-callout-title"', template)
+        self.assertIn('weather-panel-stat--primary', template)
+        self.assertIn('weather-panel-stat--meta', template)
         self.assertIn('function toggleWeatherDetails()', app_js)
         self.assertIn('function openWeatherDetails()', app_js)
         self.assertIn('function closeWeatherDetails()', app_js)
+        self.assertIn('.weather-panel-stat--primary .weather-panel-stat-value', style)
+        self.assertIn('[data-theme="midnight"] .weather-panel', theme)
+        self.assertIn('[data-theme="midnight"] .weather-panel-callout-body', theme)

@@ -574,8 +574,9 @@ function showScanResult(item) {
         brandEl.classList.toggle('hidden', isCnn);
     }
     if (descEl) {
-        descEl.textContent = isCnn ? '' : (item.description || '');
-        descEl.classList.toggle('hidden', isCnn);
+        const summaryText = item.text || item.description || item.disposal_guide || '';
+        descEl.textContent = summaryText;
+        descEl.classList.toggle('hidden', !summaryText);
     }
 
     // Reset Add to Record button for new scan

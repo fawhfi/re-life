@@ -131,29 +131,12 @@ async def scan_item_ai(request: Request, file: UploadFile = File(...), mode: str
     if len(contents) > MAX_UPLOAD_BYTES:
         return JSONResponse({"error": f"File too large (max {MAX_UPLOAD_BYTES // (1024*1024)} MB)"}, 413)
     sid = f"{item_type}_{item_state}"
-    ai = None; ai_error = None
-    if debug.lower() == "true":
-        ai_error = "Debug mode — skipping AI"
-    elif DEFAULT_AI_MODEL not in AVAILABLE_MODELS:
-        ai_error = f"Model '{DEFAULT_AI_MODEL}' not available"
-    else:
-        for attempt in range(3):
-            try:
-                ai = await ai_analyze(contents, sid)
-                break
-            except Exception as e:
-                ai_error = str(e)
-                print(f"[AI] Error attempt {attempt+1}: {ai_error[:200]}")
-                if attempt < 2:
-                    import asyncio; await asyncio.sleep(1)
-    if ai is None:
-        print(f"[Classifier] AI failed, using CNN…")
-        try:
-            cat, conf = classify_image(contents)
-            ai = classifier_response(cat, conf, mode)
-        except Exception as cls_e:
-            print(f"[Classifier] CNN fallback error: {str(cls_e)}")
-            return JSONResponse({"error": "Image analysis failed", "mode": mode, "schema_id": sid}, 500)
+    ai = None
+    try:
+        ai = local_scan_response(contents, mode)
+    except Exception as cls_e:
+        print(f"[Classifier] Local transformer error: {str(cls_e)[:200]}")
+        return JSONResponse({"error": "Image analysis failed", "mode": mode, "schema_id": sid}, 500)
 
     ext = Path(str(file.filename)).suffix or ".png"
     fn = f"{uuid.uuid4()}{ext}"

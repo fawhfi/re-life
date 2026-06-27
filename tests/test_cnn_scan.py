@@ -5,6 +5,7 @@ from fastapi.testclient import TestClient
 
 from models import classifier_response
 from main import app
+from nlp import build_tokenizer
 
 
 class CnnScanTests(unittest.TestCase):
@@ -47,8 +48,13 @@ class CnnScanTests(unittest.TestCase):
             {"glass", "metal", "organic", "paper", "plastic", "ewaste"},
         )
         self.assertIsInstance(result["text"], str)
-        self.assertGreater(len(result["tokens"]), 3)
+        self.assertGreater(len(result["tokens"]), 8)
         self.assertIn("waste", result["text"].lower())
+
+    def test_tokenizer_vocab_expanded(self):
+        tokenizer = build_tokenizer()
+
+        self.assertGreaterEqual(tokenizer.vocab_size, 80)
 
     def test_scan_ui_no_longer_allows_score_dragging(self):
         app = Path("static/app.js").read_text(encoding="utf-8")

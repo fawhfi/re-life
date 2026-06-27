@@ -23,12 +23,12 @@ from .tokenizer import CaptionTokenizer, build_tokenizer
 class CaptionModelConfig:
     vocab_size: int
     num_classes: int = NUM_CLASSES
-    d_model: int = 128
-    num_heads: int = 4
-    num_layers: int = 2
-    ff_dim: int = 256
+    d_model: int = 192
+    num_heads: int = 6
+    num_layers: int = 3
+    ff_dim: int = 384
     dropout: float = 0.1
-    max_text_len: int = 32
+    max_text_len: int = 48
     image_grid_size: int = 4
     pretrained: bool = False
 
@@ -258,12 +258,12 @@ class WasteCaptionTransformer(nn.Module):
 def build_model(
     vocab_size: int,
     num_classes: int = NUM_CLASSES,
-    d_model: int = 128,
-    num_heads: int = 4,
-    num_layers: int = 2,
-    ff_dim: int = 256,
+    d_model: int = 192,
+    num_heads: int = 6,
+    num_layers: int = 3,
+    ff_dim: int = 384,
     dropout: float = 0.1,
-    max_text_len: int = 32,
+    max_text_len: int = 48,
     image_grid_size: int = 4,
     pretrained: bool = False,
 ) -> WasteCaptionTransformer:

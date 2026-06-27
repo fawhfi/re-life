@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from functools import lru_cache
 from io import BytesIO
+import os
 from pathlib import Path
 
 import numpy as np
@@ -12,7 +13,7 @@ from .constants import IMG_SIZE, MEAN, STD
 from .labels import TOKEN_ALIASES, WASTE_TOKENS, default_caption_for
 from .tokenizer import build_tokenizer
 
-DEFAULT_MODEL_PATH = Path(__file__).resolve().parent / "artifacts" / "transformer.onnx"
+DEFAULT_MODEL_PATH = Path(__file__).resolve().parent / "artifacts" / "transformer.int8.onnx"
 
 _MEAN = np.asarray(MEAN, dtype=np.float32).reshape(1, 1, 3)
 _STD = np.asarray(STD, dtype=np.float32).reshape(1, 1, 3)
@@ -23,9 +24,24 @@ def _get_tokenizer():
     return build_tokenizer()
 
 
+def _session_options() -> ort.SessionOptions:
+    options = ort.SessionOptions()
+    options.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
+    options.execution_mode = ort.ExecutionMode.ORT_SEQUENTIAL
+    cpu_count = os.cpu_count() or 1
+    default_threads = max(1, min(4, cpu_count))
+    options.intra_op_num_threads = int(os.getenv("REL_ORT_INTRA_OP_THREADS", default_threads))
+    options.inter_op_num_threads = int(os.getenv("REL_ORT_INTER_OP_THREADS", 1))
+    return options
+
+
 @lru_cache(maxsize=4)
 def _load_session(model_path: str):
-    session = ort.InferenceSession(model_path, providers=["CPUExecutionProvider"])
+    session = ort.InferenceSession(
+        model_path,
+        sess_options=_session_options(),
+        providers=["CPUExecutionProvider"],
+    )
     inputs = session.get_inputs()
     outputs = session.get_outputs()
     if not inputs or not outputs:
@@ -34,14 +50,24 @@ def _load_session(model_path: str):
 
 
 def _resolve_model_path(model_path: str | Path) -> Path:
+    env_override = os.getenv("REL_ONNX_MODEL")
+    if env_override:
+        candidate = Path(env_override)
+        if candidate.exists():
+            return candidate
+
     candidate = Path(model_path)
     if candidate.exists():
         return candidate
 
     fallbacks = [
+        Path(__file__).resolve().parent / "artifacts" / "transformer.int8.onnx",
+        Path(__file__).resolve().parent / "artifacts" / "transformer.onnx",
         Path(__file__).resolve().parent / "artifacts" / "model_fp32.onnx",
         Path(__file__).resolve().parents[2] / "nlp" / "artifacts" / "transformer.onnx",
+        Path(__file__).resolve().parents[2] / "nlp" / "artifacts" / "transformer.int8.onnx",
         Path(__file__).resolve().parents[2] / "nlp" / "artifacts" / "model_fp32.onnx",
+        Path(__file__).resolve().parents[2] / "nlp" / "artifacts" / "model_int8.onnx",
     ]
     for fallback in fallbacks:
         if fallback.exists():

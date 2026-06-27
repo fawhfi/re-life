@@ -17,13 +17,24 @@ import { argon2id, argon2Verify } from "https://cdn.jsdelivr.net/npm/hash-wasm@4
 // ═══════════════════════════════════════════════════════════════════════
 
 let db = null;
+let dbUnavailable = false;
 
 async function initFB() {
-    if (db) return;
-    const config = await loadConfig();
-    const app = initializeApp(config);
-    db = getDatabase(app);
-    console.log("[FB] Initialized");
+    if (db || dbUnavailable) return;
+    try {
+        const config = await loadConfig();
+        if (!config || !config.databaseURL) {
+            dbUnavailable = true;
+            console.info("[FB] Disabled (missing databaseURL)");
+            return;
+        }
+        const app = initializeApp(config);
+        db = getDatabase(app);
+        console.log("[FB] Initialized");
+    } catch (error) {
+        dbUnavailable = true;
+        console.warn("[FB] Disabled:", error?.message || error);
+    }
 }
 
 async function loadConfig() {
@@ -74,6 +85,7 @@ const FB = {
 
     async createUser(displayName, password, email = null) {
         await FB._ensure();
+        if (!db) throw new Error("FIREBASE_UNAVAILABLE");
         const qName = query(ref(db, "users"), orderByChild("displayName"), equalTo(displayName), limitToFirst(1));
         const snapName = await get(qName);
         if (snapName.exists()) throw new Error("USERNAME_TAKEN");
@@ -97,6 +109,7 @@ const FB = {
 
     async getUserById(userId) {
         await FB._ensure();
+        if (!db) return null;
         const q = query(ref(db, "users"), orderByChild("userId"), equalTo(userId), limitToFirst(1));
         const snap = await get(q);
         if (!snap.exists()) return null;
@@ -108,6 +121,7 @@ const FB = {
 
     async getUserByName(displayName) {
         await FB._ensure();
+        if (!db) return null;
         const q = query(ref(db, "users"), orderByChild("displayName"), equalTo(displayName), limitToFirst(1));
         const snap = await get(q);
         if (!snap.exists()) return null;
@@ -119,6 +133,7 @@ const FB = {
 
     async loginUser(displayName, password) {
         await FB._ensure();
+        if (!db) throw new Error("FIREBASE_UNAVAILABLE");
         const user = await FB.getUserByName(displayName);
         if (!user) throw new Error("USER_NOT_FOUND");
         const ok = await verifyPassword(password, user.passwordHash);
@@ -128,6 +143,7 @@ const FB = {
 
     async resetPasswordByEmail(email, newPassword) {
         await FB._ensure();
+        if (!db) throw new Error("FIREBASE_UNAVAILABLE");
         const q = query(ref(db, "users"), orderByChild("email"), equalTo(email), limitToFirst(1));
         const snap = await get(q);
         if (!snap.exists()) throw new Error("USER_NOT_FOUND");
@@ -142,6 +158,7 @@ const FB = {
 
     async getAllUsers() {
         await FB._ensure();
+        if (!db) return [];
         const snap = await get(ref(db, "users"));
         if (!snap.exists()) return [];
         const val = snap.val();
@@ -153,6 +170,7 @@ const FB = {
 
     async getUser(userId) {
         await FB._ensure();
+        if (!db) return null;
         const snap = await get(ref(db, "users/" + userId));
         if (!snap.exists()) return null;
         const data = snap.val();
@@ -162,6 +180,7 @@ const FB = {
 
     async saveUserData(userId, data) {
         await FB._ensure();
+        if (!db) return;
         let key = userId;
         // If given short userId (usr_xxx), look up Firebase key
         if (userId && typeof userId === 'string' && userId.startsWith("usr_")) {
@@ -198,6 +217,7 @@ const FB = {
 
     async addItem(item) {
         await FB._ensure();
+        if (!db) return { id: null };
         const itemRef = push(ref(db, "items"));
         console.log("[FB] addItem: saving to", itemRef.key);
         try {
@@ -224,6 +244,7 @@ const FB = {
     async getItems(userId = null, displayName = null, userKey = null) {
         if (!userId && !displayName && !userKey) return [];
         await FB._ensure();
+        if (!db) return [];
         try {
             const snap = await get(ref(db, "items"));
             if (!snap.exists()) return [];
@@ -249,11 +270,13 @@ const FB = {
 
     async deleteItem(itemId) {
         await FB._ensure();
+        if (!db) return;
         await remove(ref(db, "items/" + itemId));
     },
 
     async clearAllItems() {
         await FB._ensure();
+        if (!db) return;
         const snap = await get(ref(db, "items"));
         if (snap.exists()) {
             await Promise.all(Object.keys(snap.val()).map(id => remove(ref(db, "items/" + id))));

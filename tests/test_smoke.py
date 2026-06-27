@@ -34,3 +34,9 @@ class SmokeTests(unittest.TestCase):
             home.text.index("gsap.min.js"),
             home.text.index("/static/app.js"),
         )
+
+    def test_header_permissions_policy_keeps_optional_geolocation(self):
+        home = self.client.get("/")
+        policy = home.headers.get("permissions-policy", "")
+
+        self.assertIn("geolocation=(self)", policy)

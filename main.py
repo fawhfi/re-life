@@ -13,6 +13,7 @@ from config import *
 from data import *
 from models import *
 from auth import *
+from weather import get_header_weather
 
 root_dir = Path(__file__).parent
 if os.path.exists(root_dir / ".env"):
@@ -38,7 +39,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response.headers["X-Frame-Options"] = "DENY"
         response.headers["X-XSS-Protection"] = "1; mode=block"
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
-        response.headers["Permissions-Policy"] = "camera=self, microphone=(), geolocation=()"
+        response.headers["Permissions-Policy"] = "camera=self, microphone=(), geolocation=(self)"
         response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
         return response
 
@@ -101,6 +102,15 @@ def _normalize_scan_payload(ai: dict, contents: bytes, filename: str, mode: str,
 @app.get("/api/config")
 async def firebase_config():
     return JSONResponse(get_firebase_config())
+
+
+@app.get("/api/weather/header")
+async def weather_header(request: Request, lat: float | None = None, lon: float | None = None):
+    await check_rate_limit(request, 60, 60)
+    payload = await get_header_weather(latitude=lat, longitude=lon)
+    response = JSONResponse(payload)
+    response.headers["Cache-Control"] = "private, max-age=300"
+    return response
 
 @app.get("/", response_class=HTMLResponse)
 async def root(request: Request):

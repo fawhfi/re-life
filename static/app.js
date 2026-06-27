@@ -56,6 +56,8 @@ const state = {
     rewards: [],
     clockInterval: null,
     debugMode: false,
+    weather: null,
+    weatherLoadPromise: null,
 };
 
 const PERF = (typeof window !== 'undefined' && window.RELIFE_PERF) ? window.RELIFE_PERF : { reducedMotion: false, lowEnd: false, motionEnabled: true };
@@ -98,6 +100,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     initTheme();
     setScanModeUI('dispose');
     updateHeaderUI();
+    loadHeaderWeather();
 
     // Critical: load user before records so we never paint another user's data
     await initAccounts();
@@ -143,6 +146,101 @@ function startClock() {
     };
     tick();
     state.clockInterval = setInterval(tick, 1000);
+}
+
+async function resolveWeatherCoordinates() {
+    if (!navigator.geolocation || !navigator.permissions || !navigator.permissions.query) {
+        return null;
+    }
+
+    try {
+        const permission = await navigator.permissions.query({ name: 'geolocation' });
+        if (permission.state !== 'granted') {
+            return null;
+        }
+    } catch (_) {
+        return null;
+    }
+
+    return new Promise(resolve => {
+        navigator.geolocation.getCurrentPosition(
+            position => {
+                resolve({
+                    latitude: position.coords.latitude,
+                    longitude: position.coords.longitude,
+                });
+            },
+            () => resolve(null),
+            {
+                enableHighAccuracy: false,
+                timeout: 2500,
+                maximumAge: 300000,
+            },
+        );
+    });
+}
+
+function updateWeatherUI() {
+    const weather = state.weather || {};
+    const widget = document.getElementById('header-weather');
+    const emojiEl = document.getElementById('header-weather-emoji');
+    const tempEl = document.getElementById('header-weather-temp');
+    const cityEl = document.getElementById('header-weather-city');
+
+    if (emojiEl) emojiEl.textContent = weather.emoji || '🌤️';
+    if (tempEl) tempEl.textContent = Number.isFinite(weather.temperature) ? `${Math.round(weather.temperature)}°` : '--°';
+    if (cityEl) cityEl.textContent = weather.location || 'Hong Kong';
+
+    if (widget) {
+        widget.title = weather.summary
+            ? `${weather.summary}${Number.isFinite(weather.temperature) ? ` • ${Math.round(weather.temperature)}°C` : ''}`
+            : 'Hong Kong weather';
+        widget.classList.toggle('is-loading', !weather.loaded);
+        if (!weather.loaded && !state.weather) {
+            widget.setAttribute('aria-busy', 'true');
+        } else {
+            widget.removeAttribute('aria-busy');
+        }
+    }
+}
+
+async function loadHeaderWeather() {
+    if (state.weatherLoadPromise) return state.weatherLoadPromise;
+
+    state.weatherLoadPromise = (async () => {
+        const coords = await resolveWeatherCoordinates();
+        const query = coords ? `?lat=${encodeURIComponent(coords.latitude)}&lon=${encodeURIComponent(coords.longitude)}` : '';
+        try {
+            const response = await fetch(`/api/weather/header${query}`, {
+                headers: { Accept: 'application/json' },
+            });
+            if (!response.ok) {
+                throw new Error(`weather ${response.status}`);
+            }
+            const payload = await response.json();
+            state.weather = {
+                ...payload,
+                temperature: Number.isFinite(payload.temperature) ? payload.temperature : null,
+                loaded: true,
+            };
+        } catch (_) {
+            state.weather = {
+                emoji: '🌤️',
+                summary: 'Hong Kong weather',
+                temperature: null,
+                location: 'Hong Kong',
+                loaded: true,
+            };
+        }
+        updateWeatherUI();
+        const widget = document.getElementById('header-weather');
+        if (widget && MOTION_ENABLED) {
+            gsap.fromTo(widget, { y: -4, opacity: 0.5, scale: 0.98 }, { y: 0, opacity: 1, scale: 1, duration: 0.35, ease: 'power2.out', overwrite: 'auto' });
+        }
+        return state.weather;
+    })();
+
+    return state.weatherLoadPromise;
 }
 
 

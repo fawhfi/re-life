@@ -17,6 +17,8 @@ async def db_put(path: str, data):
     # Sanitize path to prevent path traversal
     if ".." in path or path.startswith("/"):
         raise ValueError("Invalid database path")
+    if not FIREBASE_DB_URL:
+        return
     try:
         async with httpx.AsyncClient(timeout=10) as c:
             r = await c.put(f"{FIREBASE_DB_URL}/{path}.json", json=data)
@@ -31,6 +33,8 @@ async def db_get(path: str):
     # Sanitize path to prevent path traversal
     if ".." in path or path.startswith("/"):
         raise ValueError("Invalid database path")
+    if not FIREBASE_DB_URL:
+        return None
     try:
         async with httpx.AsyncClient(timeout=10) as c:
             res = await c.get(f"{FIREBASE_DB_URL}/{path}.json")
@@ -46,6 +50,8 @@ async def db_del(path: str):
     # Sanitize path to prevent path traversal
     if ".." in path or path.startswith("/"):
         raise ValueError("Invalid database path")
+    if not FIREBASE_DB_URL:
+        return
     try:
         async with httpx.AsyncClient(timeout=10) as c:
             await c.delete(f"{FIREBASE_DB_URL}/{path}.json")

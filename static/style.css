@@ -203,6 +203,58 @@ body {
     display: flex;
     align-items: center;
     gap: 8px;
+    min-width: 0;
+}
+
+.header-right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-left: auto;
+    min-width: 0;
+}
+
+.header-weather {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    border-radius: 999px;
+    border: 1px solid rgba(255,255,255,0.24);
+    background: rgba(255,255,255,0.12);
+    box-shadow: inset 0 1px 1px rgba(255,255,255,0.18);
+    color: var(--color-gray-800);
+    min-width: 0;
+}
+
+.header-weather-emoji {
+    font-size: 18px;
+    line-height: 1;
+    flex: 0 0 auto;
+}
+
+.header-weather-copy {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    line-height: 1.05;
+}
+
+.header-weather-temp {
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0;
+    color: var(--color-gray-800);
+}
+
+.header-weather-city {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--color-gray-700);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 92px;
 }
 
 .header-title {
@@ -245,6 +297,24 @@ body {
 
 .header-avatar:active {
     transform: scale(0.9);
+}
+
+.header-weather.is-loading .header-weather-emoji {
+    animation: pulse 1.2s ease-in-out infinite;
+}
+
+@media (max-width: 420px) {
+    .header-title { font-size: 1rem; }
+    .header-user { max-width: 56px; }
+    .header-weather { gap: 6px; padding: 5px 8px; }
+    .header-weather-city { display: none; }
+    .header-weather-temp { font-size: 11px; }
+    .header-time { font-size: 10px; }
+}
+
+@media (max-width: 350px) {
+    .header-user { display: none; }
+    .header-weather { padding-inline: 7px; }
 }
 
 /* ── Main Content ───────────────────────────────────────────────────── */
@@ -2462,6 +2532,17 @@ body:has(.camera-modal.is-shown) .app-header,
 
 [data-theme="dark"] .header-time,
 [data-theme="dark"] .header-user {
+    color: var(--color-gray-200);
+}
+
+[data-theme="dark"] .header-weather {
+    background: rgba(20, 30, 20, 0.5);
+    border-color: rgba(255, 255, 255, 0.08);
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.22), inset 0 1px 1px rgba(255, 255, 255, 0.06);
+}
+
+[data-theme="dark"] .header-weather-temp,
+[data-theme="dark"] .header-weather-city {
     color: var(--color-gray-200);
 }
 

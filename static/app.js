@@ -514,81 +514,26 @@ async function doScan() {
         console.error('Scan error:', err);
         const msg = (err.message || String(err));
         document.getElementById('scan-result').classList.remove('hidden');
+        const imgContainer = document.getElementById('result-img');
+        imgContainer.innerHTML = '';
+        imgContainer.textContent = '📦';
         document.getElementById('result-name').textContent = 'Scan Error';
         document.getElementById('result-desc').textContent = msg;
+        document.getElementById('result-desc').classList.remove('hidden');
         document.getElementById('result-brand').textContent = '';
+        document.getElementById('result-brand').classList.add('hidden');
+        document.getElementById('result-ratings').classList.add('hidden');
+        document.getElementById('result-alt').classList.add('hidden');
+        document.getElementById('weighted-section').classList.add('hidden');
+        document.getElementById('weighted-detail').classList.remove('is-open');
+        document.getElementById('disposal-guide').classList.add('hidden');
+        document.getElementById('lbl-prove-swap').classList.add('hidden');
         document.getElementById('gemini-error').textContent = '❌ ' + msg;
         document.getElementById('gemini-error').style.display = 'block';
         playBeep('error');
     } finally {
         document.getElementById('scan-status').classList.remove('is-shown');
     }
-}
-
-// ── Bar drag handlers ──────────────────────────────────────────────
-let barDragState = null;
-
-function startBarDrag(e) {
-    e.preventDefault();
-    const bar = e.currentTarget;
-    const fill = bar.querySelector('.criterion-bar-fill');
-    const key = bar.dataset.key;
-    const rect = bar.getBoundingClientRect();
-    barDragState = { bar, fill, key, rect };
-    updateBarFromEvent(e);
-    window.addEventListener('mousemove', onBarDrag);
-    window.addEventListener('mouseup', stopBarDrag);
-    window.addEventListener('touchmove', onBarDrag, { passive: false });
-    window.addEventListener('touchend', stopBarDrag);
-}
-
-function onBarDrag(e) {
-    e.preventDefault();
-    updateBarFromEvent(e);
-}
-
-function updateBarFromEvent(e) {
-    if (!barDragState) return;
-    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-    const { bar, fill, key, rect } = barDragState;
-    let pct = Math.round(((clientX - rect.left) / rect.width) * 100);
-    pct = Math.max(0, Math.min(100, pct));
-    fill.style.width = pct + '%';
-    const barColor = pct >= 70 ? '#065f46' : pct >= 50 ? '#ca8a04' : '#dc2626';
-    fill.style.background = barColor;
-    const scoreEl = bar.parentElement.querySelector('.criterion-score');
-    if (scoreEl) scoreEl.textContent = pct + '/100';
-    // Update state
-    if (state.lastScanResult && state.lastScanResult.weighted_scores) {
-        state.lastScanResult.weighted_scores[key] = pct;
-    }
-    // Recalc overall
-    recalcOverall();
-}
-
-function stopBarDrag() {
-    barDragState = null;
-    window.removeEventListener('mousemove', onBarDrag);
-    window.removeEventListener('mouseup', stopBarDrag);
-    window.removeEventListener('touchmove', onBarDrag);
-    window.removeEventListener('touchend', stopBarDrag);
-}
-
-function recalcOverall() {
-    if (!state.lastScanResult) return;
-    const scores = state.lastScanResult.weighted_scores || { a: 50, b: 50, c: 50, d: 50, e: 50 };
-    const schemaId = state.lastScanResult.schema_id || 'food_new';
-    const ov = calcWeighted(scores, schemaId);
-    const g = getGrade(ov);
-    state.lastScanResult.overall_score = ov;
-    state.lastScanResult.grade = g.grade;
-    state.lastScanResult.grade_advice = g.advice;
-    state.lastScanResult.grade_color = g.color;
-    document.getElementById('ov-score').textContent = ov;
-    document.getElementById('ov-bar-fill').style.cssText = `width:${ov}%;background:${g.color}`;
-    document.getElementById('grade-tag').textContent = g.grade;
-    document.getElementById('grade-tag').style.background = g.color;
-    document.getElementById('grade-advice').textContent = g.advice;
 }
 
 function showScanResult(item) {
@@ -612,10 +557,26 @@ function showScanResult(item) {
         imgContainer.appendChild(img);
     }
 
+    const isCnn = item.classifier_source === 'cnn';
+    const brandEl = document.getElementById('result-brand');
+    const descEl = document.getElementById('result-desc');
+    const ratingsEl = document.getElementById('result-ratings');
+    const alt = document.getElementById('result-alt');
+    const weightedSection = document.getElementById('weighted-section');
+    const weightedDetail = document.getElementById('weighted-detail');
+    const guide = document.getElementById('disposal-guide');
+    const proveBtn = document.getElementById('lbl-prove-swap');
+
     // Basic info
-    document.getElementById('result-name').textContent = item.name;
-    document.getElementById('result-desc').textContent = item.description || '';
-    document.getElementById('result-brand').textContent = item.brand || item.category || '';
+    document.getElementById('result-name').textContent = isCnn ? (item.waste_label || item.name || '') : item.name;
+    if (brandEl) {
+        brandEl.textContent = isCnn ? '' : (item.brand || item.category || '');
+        brandEl.classList.toggle('hidden', isCnn);
+    }
+    if (descEl) {
+        descEl.textContent = isCnn ? '' : (item.description || '');
+        descEl.classList.toggle('hidden', isCnn);
+    }
 
     // Reset Add to Record button for new scan
     const addBtn = document.getElementById('lbl-add-record');
@@ -634,13 +595,28 @@ function showScanResult(item) {
         errEl.style.display = 'none';
     }
 
+    if (isCnn) {
+        if (ratingsEl) ratingsEl.classList.add('hidden');
+        if (alt) alt.classList.add('hidden');
+        if (weightedSection) weightedSection.classList.add('hidden');
+        if (weightedDetail) {
+            weightedDetail.innerHTML = '';
+            weightedDetail.classList.remove('is-open');
+        }
+        if (guide) guide.classList.add('hidden');
+        if (proveBtn) proveBtn.classList.add('hidden');
+        state.lastScanResult = item;
+        return;
+    }
+
+    if (ratingsEl) ratingsEl.classList.remove('hidden');
+
     // Star ratings
     renderStars('result-eco-stars', item.eco_rate);
     renderStars('result-recycle-stars', item.recycle_rate);
 
     // Alternative product (purchase mode only)
     const isPurchase = item.mode === 'purchase';
-    const alt = document.getElementById('result-alt');
     if (item.alternative && isPurchase) {
         alt.classList.remove('hidden');
         document.getElementById('alt-name').textContent = item.alternative.name;
@@ -654,7 +630,6 @@ function showScanResult(item) {
     }
 
     // Prove button — only in purchase mode
-    const proveBtn = document.getElementById('lbl-prove-swap');
     if (proveBtn) {
         if (isPurchase && item.alternative) {
             proveBtn.classList.remove('hidden');
@@ -668,6 +643,8 @@ function showScanResult(item) {
 
     // Weighted score breakdown
     const schemaId = item.schema_id || 'food_new';
+    if (weightedSection) weightedSection.classList.remove('hidden');
+    if (weightedDetail) weightedDetail.classList.add('is-open');
     const overall = item.overall_score ||
         calcWeighted(item.weighted_scores || { a: 50, b: 50, c: 50, d: 50, e: 50 }, schemaId);
     const grade = item.grade ? { grade: item.grade, color: item.grade_color } : getGrade(overall);
@@ -690,27 +667,27 @@ function showScanResult(item) {
     const labels = item.criteria_labels || CRITERIA_LABELS[schemaId] || CRITERIA_LABELS.food_new;
     const scores = item.weighted_scores || { a: 50, b: 50, c: 50, d: 50, e: 50 };
     const weights = SCHEMA_WEIGHTS[schemaId] || SCHEMA_WEIGHTS.food_new;
-    const detail = document.getElementById('weighted-detail');
-    detail.innerHTML = '';
+    if (weightedDetail) weightedDetail.innerHTML = '';
 
-    for (const k of ['a', 'b', 'c', 'd', 'e']) {
-        const v = scores[k] || 50;
-        const w = Math.round(weights[k] * 100);
-        const barColor = getBarColor(v);
-        detail.innerHTML += `
-            <div class="criterion-row" data-key="${k}">
-                <div class="criterion-header">
-                    <span class="criterion-name">${labels[k]} (${w}%)</span>
-                    <span class="criterion-score">${v}/100</span>
-                </div>
-                <div class="criterion-bar" data-key="${k}">
-                    <div class="criterion-bar-fill is-animated" style="width:${v}%;background:${barColor}" data-key="${k}"></div>
-                </div>
-            </div>`;
+    if (weightedDetail) {
+        for (const k of ['a', 'b', 'c', 'd', 'e']) {
+            const v = scores[k] || 50;
+            const w = Math.round(weights[k] * 100);
+            const barColor = getBarColor(v);
+            weightedDetail.innerHTML += `
+                <div class="criterion-row" data-key="${k}">
+                    <div class="criterion-header">
+                        <span class="criterion-name">${labels[k]} (${w}%)</span>
+                        <span class="criterion-score">${v}/100</span>
+                    </div>
+                    <div class="criterion-bar" data-key="${k}">
+                        <div class="criterion-bar-fill is-animated" style="width:${v}%;background:${barColor}" data-key="${k}"></div>
+                    </div>
+                </div>`;
+        }
     }
 
     // Disposal guide
-    const guide = document.getElementById('disposal-guide');
     const dispInfo = item.disposal_info;
     if (dispInfo || item.disposal_guide) {
         guide.classList.remove('hidden');
@@ -726,24 +703,6 @@ function showScanResult(item) {
     }
 
     state.lastScanResult = item;
-}
-
-function toggleWS() {
-    const detail = document.getElementById('weighted-detail');
-    const btn = document.getElementById('ws-toggle-btn');
-    const isOpen = detail.classList.toggle('is-open');
-    btn.textContent = isOpen ? tr('hideDetails') : tr('showDetails');
-    if (isOpen) {
-        // Attach drag handlers after display becomes flex
-        requestAnimationFrame(() => {
-            detail.querySelectorAll('.criterion-bar').forEach(bar => {
-                const fill = bar.querySelector('.criterion-bar-fill');
-                if (fill) fill.classList.remove('is-animated');
-                bar.addEventListener('mousedown', startBarDrag);
-                bar.addEventListener('touchstart', startBarDrag, { passive: false });
-            });
-        });
-    }
 }
 
 function addScanToRecord() {
@@ -1591,7 +1550,6 @@ function updateAllLabels() {
         'lbl-scanning-text': 'scanning',
         'lbl-scanning-hint': 'scanningHint',
         'ws-title': 'criteria',
-        'ws-toggle-btn': 'showDetails',
         'lbl-overall': 'overallScore',
         'lbl-grade': 'grade',
         'lbl-advice': 'advice',

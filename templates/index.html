@@ -84,7 +84,7 @@
         <div class="result-card-tip" id="result-desc"></div>
         <div class="gemini-error hidden" id="gemini-error"></div>
 
-        <div class="record-card-ratings flex-center mt-3">
+        <div class="record-card-ratings flex-center mt-3" id="result-ratings">
           <div class="rating-item">
             <span class="rating-label">Eco-Rate</span>
             <div class="star-rating" id="result-eco-stars"></div>
@@ -106,10 +106,9 @@
         </div>
 
         <!-- Weighted Score -->
-        <div class="weighted-section">
+        <div class="weighted-section" id="weighted-section">
           <div class="weighted-header">
             <span class="weighted-title" id="ws-title">Weighted Criteria</span>
-            <button class="weighted-toggle" id="ws-toggle-btn" onclick="toggleWS()">Show Details</button>
           </div>
           <div class="overall-row">
             <span class="overall-label" id="lbl-overall">Overall Score</span>

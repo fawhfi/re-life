@@ -18,6 +18,15 @@ CNN_IMG_SIZE = 224
 CNN_MEAN = [0.485, 0.456, 0.406]
 CNN_STD  = [0.229, 0.224, 0.225]
 
+CNN_LABELS = {
+    "glass": "Glass",
+    "metal": "Metal",
+    "organic": "Organic",
+    "paper": "Paper",
+    "plastic": "Plastic",
+    "ewaste": "E-waste",
+}
+
 CLASSIFIER_MATERIAL_MAP = {
     "glass":   {"material": "glass",       "standard_type": "general", "eco_rate": 4, "recycle_rate": 5, "description": "Glass container — infinitely recyclable."},
     "metal":   {"material": "metal",       "standard_type": "general", "eco_rate": 4, "recycle_rate": 5, "description": "Metal can — highly recyclable."},
@@ -25,15 +34,6 @@ CLASSIFIER_MATERIAL_MAP = {
     "paper":   {"material": "paper",       "standard_type": "general", "eco_rate": 5, "recycle_rate": 5, "description": "Paper / cardboard — biodegradable."},
     "plastic": {"material": "plastic",     "standard_type": "general", "eco_rate": 2, "recycle_rate": 3, "description": "Plastic container — limited recyclability."},
     "ewaste":  {"material": "plastic",     "standard_type": "general", "eco_rate": 2, "recycle_rate": 3, "description": "Electronic waste — contains hazardous materials."},
-}
-
-CLASSIFIER_NAME_POOL = {
-    "glass":   ["Glass Bottle", "Glass Jar", "Glass Container"],
-    "metal":   ["Aluminum Can", "Metal Tin", "Steel Container"],
-    "organic": ["Food Waste", "Organic Scrap", "Compostable Item"],
-    "paper":   ["Cardboard Box", "Paper Package", "Paper Carton"],
-    "plastic": ["Plastic Bottle", "Plastic Container", "Plastic Packaging"],
-    "ewaste":  ["Electronic Device", "E-Waste Item", "Electronic Component"],
 }
 
 _model_path = root_dir / "models" / "model_INT8.onnx"
@@ -65,8 +65,7 @@ def classify_image(image_bytes: bytes) -> tuple[str, float]:
 
 def classifier_response(category: str, confidence: float, mode: str) -> dict:
     info  = CLASSIFIER_MATERIAL_MAP.get(category, CLASSIFIER_MATERIAL_MAP["plastic"])
-    names = CLASSIFIER_NAME_POOL.get(category, CLASSIFIER_NAME_POOL["plastic"])
-    name  = random.choice(names)
+    label = CNN_LABELS.get(category, category.replace("_", " ").title())
     eco   = info["eco_rate"]
     rec   = info["recycle_rate"]
     base  = round(((eco + rec) / 2) * 20)
@@ -74,15 +73,18 @@ def classifier_response(category: str, confidence: float, mode: str) -> dict:
     m = info["material"]
     disp = HK_DISPOSAL.get(m, HK_DISPOSAL["plastic"])
     return {
-        "name": name, "brand": "", "category": category,
+        "name": label, "brand": "", "category": category,
+        "waste_type": category,
+        "waste_label": label,
+        "classifier_source": "cnn",
         "standard_type": info["standard_type"],
-        "description": f"{info['description']} (Server CNN, {confidence:.0%} confidence)",
+        "description": "",
         "material": m, "eco_rate": eco, "recycle_rate": rec,
         "weighted_scores": {"a": jitter(), "b": jitter(), "c": jitter(), "d": jitter(), "e": jitter()},
         "disposal_guide": disp.get("method", ""),
         "precaution": "Server-side classification — verify manually for hazardous items.",
         "disposal_info": disp,
-        "alternative": {"name": "Eco-Friendly Alternative (CNN)", "eco_rate": 5, "recycle_rate": 5} if mode == "purchase" else None,
+        "alternative": None,
     }
 
 def upload_image(contents: bytes, filename: str) -> str:

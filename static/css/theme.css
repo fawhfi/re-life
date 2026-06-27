@@ -193,6 +193,24 @@
 [data-theme="dark"] .policy-card { color: #e5e7e5; }
 [data-theme="dark"] .rewards-item-btn--can-buy { color: #e5e7e5; }
 [data-theme="dark"] .grade-tag { color: #e5e7e5; }
+[data-theme="dark"] .weather-overlay { background: rgba(0, 0, 0, 0.48); }
+[data-theme="dark"] .weather-panel {
+    background: rgba(20, 28, 20, 0.94);
+    border-color: rgba(255, 255, 255, 0.08);
+    color: var(--color-gray-800);
+}
+[data-theme="dark"] .weather-close,
+[data-theme="dark"] .weather-panel-stat {
+    background: rgba(20, 28, 20, 0.78);
+    border-color: rgba(255, 255, 255, 0.08);
+}
+[data-theme="dark"] .weather-panel-title { color: var(--color-gray-800); }
+[data-theme="dark"] .weather-panel-subtitle,
+[data-theme="dark"] .weather-panel-callout-body { color: var(--color-gray-500); }
+[data-theme="dark"] .weather-panel-callout {
+    background: rgba(20, 28, 20, 0.72);
+    border-color: rgba(255, 255, 255, 0.08);
+}
 
 /* ── Dark mode: scan mode buttons ─────────────────────────────────── */
 [data-theme="dark"] .scan-btn--active.scan-btn--dispose,

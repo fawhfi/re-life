@@ -169,8 +169,8 @@ body {
     will-change: opacity;
     backface-visibility: hidden;
 }
-/* Other elements keep transform for GPU acceleration */
-.card, .scan-btn, .tab, .modal, .nav-btn-icon {
+/* Keep glass surfaces on the normal paint path so backdrop filters stay visible on iOS */
+.scan-btn, .nav-btn-icon {
     will-change: transform, opacity;
     backface-visibility: hidden;
     transform: translate3d(0, 0, 0);
@@ -225,6 +225,22 @@ body {
     box-shadow: inset 0 1px 1px rgba(255,255,255,0.18);
     color: var(--color-gray-800);
     min-width: 0;
+    appearance: none;
+    -webkit-appearance: none;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+    transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+
+.header-weather:hover {
+    transform: translateY(-1px);
+    background: rgba(255,255,255,0.16);
+}
+
+.header-weather:focus-visible {
+    outline: 2px solid rgba(56, 122, 77, 0.45);
+    outline-offset: 2px;
 }
 
 .header-weather-emoji {
@@ -1768,6 +1784,145 @@ body {
 @keyframes bgShift {
     0%, 100% { background-position: 0% 50%; }
     50%      { background-position: 100% 50%; }
+}
+
+/* ── Weather Details ───────────────────────────────────────────────── */
+.weather-overlay {
+    position: fixed;
+    inset: 0;
+    display: none;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 84px 16px 20px;
+    background: rgba(6, 10, 6, 0.32);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    z-index: 120;
+    opacity: 0;
+}
+
+.weather-overlay.is-shown {
+    display: flex;
+}
+
+.weather-panel {
+    position: relative;
+    width: min(100%, 420px);
+    border-radius: 18px;
+    padding: 18px;
+    background: rgba(255, 255, 255, 0.94);
+    backdrop-filter: blur(22px) saturate(160%);
+    -webkit-backdrop-filter: blur(22px) saturate(160%);
+    border: 1px solid rgba(255, 255, 255, 0.58);
+    box-shadow: 0 18px 60px rgba(0, 0, 0, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.35);
+    color: var(--color-gray-800);
+    will-change: transform, opacity;
+}
+
+.weather-close {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    width: 28px;
+    height: 28px;
+    border: 0;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.72);
+    color: var(--color-gray-500);
+    font-size: 18px;
+    line-height: 1;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.weather-panel-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding-right: 34px;
+    margin-bottom: 14px;
+}
+
+.weather-panel-emoji {
+    font-size: 34px;
+    line-height: 1;
+    flex: 0 0 auto;
+}
+
+.weather-panel-copy {
+    min-width: 0;
+}
+
+.weather-panel-title {
+    font-size: 18px;
+    font-weight: 800;
+    color: var(--color-gray-800);
+}
+
+.weather-panel-subtitle {
+    font-size: 12px;
+    color: var(--color-gray-500);
+    margin-top: 2px;
+}
+
+.weather-panel-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    margin-bottom: 14px;
+}
+
+.weather-panel-stat {
+    padding: 10px 12px;
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.68);
+    border: 1px solid rgba(255, 255, 255, 0.45);
+}
+
+.weather-panel-stat-label {
+    display: block;
+    margin-bottom: 4px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-gray-400);
+}
+
+.weather-panel-stat-value {
+    font-size: 14px;
+    font-weight: 800;
+    color: var(--color-gray-800);
+}
+
+.weather-panel-callout {
+    margin-bottom: 14px;
+    padding: 12px 12px 14px;
+    border-radius: 16px;
+    border: 1px solid rgba(72, 150, 96, 0.14);
+    background: linear-gradient(180deg, rgba(72, 150, 96, 0.10), rgba(72, 150, 96, 0.04));
+}
+
+.weather-panel-callout-title {
+    margin-bottom: 6px;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-emerald-700);
+}
+
+.weather-panel-callout-body {
+    font-size: 13px;
+    line-height: 1.5;
+    color: var(--color-gray-700);
+}
+
+@supports not ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+    .weather-panel { background: rgba(255, 255, 255, 0.98); }
+    .weather-overlay { background: rgba(6, 10, 6, 0.42); }
 }
 
 /* -- Utility animation classes ---------------------------------------- */

@@ -58,6 +58,9 @@ const state = {
     debugMode: false,
     weather: null,
     weatherLoadPromise: null,
+    weatherRequestId: 0,
+    weatherLocationPrompted: false,
+    weatherDetailsOpen: false,
 };
 
 const PERF = (typeof window !== 'undefined' && window.RELIFE_PERF) ? window.RELIFE_PERF : { reducedMotion: false, lowEnd: false, motionEnabled: true };
@@ -148,18 +151,22 @@ function startClock() {
     state.clockInterval = setInterval(tick, 1000);
 }
 
-async function resolveWeatherCoordinates() {
-    if (!navigator.geolocation || !navigator.permissions || !navigator.permissions.query) {
+async function resolveWeatherCoordinates(forcePrompt = false) {
+    if (!navigator.geolocation) {
         return null;
     }
 
-    try {
-        const permission = await navigator.permissions.query({ name: 'geolocation' });
-        if (permission.state !== 'granted') {
-            return null;
+    if (!forcePrompt && navigator.permissions && navigator.permissions.query) {
+        try {
+            const permission = await navigator.permissions.query({ name: 'geolocation' });
+            if (permission.state === 'denied') {
+                return null;
+            }
+        } catch (_) {
+            // Some browsers, including iOS Safari variants, do not expose a
+            // usable Permissions API for geolocation. Fall through and ask
+            // the Geolocation API directly so the native prompt can appear.
         }
-    } catch (_) {
-        return null;
     }
 
     return new Promise(resolve => {
@@ -192,9 +199,11 @@ function updateWeatherUI() {
     if (cityEl) cityEl.textContent = weather.location || 'Hong Kong';
 
     if (widget) {
-        widget.title = weather.summary
-            ? `${weather.summary}${Number.isFinite(weather.temperature) ? ` • ${Math.round(weather.temperature)}°C` : ''}`
-            : 'Hong Kong weather';
+        const readableSummary = weather.summary || 'Hong Kong weather';
+        const readableTemp = Number.isFinite(weather.temperature) ? ` • ${Math.round(weather.temperature)}°C` : '';
+        widget.title = `${readableSummary}${readableTemp} • Tap for details`;
+        widget.setAttribute('aria-label', `${readableSummary}${readableTemp}. Tap for weather details.`);
+        widget.setAttribute('aria-expanded', state.weatherDetailsOpen ? 'true' : 'false');
         widget.classList.toggle('is-loading', !weather.loaded);
         if (!weather.loaded && !state.weather) {
             widget.setAttribute('aria-busy', 'true');
@@ -202,46 +211,198 @@ function updateWeatherUI() {
             widget.removeAttribute('aria-busy');
         }
     }
+
+    if (state.weatherDetailsOpen) {
+        renderWeatherDetails();
+    }
+}
+
+async function fetchHeaderWeatherPayload(forcePrompt = false) {
+    const coords = await resolveWeatherCoordinates(forcePrompt);
+    const query = coords ? `?lat=${encodeURIComponent(coords.latitude)}&lon=${encodeURIComponent(coords.longitude)}` : '';
+    try {
+        const response = await fetch(`/api/weather/header${query}`, {
+            headers: { Accept: 'application/json' },
+        });
+        if (!response.ok) {
+            throw new Error(`weather ${response.status}`);
+        }
+        const payload = await response.json();
+        return {
+            ...payload,
+            temperature: Number.isFinite(payload.temperature) ? payload.temperature : null,
+            loaded: true,
+        };
+    } catch (_) {
+        return {
+            emoji: '🌤️',
+            summary: 'Hong Kong weather',
+            temperature: null,
+            location: 'Hong Kong',
+            loaded: true,
+        };
+    }
+}
+
+async function commitHeaderWeather(requestId, forcePrompt = false) {
+    const payload = await fetchHeaderWeatherPayload(forcePrompt);
+    if (requestId !== state.weatherRequestId) {
+        return payload;
+    }
+    state.weather = payload;
+    updateWeatherUI();
+    const widget = document.getElementById('header-weather');
+    if (widget && MOTION_ENABLED) {
+        gsap.fromTo(widget, { y: -4, opacity: 0.5, scale: 0.98 }, { y: 0, opacity: 1, scale: 1, duration: 0.35, ease: 'power2.out', overwrite: 'auto' });
+    }
+    return state.weather;
 }
 
 async function loadHeaderWeather() {
     if (state.weatherLoadPromise) return state.weatherLoadPromise;
 
-    state.weatherLoadPromise = (async () => {
-        const coords = await resolveWeatherCoordinates();
-        const query = coords ? `?lat=${encodeURIComponent(coords.latitude)}&lon=${encodeURIComponent(coords.longitude)}` : '';
-        try {
-            const response = await fetch(`/api/weather/header${query}`, {
-                headers: { Accept: 'application/json' },
-            });
-            if (!response.ok) {
-                throw new Error(`weather ${response.status}`);
-            }
-            const payload = await response.json();
-            state.weather = {
-                ...payload,
-                temperature: Number.isFinite(payload.temperature) ? payload.temperature : null,
-                loaded: true,
-            };
-        } catch (_) {
-            state.weather = {
-                emoji: '🌤️',
-                summary: 'Hong Kong weather',
-                temperature: null,
-                location: 'Hong Kong',
-                loaded: true,
-            };
-        }
-        updateWeatherUI();
-        const widget = document.getElementById('header-weather');
-        if (widget && MOTION_ENABLED) {
-            gsap.fromTo(widget, { y: -4, opacity: 0.5, scale: 0.98 }, { y: 0, opacity: 1, scale: 1, duration: 0.35, ease: 'power2.out', overwrite: 'auto' });
-        }
-        return state.weather;
-    })();
-
+    const requestId = ++state.weatherRequestId;
+    state.weatherLoadPromise = (async () => commitHeaderWeather(requestId, false))();
     return state.weatherLoadPromise;
 }
+
+async function refreshHeaderWeather() {
+    const requestId = ++state.weatherRequestId;
+    state.weatherLoadPromise = (async () => commitHeaderWeather(requestId, true))();
+    return state.weatherLoadPromise;
+}
+
+function formatWeatherUpdatedAt(value) {
+    if (!value) return 'Live data';
+    const stamp = new Date(value);
+    if (Number.isNaN(stamp.getTime())) return 'Live data';
+    return stamp.toLocaleString('en-HK', {
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+    });
+}
+
+function getWeatherDetailModel() {
+    const weather = state.weather || {};
+    const fallback = {
+        emoji: '🌤️',
+        summary: 'Hong Kong weather',
+        temperature: null,
+        location: 'Hong Kong',
+        updated_at: null,
+        source: 'HKO Open Data',
+        callout: {
+            title: 'Hong Kong weather',
+            body: 'Small habits make the city easier to breathe in. Recycle what you can and keep the air cleaner.',
+        },
+    };
+    return { ...fallback, ...weather, callout: { ...fallback.callout, ...(weather.callout || {}) } };
+}
+
+function renderWeatherDetails() {
+    const model = getWeatherDetailModel();
+    const titleEl = document.getElementById('weather-detail-title');
+    const subtitleEl = document.getElementById('weather-detail-subtitle');
+    const emojiEl = document.getElementById('weather-detail-emoji');
+    const tempEl = document.getElementById('weather-detail-temp');
+    const locationEl = document.getElementById('weather-detail-location');
+    const updatedEl = document.getElementById('weather-detail-updated');
+    const sourceEl = document.getElementById('weather-detail-source');
+    const calloutTitleEl = document.getElementById('weather-detail-callout-title');
+    const calloutEl = document.getElementById('weather-detail-callout');
+
+    if (titleEl) titleEl.textContent = model.summary || 'Hong Kong weather';
+    if (subtitleEl) {
+        const station = model.temperature_place && model.temperature_place !== model.location ? ` • ${model.temperature_place}` : '';
+        subtitleEl.textContent = `${model.location || 'Hong Kong'}${station}`;
+    }
+    if (emojiEl) emojiEl.textContent = model.emoji || '🌤️';
+    if (tempEl) tempEl.textContent = Number.isFinite(model.temperature) ? `${Math.round(model.temperature)}°C` : '--°C';
+    if (locationEl) locationEl.textContent = model.location || 'Hong Kong';
+    if (updatedEl) updatedEl.textContent = formatWeatherUpdatedAt(model.updated_at);
+    if (sourceEl) sourceEl.textContent = model.source || 'HKO Open Data';
+    if (calloutTitleEl) calloutTitleEl.textContent = model.callout?.title || 'Hong Kong weather';
+    if (calloutEl) {
+        calloutEl.textContent = model.callout?.body || 'Small habits make the city easier to breathe in.';
+    }
+}
+
+function openWeatherDetails() {
+    const overlay = document.getElementById('weather-overlay');
+    const panel = document.getElementById('weather-panel');
+    if (!overlay || !panel) return;
+
+    state.weatherDetailsOpen = true;
+    renderWeatherDetails();
+    updateWeatherUI();
+    overlay.classList.add('is-shown');
+    overlay.setAttribute('aria-hidden', 'false');
+
+    if (MOTION_ENABLED) {
+        gsap.killTweensOf([overlay, panel]);
+        gsap.fromTo(
+            overlay,
+            { autoAlpha: 0 },
+            { autoAlpha: 1, duration: 0.18, ease: 'power1.out', overwrite: 'auto' },
+        );
+        gsap.fromTo(
+            panel,
+            { y: 14, scale: 0.97, autoAlpha: 0 },
+            { y: 0, scale: 1, autoAlpha: 1, duration: 0.34, ease: 'back.out(1.35)', overwrite: 'auto' },
+        );
+    } else {
+        overlay.style.opacity = '1';
+        panel.style.opacity = '1';
+        panel.style.transform = 'none';
+    }
+}
+
+function closeWeatherDetails() {
+    const overlay = document.getElementById('weather-overlay');
+    const panel = document.getElementById('weather-panel');
+    if (!overlay || !panel || !state.weatherDetailsOpen) return;
+
+    state.weatherDetailsOpen = false;
+    updateWeatherUI();
+
+    const finalizeClose = () => {
+        overlay.classList.remove('is-shown');
+        overlay.setAttribute('aria-hidden', 'true');
+        overlay.style.opacity = '';
+        panel.style.opacity = '';
+        panel.style.transform = '';
+    };
+
+    if (MOTION_ENABLED) {
+        gsap.killTweensOf([overlay, panel]);
+        gsap.to(panel, { y: 10, scale: 0.97, autoAlpha: 0, duration: 0.18, ease: 'power2.in', overwrite: 'auto' });
+        gsap.to(overlay, { autoAlpha: 0, duration: 0.18, ease: 'power1.in', overwrite: 'auto', onComplete: finalizeClose });
+    } else {
+        finalizeClose();
+    }
+}
+
+async function toggleWeatherDetails() {
+    if (state.weatherDetailsOpen) {
+        closeWeatherDetails();
+        return;
+    }
+
+    openWeatherDetails();
+    if (!state.weatherLocationPrompted) {
+        state.weatherLocationPrompted = true;
+        refreshHeaderWeather().catch(() => {});
+    }
+}
+
+document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') {
+        closeWeatherDetails();
+    }
+});
 
 
 // ═══════════════════════════════════════════════════════════════════════

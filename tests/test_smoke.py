@@ -40,3 +40,38 @@ class SmokeTests(unittest.TestCase):
         policy = home.headers.get("permissions-policy", "")
 
         self.assertIn("geolocation=(self)", policy)
+
+    def test_geolocation_prompt_is_not_blocked_by_permissions_api(self):
+        app_js = Path("static/app.js").read_text(encoding="utf-8")
+
+        self.assertNotIn(
+            "if (!navigator.geolocation || !navigator.permissions || !navigator.permissions.query) {",
+            app_js,
+        )
+        self.assertIn("async function resolveWeatherCoordinates(forcePrompt = false)", app_js)
+        self.assertIn("if (!forcePrompt && navigator.permissions && navigator.permissions.query)", app_js)
+        self.assertIn("async function refreshHeaderWeather()", app_js)
+        self.assertIn("commitHeaderWeather(requestId, true)", app_js)
+        self.assertIn("permission.state === 'denied'", app_js)
+        self.assertIn("navigator.geolocation.getCurrentPosition(", app_js)
+
+    def test_glass_surfaces_are_not_forced_into_composited_layers(self):
+        style = Path("static/style.css").read_text(encoding="utf-8")
+
+        self.assertNotIn(
+            ".card, .scan-btn, .tab, .modal, .nav-btn-icon {",
+            style,
+        )
+        self.assertIn(".scan-btn, .nav-btn-icon {", style)
+
+    def test_weather_details_panel_is_wired_into_the_template(self):
+        template = Path("templates/index.html").read_text(encoding="utf-8")
+        app_js = Path("static/app.js").read_text(encoding="utf-8")
+
+        self.assertIn('id="weather-overlay"', template)
+        self.assertIn('id="weather-panel"', template)
+        self.assertIn('onclick="toggleWeatherDetails()"', template)
+        self.assertIn('id="weather-detail-callout-title"', template)
+        self.assertIn('function toggleWeatherDetails()', app_js)
+        self.assertIn('function openWeatherDetails()', app_js)
+        self.assertIn('function closeWeatherDetails()', app_js)

@@ -78,6 +78,47 @@ WEATHER_ICON_SUMMARY: dict[int, str] = {
     93: "Cold",
 }
 
+WEATHER_CALLOUTS: list[tuple[tuple[str, ...], str, str]] = [
+    (
+        ("thunderstorm", "thunderstorms", "heavy rain", "rain", "shower", "showers"),
+        "Rainy day",
+        "Too much greenhouse gas traps more heat and moisture. Recycling helps keep the buildup in check.",
+    ),
+    (
+        ("sunny periods with showers", "sunny periods", "sunny intervals", "sunny", "fine"),
+        "Sunny day",
+        "If you want more days like this, keep recycling so the Earth can stay lighter and cleaner.",
+    ),
+    (
+        ("fog", "mist", "haze"),
+        "Hazy air",
+        "When the air hangs heavy, every recycled item helps reduce the pressure on the atmosphere.",
+    ),
+    (
+        ("cloudy", "overcast", "mainly cloudy"),
+        "Cloudy day",
+        "Grey skies still deserve a cleaner city. Small recycling habits add up faster than they look.",
+    ),
+    (
+        ("hot", "warm", "dry"),
+        "Hot day",
+        "Hotter days are easier to live with when we cut waste and emissions together. Recycle what you can.",
+    ),
+    (
+        ("cool", "cold"),
+        "Cool day",
+        "Cool weather feels better when we keep carbon down. Recycling is one small part of that.",
+    ),
+    (
+        ("windy",),
+        "Windy day",
+        "Fresh wind feels better when the air stays clean. Recycling helps keep the long game on track.",
+    ),
+]
+
+DEFAULT_CALLOUT_TITLE = "Hong Kong weather"
+DEFAULT_CALLOUT_BODY = "Small habits make the city easier to breathe in. Recycle what you can and keep the air cleaner."
+
 # Approximate coordinates for the HKO temperature stations shown in rhrread.
 _HK_WEATHER_STATIONS: list[tuple[str, float, float]] = [
     ("Hong Kong Observatory", 22.3022, 114.1740),
@@ -118,6 +159,21 @@ def map_weather_icon_to_emoji(icon: int | None) -> str:
 
 def map_weather_icon_to_summary(icon: int | None) -> str:
     return WEATHER_ICON_SUMMARY.get(int(icon) if icon is not None else -1, DEFAULT_SUMMARY)
+
+
+def build_weather_callout(summary: str | None, icon: int | None = None) -> dict[str, str]:
+    haystack = " ".join(
+        part
+        for part in (
+            summary or "",
+            map_weather_icon_to_summary(icon),
+        )
+        if part
+    ).lower()
+    for keywords, title, body in WEATHER_CALLOUTS:
+        if any(keyword in haystack for keyword in keywords):
+            return {"title": title, "body": body}
+    return {"title": DEFAULT_CALLOUT_TITLE, "body": DEFAULT_CALLOUT_BODY}
 
 
 def _as_float(value: Any) -> float | None:
@@ -178,6 +234,7 @@ def build_header_weather_payload(
     icon = icon_values[0] if icon_values else None
     emoji = map_weather_icon_to_emoji(icon)
     summary = map_weather_icon_to_summary(icon)
+    callout = build_weather_callout(summary, icon)
     record = _select_temperature_record(report, latitude, longitude)
     temperature = None
     temperature_place = DEFAULT_LOCATION_LABEL
@@ -200,6 +257,7 @@ def build_header_weather_payload(
         "location": location,
         "updated_at": updated_at,
         "source": "HKO Open Data",
+        "callout": callout,
     }
 
 

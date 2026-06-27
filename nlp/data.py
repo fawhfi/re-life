@@ -10,12 +10,10 @@ import torch
 from torch.utils.data import DataLoader, Dataset, WeightedRandomSampler
 from torchvision import transforms
 
+from .constants import IMG_SIZE, MEAN, STD
 from .labels import CAPTION_TEMPLATES, CLASS_TO_IDX, NUM_CLASSES, WASTE_TOKENS
 from .tokenizer import CaptionTokenizer, build_tokenizer as _build_tokenizer
 
-IMG_SIZE = 224
-MEAN = (0.485, 0.456, 0.406)
-STD = (0.229, 0.224, 0.225)
 IMAGE_EXTENSIONS = (".jpg", ".jpeg", ".png")
 
 

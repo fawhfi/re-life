@@ -49,8 +49,7 @@ def classifier_response(category: str, confidence: float, mode: str) -> dict:
     jitter = lambda: max(0, min(100, base + random.randint(-12, 12)))
     m = info["material"]
     disp = HK_DISPOSAL.get(m, HK_DISPOSAL["plastic"])
-    text = CNN_TEXT_TEMPLATES.get(category, f"This looks like {label.lower()} waste.")
-    text = f"{text} Confidence: {round(confidence * 100)}%."
+    text = f"{label} waste."
     return {
         "name": label, "brand": "", "category": category,
         "waste_type": category,
@@ -83,7 +82,9 @@ def local_scan_response(image_bytes: bytes, mode: str) -> dict:
         "waste_type": category,
         "waste_label": label,
         "classifier_source": "cnn",
-        "model_source": "transformer",
+        "model_source": prediction.get("model_source", "transformer"),
+        "runtime_source": prediction.get("runtime_source", "onnxruntime"),
+        "artifact": prediction.get("artifact", "transformer.onnx"),
         "text": prediction.get("text", ""),
         "tokens": prediction.get("tokens", []),
         "confidence": prediction.get("confidence", 0.0),

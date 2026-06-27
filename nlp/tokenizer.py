@@ -6,8 +6,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable, Sequence
 
-import torch
-
 TOKEN_PATTERN = re.compile(r"[a-z0-9]+(?:'[a-z0-9]+)?|[.!?,;:]")
 
 SPECIAL_TOKENS = ["<pad>", "<bos>", "<eos>", "<unk>"]
@@ -24,6 +22,7 @@ def detokenize(tokens: Sequence[str]) -> str:
     text = text.strip()
     if text:
         text = text[0].upper() + text[1:]
+        text = re.sub(r"(?<=[.!?]\s)([a-z])", lambda match: match.group(1).upper(), text)
     return text
 
 
@@ -85,7 +84,9 @@ class CaptionTokenizer:
     def decode(self, ids: Sequence[int], skip_special_tokens: bool = True) -> str:
         return detokenize(self.decode_ids(ids, skip_special_tokens=skip_special_tokens))
 
-    def pad_batch(self, sequences: Sequence[Sequence[int]], pad_to: int | None = None) -> torch.Tensor:
+    def pad_batch(self, sequences: Sequence[Sequence[int]], pad_to: int | None = None):
+        import torch
+
         if not sequences:
             return torch.empty(0, dtype=torch.long)
         max_len = pad_to or max(len(seq) for seq in sequences)
@@ -100,4 +101,3 @@ def build_tokenizer() -> CaptionTokenizer:
     from .labels import build_caption_catalog
 
     return CaptionTokenizer.build(build_caption_catalog())
-

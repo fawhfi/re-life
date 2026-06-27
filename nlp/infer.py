@@ -1,85 +1,103 @@
 from __future__ import annotations
 
 from functools import lru_cache
+from io import BytesIO
 from pathlib import Path
 
-import torch
+import numpy as np
+import onnxruntime as ort
 from PIL import Image
-from torchvision import transforms
 
-from .data import IMG_SIZE, MEAN, STD
+from .constants import IMG_SIZE, MEAN, STD
 from .labels import TOKEN_ALIASES, WASTE_TOKENS, default_caption_for
-from .model import load_caption_model
+from .tokenizer import build_tokenizer
 
-DEFAULT_MODEL_PATH = Path(__file__).resolve().parent / "artifacts" / "transformer.pt"
+DEFAULT_MODEL_PATH = Path(__file__).resolve().parent / "artifacts" / "transformer.onnx"
 
-
-@lru_cache(maxsize=2)
-def _load_bundle(model_path: str):
-    return load_caption_model(model_path)
+_MEAN = np.asarray(MEAN, dtype=np.float32).reshape(1, 1, 3)
+_STD = np.asarray(STD, dtype=np.float32).reshape(1, 1, 3)
 
 
-def _prepare_image(image_input: str | Path | bytes | bytearray) -> torch.Tensor:
-    transform = transforms.Compose(
-        [
-            transforms.Resize((IMG_SIZE, IMG_SIZE)),
-            transforms.ToTensor(),
-            transforms.Normalize(MEAN, STD),
-        ]
-    )
+@lru_cache(maxsize=1)
+def _get_tokenizer():
+    return build_tokenizer()
+
+
+@lru_cache(maxsize=4)
+def _load_session(model_path: str):
+    session = ort.InferenceSession(model_path, providers=["CPUExecutionProvider"])
+    inputs = session.get_inputs()
+    outputs = session.get_outputs()
+    if not inputs or not outputs:
+        raise RuntimeError(f"Invalid ONNX model: {model_path}")
+    return session, inputs[0].name, outputs[0].name
+
+
+def _resolve_model_path(model_path: str | Path) -> Path:
+    candidate = Path(model_path)
+    if candidate.exists():
+        return candidate
+
+    fallbacks = [
+        Path(__file__).resolve().parent / "artifacts" / "model_fp32.onnx",
+        Path(__file__).resolve().parents[2] / "nlp" / "artifacts" / "transformer.onnx",
+        Path(__file__).resolve().parents[2] / "nlp" / "artifacts" / "model_fp32.onnx",
+    ]
+    for fallback in fallbacks:
+        if fallback.exists():
+            return fallback
+
+    searched = ", ".join(str(path) for path in [candidate, *fallbacks])
+    raise FileNotFoundError(f"Model file not found. Searched: {searched}")
+
+
+def _prepare_image(image_input: str | Path | bytes | bytearray) -> np.ndarray:
     if isinstance(image_input, (bytes, bytearray)):
-        from io import BytesIO
-
         source = BytesIO(image_input)
     else:
         source = image_input
+
     with Image.open(source) as image:
-        return transform(image.convert("RGB")).unsqueeze(0)
+        resized = image.convert("RGB").resize((IMG_SIZE, IMG_SIZE), Image.BILINEAR)
+        array = np.asarray(resized, dtype=np.float32) / 255.0
+
+    array = (array - _MEAN) / _STD
+    array = np.transpose(array, (2, 0, 1))[None, ...]
+    return np.ascontiguousarray(array, dtype=np.float32)
 
 
-def _greedy_decode(model, memory, tokenizer, predicted_class: int, max_len: int = 16) -> tuple[str, list[str]]:
-    max_len = max(2, min(max_len, model.max_text_len))
-    token_ids = torch.tensor([[tokenizer.bos_id]], device=memory.device, dtype=torch.long)
-
-    with torch.inference_mode():
-        for _ in range(max_len - 1):
-            caption_logits = model.decode(token_ids, memory)
-            next_logits = caption_logits[:, -1, :]
-            next_id = next_logits.argmax(dim=-1, keepdim=True)
-            token_ids = torch.cat([token_ids, next_id], dim=1)
-            if int(next_id.item()) == tokenizer.eos_id:
-                break
-
-    decoded_tokens = tokenizer.decode_ids(token_ids[0].tolist())
-    decoded_text = tokenizer.decode(token_ids[0].tolist())
-    if len(decoded_tokens) <= 3 or "waste" not in decoded_text.lower():
-        fallback = default_caption_for(WASTE_TOKENS[predicted_class])
-        fallback_ids = tokenizer.encode(fallback)
-        decoded_tokens = tokenizer.decode_ids(fallback_ids)
-        decoded_text = tokenizer.decode(fallback_ids)
-    return decoded_text, decoded_tokens
+def _softmax(logits: np.ndarray) -> np.ndarray:
+    logits = logits.astype(np.float32, copy=False)
+    shifted = logits - logits.max(axis=-1, keepdims=True)
+    exp = np.exp(shifted)
+    return exp / exp.sum(axis=-1, keepdims=True)
 
 
-def predict_image(image_path: str | Path | bytes | bytearray, model_path: str | Path = DEFAULT_MODEL_PATH):
-    model_file = Path(model_path)
-    if not model_file.exists():
-        raise FileNotFoundError(f"Model file not found: {model_file}")
-
-    model, tokenizer, _ = _load_bundle(str(model_file.resolve()))
+def predict_image(
+    image_path: str | Path | bytes | bytearray,
+    model_path: str | Path = DEFAULT_MODEL_PATH,
+):
+    model_file = _resolve_model_path(model_path)
+    session, input_name, output_name = _load_session(str(model_file.resolve()))
     image_tensor = _prepare_image(image_path)
 
-    with torch.inference_mode():
-        class_logits, memory = model.encode_images(image_tensor)
-        probabilities = torch.softmax(class_logits, dim=-1)[0]
-        index = int(probabilities.argmax().item())
-        text, tokens = _greedy_decode(model, memory, tokenizer, index)
-
+    logits = session.run([output_name], {input_name: image_tensor})[0]
+    probabilities = _softmax(logits)[0]
+    index = int(probabilities.argmax())
     token = WASTE_TOKENS[index]
+
+    tokenizer = _get_tokenizer()
+    caption = default_caption_for(token)
+    caption_ids = tokenizer.encode(caption)
+
     return {
         "classifier_source": "nlp",
+        "model_source": "transformer",
+        "runtime_source": "onnxruntime",
+        "artifact": model_file.name,
         "waste_type": token,
         "waste_label": TOKEN_ALIASES[token],
-        "text": text,
-        "tokens": tokens,
-        "confidence": float(probabilities[index].item()),
+        "text": tokenizer.decode(caption_ids),
+        "tokens": tokenizer.decode_ids(caption_ids),
+        "confidence": float(probabilities[index]),
     }

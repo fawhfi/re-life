@@ -1,19 +1,6 @@
-from .data import (
-    IMG_SIZE,
-    MEAN,
-    STD,
-    WasteCaptionDataset,
-    build_caption_dataloaders,
-    build_caption_datasets,
-    build_dataloaders,
-    build_datasets,
-    build_tokenizer,
-)
-from .labels import CLASS_TO_IDX, NUM_CLASSES, TOKEN_ALIASES, WASTE_TOKENS
-from .model import WasteCaptionTransformer, WasteStudent, build_model, load_caption_model
-from .tokenizer import CaptionTokenizer
-
-WasteDataset = WasteCaptionDataset
+from .constants import IMG_SIZE, MEAN, STD
+from .labels import CLASS_TO_IDX, NUM_CLASSES, TOKEN_ALIASES, WASTE_TOKENS, default_caption_for
+from .tokenizer import CaptionTokenizer, build_tokenizer
 
 __all__ = [
     "CLASS_TO_IDX",
@@ -24,15 +11,15 @@ __all__ = [
     "STD",
     "TOKEN_ALIASES",
     "WASTE_TOKENS",
-    "WasteCaptionDataset",
-    "WasteCaptionTransformer",
-    "WasteDataset",
-    "WasteStudent",
-    "build_caption_dataloaders",
-    "build_caption_datasets",
-    "build_dataloaders",
-    "build_datasets",
-    "build_model",
     "build_tokenizer",
-    "load_caption_model",
+    "default_caption_for",
+    "predict_image",
 ]
+
+
+def __getattr__(name: str):
+    if name == "predict_image":
+        from .infer import predict_image
+
+        return predict_image
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

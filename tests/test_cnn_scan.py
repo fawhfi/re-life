@@ -40,6 +40,8 @@ class CnnScanTests(unittest.TestCase):
         result = response.json()
         self.assertEqual(result["classifier_source"], "cnn")
         self.assertEqual(result["model_source"], "transformer")
+        self.assertEqual(result["runtime_source"], "onnxruntime")
+        self.assertTrue(result["artifact"].endswith(".onnx"))
         self.assertIn(
             result["waste_type"],
             {"glass", "metal", "organic", "paper", "plastic", "ewaste"},

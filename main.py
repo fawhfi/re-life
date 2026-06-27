@@ -184,6 +184,8 @@ async def scan_item_ai(request: Request, file: UploadFile = File(...), mode: str
         print(f"[Classifier] Remote AI error: {str(remote_e)[:200]}")
         try:
             ai = local_scan_response(contents, mode)
+            ai["ai_error"] = "AI failed to call, using fallback."
+            ai["fallback_used"] = True
         except Exception as cls_e:
             print(f"[Classifier] Local transformer error: {str(cls_e)[:200]}")
             return JSONResponse({"error": "Image analysis failed", "mode": mode, "schema_id": sid}, 500)

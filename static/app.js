@@ -489,11 +489,6 @@ async function doScan() {
         const res = await fetch('/api/scan/ai', { method: 'POST', body: fd });
         const data = await res.json();
 
-        // If AI failed, fall back to on-device CNN classifier
-        if (data.classifier_fallback) {
-            throw new Error('classifier_fallback');
-        }
-
         data.mode = data.mode || state.scanMode;
 
         // Enrich if backend didn't fully score
@@ -557,7 +552,6 @@ function showScanResult(item) {
         imgContainer.appendChild(img);
     }
 
-    const isCnn = item.classifier_source === 'cnn';
     const brandEl = document.getElementById('result-brand');
     const descEl = document.getElementById('result-desc');
     const ratingsEl = document.getElementById('result-ratings');
@@ -568,10 +562,11 @@ function showScanResult(item) {
     const proveBtn = document.getElementById('lbl-prove-swap');
 
     // Basic info
-    document.getElementById('result-name').textContent = isCnn ? (item.waste_label || item.name || '') : item.name;
+    document.getElementById('result-name').textContent = item.name || item.waste_label || item.category || '';
     if (brandEl) {
-        brandEl.textContent = isCnn ? '' : (item.brand || item.category || '');
-        brandEl.classList.toggle('hidden', isCnn);
+        const brandText = item.brand || item.category || '';
+        brandEl.textContent = brandText;
+        brandEl.classList.toggle('hidden', !brandText);
     }
     if (descEl) {
         const summaryText = item.text || item.description || item.disposal_guide || '';
@@ -594,20 +589,6 @@ function showScanResult(item) {
         errEl.style.display = 'block';
     } else {
         errEl.style.display = 'none';
-    }
-
-    if (isCnn) {
-        if (ratingsEl) ratingsEl.classList.add('hidden');
-        if (alt) alt.classList.add('hidden');
-        if (weightedSection) weightedSection.classList.add('hidden');
-        if (weightedDetail) {
-            weightedDetail.innerHTML = '';
-            weightedDetail.classList.remove('is-open');
-        }
-        if (guide) guide.classList.add('hidden');
-        if (proveBtn) proveBtn.classList.add('hidden');
-        state.lastScanResult = item;
-        return;
     }
 
     if (ratingsEl) ratingsEl.classList.remove('hidden');

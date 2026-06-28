@@ -19,37 +19,22 @@ class ConfigRouteTests(unittest.TestCase):
         self.assertEqual(
             set(response.json().keys()),
             {
-                "apiKey",
-                "authDomain",
-                "projectId",
-                "storageBucket",
-                "messagingSenderId",
-                "appId",
-                "databaseURL",
+                "supabaseUrl",
+                "supabaseAnonKey",
             },
         )
 
     def test_config_route_reads_system_env(self):
         overrides = {
-            "FIREBASE_API_KEY": "test-api-key",
-            "FIREBASE_AUTH_DOMAIN": "test-auth-domain",
-            "FIREBASE_PROJECT_ID": "test-project-id",
-            "FIREBASE_STORAGE_BUCKET": "test-storage-bucket",
-            "FIREBASE_MESSAGING_SENDER_ID": "test-sender-id",
-            "FIREBASE_APP_ID": "test-app-id",
-            "FIREBASE_DATABASE_URL": "https://example.firebaseio.test",
+            "SUPABASE_URL": "https://example.supabase.co",
+            "SUPABASE_PUBLISHABLE_KEY": "test-publishable-key",
         }
         with patch.dict(os.environ, overrides, clear=False):
             response = self.client.get("/api/config")
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json(), {
-            "apiKey": "test-api-key",
-            "authDomain": "test-auth-domain",
-            "projectId": "test-project-id",
-            "storageBucket": "test-storage-bucket",
-            "messagingSenderId": "test-sender-id",
-            "appId": "test-app-id",
-            "databaseURL": "https://example.firebaseio.test",
+            "supabaseUrl": "https://example.supabase.co",
+            "supabaseAnonKey": "test-publishable-key",
         })
 
     def test_main_no_html_injection_helper(self):

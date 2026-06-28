@@ -27,7 +27,8 @@ class SmokeTests(unittest.TestCase):
         self.assertEqual(schemas.status_code, 200)
         self.assertEqual(config.status_code, 200)
         self.assertIn("/static/app.js", home.text)
-        self.assertIn("/static/firebase.js", home.text)
+        self.assertIn("/static/supabase.js", home.text)
+        self.assertNotIn("/static/firebase.js", home.text)
         self.assertIn("gsap.min.js", home.text)
         self.assertNotIn('gsap@3.12.5/dist/gsap.min.js" defer', home.text)
         self.assertLess(

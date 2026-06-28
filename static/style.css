@@ -983,16 +983,6 @@ body {
     color: var(--color-gray-700);
 }
 
-.weighted-toggle {
-    font-size: 9px;
-    font-weight: 700;
-    color: var(--color-emerald-700);
-    background: none;
-    border: none;
-    cursor: pointer;
-    font-family: inherit;
-}
-
 .overall-row {
     display: flex;
     align-items: center;

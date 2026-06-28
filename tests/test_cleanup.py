@@ -7,6 +7,7 @@ class CleanupTests(unittest.TestCase):
         self.assertFalse(Path("frontend").exists())
         self.assertFalse(Path("functions").exists())
         self.assertFalse(Path("CLOUDFLARE.md").exists())
+        self.assertFalse(Path("static/firebase.js").exists())
 
     def test_main_no_cloudflare_origins(self):
         source = Path("main.py").read_text(encoding="utf-8")

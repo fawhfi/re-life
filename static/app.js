@@ -81,6 +81,50 @@ function weatherTr(key, fallback) {
     return value === key ? fallback : value;
 }
 
+const GSAP_FALLBACK = (() => {
+    const noop = () => GSAP_FALLBACK;
+    return {
+        to: noop,
+        from: noop,
+        fromTo: noop,
+        set: noop,
+        killTweensOf: () => {},
+        timeline: noop,
+    };
+})();
+
+const gsap = (typeof window !== 'undefined' && window.gsap && typeof window.gsap.to === 'function')
+    ? window.gsap
+    : GSAP_FALLBACK;
+
+function readSessionState() {
+    return {
+        name: safeStorage.get('RE_LIFE_CURRENT_USER'),
+        id: safeStorage.get('RE_LIFE_CURRENT_USER_ID'),
+        key: safeStorage.get('RE_LIFE_CURRENT_USER_KEY'),
+        avatar: safeStorage.get('RE_LIFE_USER_AVATAR'),
+    };
+}
+
+function persistSessionState(session = {}) {
+    const apply = (key, value) => {
+        if (value === undefined || value === null || value === '') {
+            safeStorage.remove(key);
+        } else {
+            safeStorage.set(key, value);
+        }
+    };
+
+    apply('RE_LIFE_CURRENT_USER', session.name);
+    apply('RE_LIFE_CURRENT_USER_ID', session.id);
+    apply('RE_LIFE_CURRENT_USER_KEY', session.key);
+    apply('RE_LIFE_USER_AVATAR', session.avatar);
+}
+
+function clearSessionState() {
+    persistSessionState({});
+}
+
 
 // ═══════════════════════════════════════════════════════════════════════
 // 4. INITIALIZATION
@@ -94,7 +138,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     // Main app — redirect to login if no session
-    if (!safeStorage.get('RE_LIFE_CURRENT_USER')) {
+    const session = readSessionState();
+    if (!session.name && !session.id && !session.key) {
         window.location.replace('/login');
         return;
     }
@@ -1068,7 +1113,7 @@ function addScanToRecord() {
     }
     playBeep('success');
 
-    // Save to Firebase
+    // Save to backend storage
     FB.addItem(record).catch(err => console.error('Failed to save item:', err));
 }
 
@@ -1149,8 +1194,21 @@ function resetScan() {
 
 async function loadRecords() {
     if (typeof FB === 'undefined') { console.warn('[App] FB not ready, retrying...'); setTimeout(loadRecords, 500); return; }
+    if (!state.currentUser && !state.userId && !state.userKey) {
+        state.records = [];
+        renderRecords();
+        updateStats();
+        return;
+    }
     try {
-        const items = await FB.getItems(state.userId, state.currentUser, state.userKey);
+        state.records = [];
+        renderRecords();
+        updateStats();
+        const items = await FB.getItems(
+            state.userId || null,
+            (state.userId || state.userKey) ? null : state.currentUser,
+            state.userKey || null,
+        );
         state.records = items.map(it => ({
             id: it.id,
             name: it.name,
@@ -1660,26 +1718,40 @@ document.addEventListener('click', e => {
 
 async function initAccounts() {
     if (typeof FB === 'undefined') { console.warn('[App] FB not ready for initAccounts, retrying...'); setTimeout(initAccounts, 500); return; }
-    const stored = safeStorage.get('RE_LIFE_CURRENT_USER');
-    if (stored) {
-        state.currentUser = stored;
+    const session = readSessionState();
+    if (session.name || session.id || session.key) {
+        state.currentUser = session.name || null;
+        state.userId = session.id || null;
+        state.userKey = session.key || session.id || null;
+        state.userAvatar = session.avatar || '👤';
         try {
-            const user = await FB.getUserByName(stored);
+            let user = null;
+            const lookupId = state.userKey || state.userId;
+            if (lookupId) {
+                user = await FB.getUserById(lookupId);
+            }
+            if (!user && state.currentUser) {
+                user = await FB.getUserByName(state.currentUser);
+            }
             if (user) {
-                state.userId = user.id;
-                state.userKey = user._key || null;
+                state.currentUser = user.displayName || state.currentUser;
+                state.userId = user.id ?? state.userId;
+                state.userKey = user._key || user.public_id || user.userId || state.userKey;
                 state.spentPoints = user.spent_points || user.spentPoints || 0;
                 state.earnedPoints = user.earned_points || user.earnedPoints || 0;
                 state.claimedCoupons = user.claimed_coupons || [];
-                // Sync avatar from Firebase, fallback to localStorage
-                state.userAvatar = user.photoUrl || safeStorage.get('RE_LIFE_USER_AVATAR') || '👤';
-                safeStorage.set('RE_LIFE_USER_AVATAR', state.userAvatar);
+                state.userAvatar = user.photoUrl || session.avatar || '👤';
+                persistSessionState({
+                    name: state.currentUser,
+                    id: state.userId,
+                    key: state.userKey,
+                    avatar: state.userAvatar,
+                });
             } else {
-                state.userAvatar = safeStorage.get('RE_LIFE_USER_AVATAR') || '👤';
+                state.userAvatar = session.avatar || '👤';
             }
         } catch (_) {
-            // Offline — use localStorage
-            state.userAvatar = safeStorage.get('RE_LIFE_USER_AVATAR') || '👤';
+            state.userAvatar = session.avatar || '👤';
         }
     }
     updateHeaderUI();
@@ -1743,22 +1815,40 @@ function handleAvatarUpload(e) {
 
 function setAvatar(emoji) {
     state.userAvatar = emoji;
-    safeStorage.set('RE_LIFE_USER_AVATAR', emoji);
+    persistSessionState({
+        name: state.currentUser,
+        id: state.userId,
+        key: state.userKey,
+        avatar: emoji,
+    });
     updateHeaderUI();
-    // Save to Firebase
+    // Save to backend storage
     if (state.userKey || state.userId) {
         FB.saveUserData(state.userKey || state.userId, { photoUrl: emoji });
     }
     closeModal();
 }
 
+function resetSessionState() {
+    state.currentUser = null;
+    state.userAvatar = '👤';
+    state.userId = null;
+    state.userKey = null;
+    state.spentPoints = 0;
+    state.earnedPoints = 0;
+    state.claimedCoupons = [];
+    state.records = [];
+    state.lastScanResult = null;
+    clearSessionState();
+    updateHeaderUI();
+    renderRecords();
+    updateStats();
+}
+
 function handleLogout() {
     if (!state.currentUser) return;
     showConfirm(tr('confirmLogout'), () => {
-        state.currentUser = null;
-        state.userAvatar = '👤';
-        safeStorage.remove('RE_LIFE_CURRENT_USER');
-        safeStorage.remove('RE_LIFE_USER_AVATAR');
+        resetSessionState();
         window.location.replace('/login');
     });
 }
@@ -1766,10 +1856,7 @@ function handleLogout() {
 function toggleLogin() {
     if (state.currentUser) {
         showConfirm(tr('confirmLogout'), () => {
-            state.currentUser = null;
-            state.userAvatar = '👤';
-            safeStorage.remove('RE_LIFE_CURRENT_USER');
-            safeStorage.remove('RE_LIFE_USER_AVATAR');
+            resetSessionState();
             window.location.replace('/login');
         });
         return;
@@ -1784,9 +1871,9 @@ async function showUserPicker() {
         document.getElementById('modal-title').textContent = tr('loginAs');
         const list = users.map(u => `
             <button class="btn btn--outline btn--full" style="margin-bottom:6px;justify-content:flex-start;gap:8px"
-                    onclick="loginAs('${u.displayName}','${u.photoUrl || '👤'}','${u.id}')">
+                    onclick='loginAs(${JSON.stringify(u.displayName || '')}, ${JSON.stringify(u.photoUrl || '👤')}, ${JSON.stringify(String(u.id ?? ''))}, ${JSON.stringify(u.public_id || u.userId || '')})'>
                 <span style="font-size:20px">${u.photoUrl || '👤'}</span>
-                <span>${u.displayName}</span>
+                <span>${esc(u.displayName || '')}</span>
             </button>
         `).join('');
         document.getElementById('modal-body').innerHTML = list;
@@ -1796,20 +1883,34 @@ async function showUserPicker() {
     } catch (_) { /* offline */ }
 }
 
-async function loginAs(name, avatar, userId) {
+async function loginAs(name, avatar, userId, userKey = null) {
     state.currentUser = name;
     state.userAvatar = avatar;
     state.userId = userId || null;
-    safeStorage.set('RE_LIFE_CURRENT_USER', name);
-    safeStorage.set('RE_LIFE_USER_AVATAR', avatar);
+    state.userKey = userKey || null;
+    persistSessionState({
+        name,
+        id: state.userId,
+        key: state.userKey,
+        avatar,
+    });
     try {
-        const user = await FB.getUserByName(name);
+        const lookupId = state.userId || state.userKey || name;
+        const user = await FB.getUserById(lookupId);
         if (user) {
-            state.userId = user.id;
-            state.userKey = user._key || null;
+            state.currentUser = user.displayName || name;
+            state.userId = user.id ?? state.userId;
+            state.userKey = user._key || user.public_id || user.userId || state.userKey;
             state.spentPoints = user.spent_points || 0;
             state.earnedPoints = user.earned_points || 0;
             state.claimedCoupons = user.claimed_coupons || [];
+            state.userAvatar = user.photoUrl || avatar || '👤';
+            persistSessionState({
+                name: state.currentUser,
+                id: state.userId,
+                key: state.userKey,
+                avatar: state.userAvatar,
+            });
         }
     } catch (_) { /* offline */ }
     closeModal();

@@ -29,7 +29,7 @@ app.add_middleware(CORSMiddleware,
         "http://localhost:5173",
         "http://127.0.0.1:5173",
     ],
-    allow_methods=["GET", "POST", "DELETE"], allow_headers=["*"])
+    allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"], allow_headers=["*"])
 
 # ── Security Headers ────────────────────────────────────────────────────────
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
@@ -100,8 +100,8 @@ def _normalize_scan_payload(ai: dict, contents: bytes, filename: str, mode: str,
 # ── Pages ───────────────────────────────────────────────────────────────────
 
 @app.get("/api/config")
-async def firebase_config():
-    return JSONResponse(get_firebase_config())
+async def public_config():
+    return JSONResponse(get_public_config())
 
 
 @app.get("/api/weather/header")
@@ -126,6 +126,101 @@ async def login(request: Request):
 async def register(request: Request):
     await check_rate_limit(request, 5, 60)
     return HTMLResponse(_page("register.html"))
+
+# ── Storage endpoints ──────────────────────────────────────────────────────
+
+@app.post("/api/auth/register")
+async def auth_register(request: Request, data: dict):
+    await check_rate_limit(request, 5, 60)
+    display_name = (data.get("display_name") or data.get("displayName") or "").strip()
+    email = (data.get("email") or "").strip().lower()
+    password = data.get("password") or ""
+    try:
+        user = await create_user(display_name, password, email or None)
+    except ValueError as e:
+        return JSONResponse({"error": str(e)}, 400)
+    return {"ok": True, "user": user}
+
+
+@app.post("/api/auth/login")
+async def auth_login(request: Request, data: dict):
+    await check_rate_limit(request, 5, 60)
+    display_name = (data.get("display_name") or data.get("displayName") or "").strip()
+    password = data.get("password") or ""
+    try:
+        user = await login_user(display_name, password)
+    except ValueError as e:
+        return JSONResponse({"error": str(e)}, 400)
+    return {"ok": True, "user": user}
+
+
+@app.get("/api/users")
+async def list_users(request: Request):
+    await check_rate_limit(request, 60, 60)
+    return await get_all_users()
+
+
+@app.get("/api/users/by-name/{display_name}")
+async def user_by_name(request: Request, display_name: str):
+    await check_rate_limit(request, 60, 60)
+    user = await get_user_by_name(display_name)
+    if not user:
+        return JSONResponse({"error": "USER_NOT_FOUND"}, 404)
+    return user
+
+
+@app.get("/api/users/by-email/{email}")
+async def user_by_email(request: Request, email: str):
+    await check_rate_limit(request, 60, 60)
+    user = await get_user_by_email(email)
+    if not user:
+        return JSONResponse({"error": "USER_NOT_FOUND"}, 404)
+    return user
+
+
+@app.get("/api/users/by-id/{identifier}")
+async def user_by_id(request: Request, identifier: str):
+    await check_rate_limit(request, 60, 60)
+    user = await get_user_by_id(identifier)
+    if not user:
+        return JSONResponse({"error": "USER_NOT_FOUND"}, 404)
+    return user
+
+
+@app.patch("/api/users/{identifier}")
+async def update_user(request: Request, identifier: str, data: dict):
+    await check_rate_limit(request, 30, 60)
+    if not await save_user_data(identifier, data):
+        return JSONResponse({"error": "USER_NOT_FOUND"}, 404)
+    user = await get_user_by_id(identifier)
+    return {"ok": True, "user": user}
+
+
+@app.get("/api/records")
+async def list_records(request: Request, user_id: str | None = None, display_name: str | None = None, user_key: str | None = None):
+    await check_rate_limit(request, 60, 60)
+    return await get_items(user_id, display_name, user_key)
+
+
+@app.post("/api/records")
+async def create_record(request: Request, data: dict):
+    await check_rate_limit(request, 30, 60)
+    result = await add_item(data or {})
+    return {"ok": True, **result}
+
+
+@app.delete("/api/records")
+async def clear_records(request: Request, user_id: str | None = None, display_name: str | None = None, user_key: str | None = None):
+    await check_rate_limit(request, 30, 60)
+    await clear_all_items(user_id, display_name, user_key)
+    return {"ok": True}
+
+
+@app.delete("/api/records/{item_id}")
+async def delete_record(request: Request, item_id: str):
+    await check_rate_limit(request, 30, 60)
+    await delete_item(item_id)
+    return {"ok": True}
 
 # ── Auth endpoints ──────────────────────────────────────────────────────────
 
@@ -215,7 +310,7 @@ async def scan_item_ai(request: Request, file: UploadFile = File(...), mode: str
 @app.get("/api/news")
 async def news(request: Request):
     await check_rate_limit(request, 30, 120)
-    return await get_news_cached(db_get, db_put)
+    return await get_news_cached()
 
 @app.get("/api/schemas")
 async def schemas(request: Request):

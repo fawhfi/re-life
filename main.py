@@ -205,7 +205,10 @@ async def list_records(request: Request, user_id: str | None = None, display_nam
 @app.post("/api/records")
 async def create_record(request: Request, data: dict):
     await check_rate_limit(request, 30, 60)
-    result = await add_item(data or {})
+    try:
+        result = await add_item(data or {})
+    except ValueError as e:
+        return JSONResponse({"error": str(e)}, 400)
     return {"ok": True, **result}
 
 

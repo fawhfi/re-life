@@ -1,5 +1,8 @@
 from pathlib import Path
 import unittest
+from unittest.mock import AsyncMock, patch
+
+import data
 
 
 class RecordScopeTests(unittest.TestCase):
@@ -24,3 +27,66 @@ class RecordScopeTests(unittest.TestCase):
         self.assertIn("display_name: displayName || fallbackUserName() || \"\"", source)
         self.assertIn("user_key: userKey || \"\"", source)
         self.assertIn("async getItems(userId = null, displayName = null, userKey = null)", source)
+
+
+class RecordInsertTests(unittest.IsolatedAsyncioTestCase):
+    async def test_add_item_omits_fields_missing_from_scan_records_schema(self):
+        owner = {"id": 42, "displayName": "Alice"}
+        captured: dict[str, object] = {}
+
+        async def fake_supabase_insert(table, values, *, returning=True):
+            captured["table"] = table
+            captured["values"] = values
+            captured["returning"] = returning
+            return [{"id": 99}]
+
+        with patch.object(data, "_resolve_user_id", new=AsyncMock(return_value=owner)), \
+             patch.object(data, "supabase_enabled", return_value=True), \
+             patch.object(data, "supabase_insert", new=fake_supabase_insert):
+            result = await data.add_item(
+                {
+                    "mode": "dispose",
+                    "name": "Bottle",
+                    "description": "Plastic bottle",
+                    "image_url": "data:image/png;base64,abc",
+                    "dealt_with_method": "Rinse clean",
+                    "eco_rate": 4,
+                    "recycle_rate": 3,
+                    "overall_score": 78,
+                    "material": "plastic",
+                    "grade": "Good (B)",
+                    "grade_color": "#047857",
+                    "grade_advice": "Acceptable",
+                    "brand": "Test Brand",
+                    "category": "beverage",
+                    "weighted_scores": {"a": 60, "b": 70, "c": 80, "d": 90, "e": 50},
+                    "schema_id": "food_new",
+                    "alternative": None,
+                    "precaution": "Keep away from heat",
+                    "userId": 42,
+                    "userName": "Alice",
+                }
+            )
+
+        self.assertEqual(result, {"id": 99})
+        self.assertEqual(captured["table"], "scan_records")
+        self.assertNotIn("grade_color", captured["values"])
+        self.assertNotIn("grade_advice", captured["values"])
+        self.assertEqual(captured["values"]["user_id"], 42)
+
+    async def test_add_item_requires_a_resolved_user(self):
+        async def fake_supabase_insert(*args, **kwargs):
+            raise AssertionError("insert should not be attempted without a user")
+
+        with patch.object(data, "_resolve_user_id", new=AsyncMock(return_value=None)), \
+             patch.object(data, "supabase_enabled", return_value=True), \
+             patch.object(data, "supabase_insert", new=fake_supabase_insert):
+            with self.assertRaisesRegex(ValueError, "Login required to save records"):
+                await data.add_item(
+                    {
+                        "mode": "dispose",
+                        "name": "Bottle",
+                        "overall_score": 78,
+                        "schema_id": "food_new",
+                    }
+                )

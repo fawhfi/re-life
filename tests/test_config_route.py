@@ -20,6 +20,7 @@ class ConfigRouteTests(unittest.TestCase):
             set(response.json().keys()),
             {
                 "supabaseUrl",
+                "supabasePublishableKey",
                 "supabaseAnonKey",
             },
         )
@@ -34,6 +35,7 @@ class ConfigRouteTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json(), {
             "supabaseUrl": "https://example.supabase.co",
+            "supabasePublishableKey": "test-publishable-key",
             "supabaseAnonKey": "test-publishable-key",
         })
 

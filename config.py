@@ -30,14 +30,18 @@ DEFAULT_AI_MODEL = os.getenv("DEFAULT_AI_MODEL", AVAILABLE_MODELS[0] if AVAILABL
 def get_public_config() -> dict[str, str]:
     return {
         "supabaseUrl": os.getenv("SUPABASE_URL", ""),
+        "supabasePublishableKey": os.getenv("SUPABASE_PUBLISHABLE_KEY", os.getenv("SUPABASE_ANON_KEY", "")),
         "supabaseAnonKey": os.getenv("SUPABASE_ANON_KEY", os.getenv("SUPABASE_PUBLISHABLE_KEY", "")),
     }
 
 
 PUBLIC_CONFIG = get_public_config()
 SUPABASE_URL = PUBLIC_CONFIG.get("supabaseUrl", "")
+SUPABASE_PUBLISHABLE_KEY = PUBLIC_CONFIG.get("supabasePublishableKey", "")
 SUPABASE_ANON_KEY = PUBLIC_CONFIG.get("supabaseAnonKey", "")
-SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY", os.getenv("SUPABASE_SECRET_KEY", ""))
+SUPABASE_SECRET_KEY = os.getenv("SUPABASE_SECRET_KEY", os.getenv("SUPABASE_SERVICE_ROLE_KEY", ""))
+SUPABASE_SERVICE_ROLE_KEY = SUPABASE_SECRET_KEY
+SUPABASE_JWKS_URL = os.getenv("SUPABASE_JWKS_URL", "")
 SUPABASE_DB_URL = os.getenv("SUPABASE_DB_URL", "")
 
 # ── Vercel KV / Upstash Redis ───────────────────────────────────────────────

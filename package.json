@@ -1,0 +1,8 @@
+{
+  "name": "re-life-rel",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@supabase/server": "^1.2.0"
+  }
+}

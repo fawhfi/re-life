@@ -5,7 +5,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 from dotenv import load_dotenv
-import uuid, os, random, traceback, time
+import re, uuid, os, random, traceback, time
 from pathlib import Path
 from datetime import datetime
 
@@ -13,6 +13,7 @@ from config import *
 from data import *
 from models import *
 from auth import *
+from weather import get_header_weather
 
 root_dir = Path(__file__).parent
 if os.path.exists(root_dir / ".env"):
@@ -28,7 +29,7 @@ app.add_middleware(CORSMiddleware,
         "http://localhost:5173",
         "http://127.0.0.1:5173",
     ],
-    allow_methods=["GET", "POST", "DELETE"], allow_headers=["*"])
+    allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"], allow_headers=["*"])
 
 # ── Security Headers ────────────────────────────────────────────────────────
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
@@ -38,7 +39,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response.headers["X-Frame-Options"] = "DENY"
         response.headers["X-XSS-Protection"] = "1; mode=block"
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
-        response.headers["Permissions-Policy"] = "camera=self, microphone=(), geolocation=()"
+        response.headers["Permissions-Policy"] = "camera=self, microphone=(), geolocation=(self)"
         response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
         return response
 
@@ -50,11 +51,66 @@ app.mount("/static", StaticFiles(directory=root_dir / "static"), name="static")
 def _page(path: str) -> str:
     return (root_dir / "templates" / path).read_text(encoding="utf-8")
 
+def _infer_waste_type(payload: dict) -> str:
+    haystack = " ".join(
+        str(payload.get(key, ""))
+        for key in ("waste_type", "material", "category", "name", "description")
+    ).lower()
+    if "glass" in haystack:
+        return "glass"
+    if any(token in haystack for token in ("metal", "aluminum", "aluminium", "steel", "tin")):
+        return "metal"
+    if any(token in haystack for token in ("organic", "compost", "food")):
+        return "organic"
+    if any(token in haystack for token in ("paper", "cardboard", "carton", "wood")):
+        return "paper"
+    if any(token in haystack for token in ("ewaste", "e-waste", "electronic")):
+        return "ewaste"
+    return "plastic"
+
+def _normalize_scan_payload(ai: dict, contents: bytes, filename: str, mode: str, sid: str) -> dict:
+    result = dict(ai or {})
+    ext = Path(str(filename)).suffix or ".png"
+    fn = f"{uuid.uuid4()}{ext}"
+    result["image_url"] = upload_image(contents, fn)
+    result["mode"] = mode
+    result["id"] = result.get("id") or str(uuid.uuid4())
+    result["timestamp"] = datetime.now().isoformat()
+    result["schema_id"] = sid
+    if mode != "purchase":
+        result["alternative"] = None
+
+    waste_type = result.get("waste_type") or _infer_waste_type(result)
+    result["waste_type"] = waste_type
+
+    is_local = result.get("classifier_source") == "cnn"
+    result.setdefault("classifier_source", "cnn" if is_local else DEFAULT_AI_MODEL)
+    result.setdefault("model_source", "transformer" if is_local else DEFAULT_AI_MODEL)
+    result.setdefault("runtime_source", "onnxruntime" if is_local else "remote")
+    result.setdefault("artifact", "transformer.onnx" if is_local else result.get("model_source", DEFAULT_AI_MODEL))
+    result.setdefault("waste_label", CNN_LABELS.get(waste_type, waste_type.replace("_", " ").title()))
+
+    text = result.get("text") or result.get("description") or result.get("disposal_guide") or f"{result['waste_label']} waste."
+    result["text"] = text
+    if not result.get("tokens"):
+        result["tokens"] = [token for token in re.findall(r"[A-Za-z0-9]+", text.lower()) if token]
+    result.setdefault("confidence", 0.0)
+    return result
+
 # ── Pages ───────────────────────────────────────────────────────────────────
 
 @app.get("/api/config")
-async def firebase_config():
-    return JSONResponse(get_firebase_config())
+async def public_config():
+    return JSONResponse(get_public_config())
+
+
+@app.get("/api/weather/header")
+async def weather_header(request: Request, lat: float | None = None, lon: float | None = None):
+    await check_rate_limit(request, 60, 60)
+    payload = await get_header_weather(latitude=lat, longitude=lon)
+    response = JSONResponse(payload)
+    response.headers["Cache-Control"] = "private, max-age=300"
+    return response
 
 @app.get("/", response_class=HTMLResponse)
 async def root(request: Request):
@@ -70,6 +126,101 @@ async def login(request: Request):
 async def register(request: Request):
     await check_rate_limit(request, 5, 60)
     return HTMLResponse(_page("register.html"))
+
+# ── Storage endpoints ──────────────────────────────────────────────────────
+
+@app.post("/api/auth/register")
+async def auth_register(request: Request, data: dict):
+    await check_rate_limit(request, 5, 60)
+    display_name = (data.get("display_name") or data.get("displayName") or "").strip()
+    email = (data.get("email") or "").strip().lower()
+    password = data.get("password") or ""
+    try:
+        user = await create_user(display_name, password, email or None)
+    except ValueError as e:
+        return JSONResponse({"error": str(e)}, 400)
+    return {"ok": True, "user": user}
+
+
+@app.post("/api/auth/login")
+async def auth_login(request: Request, data: dict):
+    await check_rate_limit(request, 5, 60)
+    display_name = (data.get("display_name") or data.get("displayName") or "").strip()
+    password = data.get("password") or ""
+    try:
+        user = await login_user(display_name, password)
+    except ValueError as e:
+        return JSONResponse({"error": str(e)}, 400)
+    return {"ok": True, "user": user}
+
+
+@app.get("/api/users")
+async def list_users(request: Request):
+    await check_rate_limit(request, 60, 60)
+    return await get_all_users()
+
+
+@app.get("/api/users/by-name/{display_name}")
+async def user_by_name(request: Request, display_name: str):
+    await check_rate_limit(request, 60, 60)
+    user = await get_user_by_name(display_name)
+    if not user:
+        return JSONResponse({"error": "USER_NOT_FOUND"}, 404)
+    return user
+
+
+@app.get("/api/users/by-email/{email}")
+async def user_by_email(request: Request, email: str):
+    await check_rate_limit(request, 60, 60)
+    user = await get_user_by_email(email)
+    if not user:
+        return JSONResponse({"error": "USER_NOT_FOUND"}, 404)
+    return user
+
+
+@app.get("/api/users/by-id/{identifier}")
+async def user_by_id(request: Request, identifier: str):
+    await check_rate_limit(request, 60, 60)
+    user = await get_user_by_id(identifier)
+    if not user:
+        return JSONResponse({"error": "USER_NOT_FOUND"}, 404)
+    return user
+
+
+@app.patch("/api/users/{identifier}")
+async def update_user(request: Request, identifier: str, data: dict):
+    await check_rate_limit(request, 30, 60)
+    if not await save_user_data(identifier, data):
+        return JSONResponse({"error": "USER_NOT_FOUND"}, 404)
+    user = await get_user_by_id(identifier)
+    return {"ok": True, "user": user}
+
+
+@app.get("/api/records")
+async def list_records(request: Request, user_id: str | None = None, display_name: str | None = None, user_key: str | None = None):
+    await check_rate_limit(request, 60, 60)
+    return await get_items(user_id, display_name, user_key)
+
+
+@app.post("/api/records")
+async def create_record(request: Request, data: dict):
+    await check_rate_limit(request, 30, 60)
+    result = await add_item(data or {})
+    return {"ok": True, **result}
+
+
+@app.delete("/api/records")
+async def clear_records(request: Request, user_id: str | None = None, display_name: str | None = None, user_key: str | None = None):
+    await check_rate_limit(request, 30, 60)
+    await clear_all_items(user_id, display_name, user_key)
+    return {"ok": True}
+
+
+@app.delete("/api/records/{item_id}")
+async def delete_record(request: Request, item_id: str):
+    await check_rate_limit(request, 30, 60)
+    await delete_item(item_id)
+    return {"ok": True}
 
 # ── Auth endpoints ──────────────────────────────────────────────────────────
 
@@ -131,35 +282,21 @@ async def scan_item_ai(request: Request, file: UploadFile = File(...), mode: str
     if len(contents) > MAX_UPLOAD_BYTES:
         return JSONResponse({"error": f"File too large (max {MAX_UPLOAD_BYTES // (1024*1024)} MB)"}, 413)
     sid = f"{item_type}_{item_state}"
-    ai = None; ai_error = None
-    if debug.lower() == "true":
-        ai_error = "Debug mode — skipping AI"
-    elif DEFAULT_AI_MODEL not in AVAILABLE_MODELS:
-        ai_error = f"Model '{DEFAULT_AI_MODEL}' not available"
-    else:
-        for attempt in range(3):
-            try:
-                ai = await ai_analyze(contents, sid)
-                break
-            except Exception as e:
-                ai_error = str(e)
-                print(f"[AI] Error attempt {attempt+1}: {ai_error[:200]}")
-                if attempt < 2:
-                    import asyncio; await asyncio.sleep(1)
-    if ai is None:
-        print(f"[Classifier] AI failed, using CNN…")
+    ai = None
+    try:
+        ai = await ai_analyze(contents, sid)
+    except Exception as remote_e:
+        print(f"[Classifier] Remote AI error: {str(remote_e)[:200]}")
         try:
-            cat, conf = classify_image(contents)
-            ai = classifier_response(cat, conf, mode)
+            ai = local_scan_response(contents, mode)
+            ai["ai_error"] = "AI failed to call, using fallback."
+            ai["fallback_used"] = True
         except Exception as cls_e:
-            print(f"[Classifier] CNN fallback error: {str(cls_e)}")
+            print(f"[Classifier] Local transformer error: {str(cls_e)[:200]}")
             return JSONResponse({"error": "Image analysis failed", "mode": mode, "schema_id": sid}, 500)
 
-    ext = Path(str(file.filename)).suffix or ".png"
-    fn = f"{uuid.uuid4()}{ext}"
-    ai["image_url"] = upload_image(contents, fn)
-    ai["mode"] = mode; ai["id"] = str(uuid.uuid4()); ai["timestamp"] = datetime.now().isoformat(); ai["schema_id"] = sid
-    if mode != "purchase": ai["alternative"] = None
+    ai = _normalize_scan_payload(ai, contents, file.filename, mode, sid)
+
     scores = ai.get("weighted_scores", {"a": 50, "b": 50, "c": 50, "d": 50, "e": 50})
     ov = calc_weighted(scores, sid); g = get_grade(ov)
     ai["overall_score"] = ov; ai["grade"] = g["grade"]; ai["grade_advice"] = g["advice"]; ai["grade_color"] = g["color"]
@@ -173,7 +310,7 @@ async def scan_item_ai(request: Request, file: UploadFile = File(...), mode: str
 @app.get("/api/news")
 async def news(request: Request):
     await check_rate_limit(request, 30, 120)
-    return await get_news_cached(db_get, db_put)
+    return await get_news_cached()
 
 @app.get("/api/schemas")
 async def schemas(request: Request):

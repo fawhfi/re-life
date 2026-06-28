@@ -56,10 +56,74 @@ const state = {
     rewards: [],
     clockInterval: null,
     debugMode: false,
+    weather: null,
+    weatherLoadPromise: null,
+    weatherRequestId: 0,
+    weatherLocationPrompted: false,
+    weatherDetailsOpen: false,
 };
 
 const PERF = (typeof window !== 'undefined' && window.RELIFE_PERF) ? window.RELIFE_PERF : { reducedMotion: false, lowEnd: false, motionEnabled: true };
 const MOTION_ENABLED = PERF.motionEnabled !== false;
+const NEWS_CACHE_KEY = 'RE_LIFE_NEWS_CACHE';
+const NEWS_FALLBACK_ITEMS = [
+    { title: 'HK expands GREEN@COMMUNITY recycling network', source: 'SCMP', link: '', snippet: '' },
+    { title: 'New sorting systems improve plastic recovery', source: 'BBC News', link: '', snippet: '' },
+    { title: 'Ocean cleanup projects scale up across Asia', source: 'Reuters', link: '', snippet: '' },
+    { title: 'Cities push harder on waste reduction policies', source: 'The Guardian', link: '', snippet: '' },
+    { title: 'Fresh recycling habits cut carbon at home', source: 'CNN', link: '', snippet: '' },
+];
+let tipsSwitchTimer = null;
+let tipsRenderToken = 0;
+
+function weatherTr(key, fallback) {
+    const value = tr(key);
+    return value === key ? fallback : value;
+}
+
+const GSAP_FALLBACK = (() => {
+    const noop = () => GSAP_FALLBACK;
+    return {
+        to: noop,
+        from: noop,
+        fromTo: noop,
+        set: noop,
+        killTweensOf: () => {},
+        timeline: noop,
+    };
+})();
+
+const gsap = (typeof window !== 'undefined' && window.gsap && typeof window.gsap.to === 'function')
+    ? window.gsap
+    : GSAP_FALLBACK;
+
+function readSessionState() {
+    return {
+        name: safeStorage.get('RE_LIFE_CURRENT_USER'),
+        id: safeStorage.get('RE_LIFE_CURRENT_USER_ID'),
+        key: safeStorage.get('RE_LIFE_CURRENT_USER_KEY'),
+        avatar: safeStorage.get('RE_LIFE_USER_AVATAR'),
+    };
+}
+
+function persistSessionState(session = {}) {
+    const apply = (key, value) => {
+        if (value === undefined || value === null || value === '') {
+            safeStorage.remove(key);
+        } else {
+            safeStorage.set(key, value);
+        }
+    };
+
+    apply('RE_LIFE_CURRENT_USER', session.name);
+    apply('RE_LIFE_CURRENT_USER_ID', session.id);
+    apply('RE_LIFE_CURRENT_USER_KEY', session.key);
+    apply('RE_LIFE_USER_AVATAR', session.avatar);
+}
+
+function clearSessionState() {
+    persistSessionState({});
+}
 
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -74,7 +138,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     // Main app — redirect to login if no session
-    if (!safeStorage.get('RE_LIFE_CURRENT_USER')) {
+    const session = readSessionState();
+    if (!session.name && !session.id && !session.key) {
         window.location.replace('/login');
         return;
     }
@@ -87,9 +152,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (langInd) langInd.textContent = state.lang === 'en' ? 'Eng' : '中文';
     // Load i18n then update labels — avoids showing English briefly
     if (typeof I18N !== 'undefined') {
-        I18N.load(state.lang).then(updateAllLabels);
+        I18N.load(state.lang).then(() => {
+            updateAllLabels();
+            updateWeatherUI();
+        });
     } else {
         updateAllLabels();
+        updateWeatherUI();
     }
 
     startClock();
@@ -98,17 +167,28 @@ document.addEventListener('DOMContentLoaded', async () => {
     initTheme();
     setScanModeUI('dispose');
     updateHeaderUI();
+    loadHeaderWeather();
+    loadTips();
 
     // Critical: load user before records so we never paint another user's data
     await initAccounts();
     await loadRecords();
 
     // Non-critical: lazy load in background
-    requestIdleCallback ? requestIdleCallback(() => {
-        loadTips(); loadRewards(); loadFact(); detectCamera();
-    }) : setTimeout(() => {
-        loadTips(); loadRewards(); loadFact(); detectCamera();
-    }, 500);
+    const runBackgroundLoads = () => {
+        loadRewards();
+        loadFact();
+        detectCamera();
+    };
+    if (typeof window.requestIdleCallback === 'function') {
+        try {
+            window.requestIdleCallback(runBackgroundLoads, { timeout: 1200 });
+        } catch (_) {
+            setTimeout(runBackgroundLoads, 500);
+        }
+    } else {
+        setTimeout(runBackgroundLoads, 500);
+    }
 });
 
 let cameraAvailable = false;
@@ -144,6 +224,326 @@ function startClock() {
     tick();
     state.clockInterval = setInterval(tick, 1000);
 }
+
+async function resolveWeatherCoordinates(forcePrompt = false) {
+    if (!navigator.geolocation) {
+        return null;
+    }
+
+    if (!forcePrompt && navigator.permissions && navigator.permissions.query) {
+        try {
+            const permission = await navigator.permissions.query({ name: 'geolocation' });
+            if (permission.state === 'denied') {
+                return null;
+            }
+        } catch (_) {
+            // Some browsers, including iOS Safari variants, do not expose a
+            // usable Permissions API for geolocation. Fall through and ask
+            // the Geolocation API directly so the native prompt can appear.
+        }
+    }
+
+    return new Promise(resolve => {
+        navigator.geolocation.getCurrentPosition(
+            position => {
+                resolve({
+                    latitude: position.coords.latitude,
+                    longitude: position.coords.longitude,
+                });
+            },
+            () => resolve(null),
+            {
+                enableHighAccuracy: false,
+                timeout: 2500,
+                maximumAge: 300000,
+            },
+        );
+    });
+}
+
+function updateWeatherUI() {
+    const weather = state.weather || {};
+    const widget = document.getElementById('header-weather');
+    const emojiEl = document.getElementById('header-weather-emoji');
+    const tempEl = document.getElementById('header-weather-temp');
+    const cityEl = document.getElementById('header-weather-city');
+    const localizedSummary = localizeWeatherSummary(weather.summary);
+    const defaultTitle = weatherTr('weather.header.defaultTitle', 'Hong Kong weather');
+
+    if (emojiEl) emojiEl.textContent = weather.emoji || '🌤️';
+    if (tempEl) tempEl.textContent = Number.isFinite(weather.temperature) ? `${Math.round(weather.temperature)}°` : '--°';
+    if (cityEl) cityEl.textContent = localizeWeatherLocation(weather.location);
+
+    if (widget) {
+        const readableSummary = localizedSummary || defaultTitle;
+        const readableTemp = Number.isFinite(weather.temperature) ? ` • ${Math.round(weather.temperature)}°C` : '';
+        const tapForDetails = weatherTr('weather.header.tapForDetails', 'Tap for details');
+        const ariaDetails = weatherTr('weather.header.ariaDetails', 'Tap for weather details.');
+        widget.title = `${readableSummary}${readableTemp} • ${tapForDetails}`;
+        widget.setAttribute('aria-label', `${readableSummary}${readableTemp}. ${ariaDetails}`);
+        widget.setAttribute('aria-expanded', state.weatherDetailsOpen ? 'true' : 'false');
+        widget.classList.toggle('is-loading', !weather.loaded);
+        if (!weather.loaded && !state.weather) {
+            widget.setAttribute('aria-busy', 'true');
+        } else {
+            widget.removeAttribute('aria-busy');
+        }
+    }
+
+    if (state.weatherDetailsOpen) {
+        renderWeatherDetails();
+    }
+}
+
+async function fetchHeaderWeatherPayload(forcePrompt = false) {
+    const coords = await resolveWeatherCoordinates(forcePrompt);
+    const query = coords ? `?lat=${encodeURIComponent(coords.latitude)}&lon=${encodeURIComponent(coords.longitude)}` : '';
+    try {
+        const response = await fetch(`/api/weather/header${query}`, {
+            headers: { Accept: 'application/json' },
+        });
+        if (!response.ok) {
+            throw new Error(`weather ${response.status}`);
+        }
+        const payload = await response.json();
+        return {
+            ...payload,
+            temperature: Number.isFinite(payload.temperature) ? payload.temperature : null,
+            loaded: true,
+        };
+    } catch (_) {
+        return {
+            emoji: '🌤️',
+            summary: 'Hong Kong weather',
+            temperature: null,
+            location: 'Hong Kong',
+            loaded: true,
+        };
+    }
+}
+
+async function commitHeaderWeather(requestId, forcePrompt = false) {
+    const payload = await fetchHeaderWeatherPayload(forcePrompt);
+    if (requestId !== state.weatherRequestId) {
+        return payload;
+    }
+    state.weather = payload;
+    updateWeatherUI();
+    const widget = document.getElementById('header-weather');
+    if (widget && MOTION_ENABLED) {
+        gsap.fromTo(widget, { y: -4, opacity: 0.5, scale: 0.98 }, { y: 0, opacity: 1, scale: 1, duration: 0.35, ease: 'power2.out', overwrite: 'auto' });
+    }
+    return state.weather;
+}
+
+async function loadHeaderWeather() {
+    if (state.weatherLoadPromise) return state.weatherLoadPromise;
+
+    const requestId = ++state.weatherRequestId;
+    state.weatherLoadPromise = (async () => commitHeaderWeather(requestId, false))();
+    return state.weatherLoadPromise;
+}
+
+async function refreshHeaderWeather() {
+    const requestId = ++state.weatherRequestId;
+    state.weatherLoadPromise = (async () => commitHeaderWeather(requestId, true))();
+    return state.weatherLoadPromise;
+}
+
+function formatWeatherUpdatedAt(value) {
+    if (!value) return weatherTr('weather.detail.liveData', state.lang === 'zh' ? '即時資料' : 'Live data');
+    const stamp = new Date(value);
+    if (Number.isNaN(stamp.getTime())) return weatherTr('weather.detail.liveData', state.lang === 'zh' ? '即時資料' : 'Live data');
+    return stamp.toLocaleString(state.lang === 'zh' ? 'zh-HK' : 'en-HK', {
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+    });
+}
+
+function getWeatherDetailModel() {
+    const weather = state.weather || {};
+    const fallback = {
+        emoji: '🌤️',
+        summary: 'Hong Kong weather',
+        temperature: null,
+        location: 'Hong Kong',
+        updated_at: null,
+        source: 'HKO Open Data',
+        callout: {
+            title: weatherTr('weather.callout.default.title', 'Hong Kong weather'),
+            body: weatherTr(
+                'weather.callout.default.body',
+                'Small habits make the city easier to breathe in. Recycle what you can and keep the air cleaner.',
+            ),
+        },
+    };
+    return { ...fallback, ...weather, callout: { ...fallback.callout, ...(weather.callout || {}) } };
+}
+
+function getWeatherLanguage() {
+    return state.lang === 'zh' ? 'zh' : 'en';
+}
+
+function localizeWeatherSummary(summary) {
+    const defaultSummary = weatherTr('weather.summary.default', 'Hong Kong weather');
+    const key = !summary || summary === 'Hong Kong weather' ? 'weather.summary.default' : `weather.summary.${summary}`;
+    return weatherTr(key, summary || defaultSummary);
+}
+
+function localizeWeatherLocation(location) {
+    if (getWeatherLanguage() !== 'zh') {
+        return location || weatherTr('weather.location.hongKong', 'Hong Kong');
+    }
+    if (!location || location === 'Hong Kong') {
+        return weatherTr('weather.location.hongKong', '香港');
+    }
+    return location;
+}
+
+function localizeWeatherSource(source) {
+    if (getWeatherLanguage() !== 'zh') {
+        return source || weatherTr('weather.source.hkoOpenData', 'HKO Open Data');
+    }
+    if (source === 'Fallback') {
+        return weatherTr('weather.source.fallback', '後備資料');
+    }
+    if (!source || source === 'HKO Open Data') {
+        return weatherTr('weather.source.hkoOpenData', '香港天文台開放資料');
+    }
+    return source;
+}
+
+function localizeWeatherCallout(model) {
+    const defaultTitle = weatherTr('weather.callout.default.title', 'Hong Kong weather');
+    const defaultBody = weatherTr(
+        'weather.callout.default.body',
+        'Small habits make the city easier to breathe in. Recycle what you can and keep the air cleaner.',
+    );
+    const key = (model?.callout?.title && model.callout.title !== 'Hong Kong weather')
+        ? model.callout.title
+        : (model?.summary && model.summary !== 'Hong Kong weather')
+            ? model.summary
+            : 'default';
+    return {
+        title: weatherTr(`weather.callout.${key}.title`, defaultTitle),
+        body: weatherTr(`weather.callout.${key}.body`, defaultBody),
+    };
+}
+
+function getWeatherSubtitle(model) {
+    const baseLocation = localizeWeatherLocation(model.location);
+    if (model.temperature_place && model.temperature_place !== model.location) {
+        return state.lang === 'zh' ? `${baseLocation} · ${model.temperature_place}` : `${baseLocation} • ${model.temperature_place}`;
+    }
+    return baseLocation;
+}
+
+function renderWeatherDetails() {
+    const model = getWeatherDetailModel();
+    const titleEl = document.getElementById('weather-detail-title');
+    const subtitleEl = document.getElementById('weather-detail-subtitle');
+    const emojiEl = document.getElementById('weather-detail-emoji');
+    const tempEl = document.getElementById('weather-detail-temp');
+    const locationEl = document.getElementById('weather-detail-location');
+    const updatedEl = document.getElementById('weather-detail-updated');
+    const sourceEl = document.getElementById('weather-detail-source');
+    const calloutTitleEl = document.getElementById('weather-detail-callout-title');
+    const calloutEl = document.getElementById('weather-detail-callout');
+    const closeButton = document.querySelector('.weather-close');
+    const callout = localizeWeatherCallout(model);
+
+    if (titleEl) titleEl.textContent = localizeWeatherSummary(model.summary);
+    if (subtitleEl) {
+        subtitleEl.textContent = getWeatherSubtitle(model);
+    }
+    if (emojiEl) emojiEl.textContent = model.emoji || '🌤️';
+    if (tempEl) tempEl.textContent = Number.isFinite(model.temperature) ? `${Math.round(model.temperature)}°C` : '--°C';
+    if (locationEl) locationEl.textContent = localizeWeatherLocation(model.location);
+    if (updatedEl) updatedEl.textContent = formatWeatherUpdatedAt(model.updated_at);
+    if (sourceEl) sourceEl.textContent = localizeWeatherSource(model.source);
+    if (calloutTitleEl) calloutTitleEl.textContent = callout.title;
+    if (calloutEl) {
+        calloutEl.textContent = callout.body;
+    }
+    if (closeButton) closeButton.setAttribute('aria-label', weatherTr('weather.detail.close', tr('closeBtn')));
+}
+
+function openWeatherDetails() {
+    const overlay = document.getElementById('weather-overlay');
+    const panel = document.getElementById('weather-panel');
+    if (!overlay || !panel) return;
+
+    state.weatherDetailsOpen = true;
+    renderWeatherDetails();
+    updateWeatherUI();
+    overlay.classList.add('is-shown');
+    overlay.setAttribute('aria-hidden', 'false');
+
+    if (MOTION_ENABLED) {
+        gsap.killTweensOf([overlay, panel]);
+        gsap.fromTo(
+            overlay,
+            { autoAlpha: 0 },
+            { autoAlpha: 1, duration: 0.18, ease: 'power1.out', overwrite: 'auto' },
+        );
+        gsap.fromTo(
+            panel,
+            { y: 14, scale: 0.97, autoAlpha: 0 },
+            { y: 0, scale: 1, autoAlpha: 1, duration: 0.34, ease: 'back.out(1.35)', overwrite: 'auto' },
+        );
+    } else {
+        overlay.style.opacity = '1';
+        panel.style.opacity = '1';
+        panel.style.transform = 'none';
+    }
+}
+
+function closeWeatherDetails() {
+    const overlay = document.getElementById('weather-overlay');
+    const panel = document.getElementById('weather-panel');
+    if (!overlay || !panel || !state.weatherDetailsOpen) return;
+
+    state.weatherDetailsOpen = false;
+    updateWeatherUI();
+
+    const finalizeClose = () => {
+        overlay.classList.remove('is-shown');
+        overlay.setAttribute('aria-hidden', 'true');
+        overlay.style.opacity = '';
+        panel.style.opacity = '';
+        panel.style.transform = '';
+    };
+
+    if (MOTION_ENABLED) {
+        gsap.killTweensOf([overlay, panel]);
+        gsap.to(panel, { y: 10, scale: 0.97, autoAlpha: 0, duration: 0.18, ease: 'power2.in', overwrite: 'auto' });
+        gsap.to(overlay, { autoAlpha: 0, duration: 0.18, ease: 'power1.in', overwrite: 'auto', onComplete: finalizeClose });
+    } else {
+        finalizeClose();
+    }
+}
+
+async function toggleWeatherDetails() {
+    if (state.weatherDetailsOpen) {
+        closeWeatherDetails();
+        return;
+    }
+
+    openWeatherDetails();
+    if (!state.weatherLocationPrompted) {
+        state.weatherLocationPrompted = true;
+        refreshHeaderWeather().catch(() => {});
+    }
+}
+
+document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') {
+        closeWeatherDetails();
+    }
+});
 
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -489,11 +889,6 @@ async function doScan() {
         const res = await fetch('/api/scan/ai', { method: 'POST', body: fd });
         const data = await res.json();
 
-        // If AI failed, fall back to on-device CNN classifier
-        if (data.classifier_fallback) {
-            throw new Error('classifier_fallback');
-        }
-
         data.mode = data.mode || state.scanMode;
 
         // Enrich if backend didn't fully score
@@ -514,81 +909,26 @@ async function doScan() {
         console.error('Scan error:', err);
         const msg = (err.message || String(err));
         document.getElementById('scan-result').classList.remove('hidden');
+        const imgContainer = document.getElementById('result-img');
+        imgContainer.innerHTML = '';
+        imgContainer.textContent = '📦';
         document.getElementById('result-name').textContent = 'Scan Error';
         document.getElementById('result-desc').textContent = msg;
+        document.getElementById('result-desc').classList.remove('hidden');
         document.getElementById('result-brand').textContent = '';
+        document.getElementById('result-brand').classList.add('hidden');
+        document.getElementById('result-ratings').classList.add('hidden');
+        document.getElementById('result-alt').classList.add('hidden');
+        document.getElementById('weighted-section').classList.add('hidden');
+        document.getElementById('weighted-detail').classList.remove('is-open');
+        document.getElementById('disposal-guide').classList.add('hidden');
+        document.getElementById('lbl-prove-swap').classList.add('hidden');
         document.getElementById('gemini-error').textContent = '❌ ' + msg;
         document.getElementById('gemini-error').style.display = 'block';
         playBeep('error');
     } finally {
         document.getElementById('scan-status').classList.remove('is-shown');
     }
-}
-
-// ── Bar drag handlers ──────────────────────────────────────────────
-let barDragState = null;
-
-function startBarDrag(e) {
-    e.preventDefault();
-    const bar = e.currentTarget;
-    const fill = bar.querySelector('.criterion-bar-fill');
-    const key = bar.dataset.key;
-    const rect = bar.getBoundingClientRect();
-    barDragState = { bar, fill, key, rect };
-    updateBarFromEvent(e);
-    window.addEventListener('mousemove', onBarDrag);
-    window.addEventListener('mouseup', stopBarDrag);
-    window.addEventListener('touchmove', onBarDrag, { passive: false });
-    window.addEventListener('touchend', stopBarDrag);
-}
-
-function onBarDrag(e) {
-    e.preventDefault();
-    updateBarFromEvent(e);
-}
-
-function updateBarFromEvent(e) {
-    if (!barDragState) return;
-    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-    const { bar, fill, key, rect } = barDragState;
-    let pct = Math.round(((clientX - rect.left) / rect.width) * 100);
-    pct = Math.max(0, Math.min(100, pct));
-    fill.style.width = pct + '%';
-    const barColor = pct >= 70 ? '#065f46' : pct >= 50 ? '#ca8a04' : '#dc2626';
-    fill.style.background = barColor;
-    const scoreEl = bar.parentElement.querySelector('.criterion-score');
-    if (scoreEl) scoreEl.textContent = pct + '/100';
-    // Update state
-    if (state.lastScanResult && state.lastScanResult.weighted_scores) {
-        state.lastScanResult.weighted_scores[key] = pct;
-    }
-    // Recalc overall
-    recalcOverall();
-}
-
-function stopBarDrag() {
-    barDragState = null;
-    window.removeEventListener('mousemove', onBarDrag);
-    window.removeEventListener('mouseup', stopBarDrag);
-    window.removeEventListener('touchmove', onBarDrag);
-    window.removeEventListener('touchend', stopBarDrag);
-}
-
-function recalcOverall() {
-    if (!state.lastScanResult) return;
-    const scores = state.lastScanResult.weighted_scores || { a: 50, b: 50, c: 50, d: 50, e: 50 };
-    const schemaId = state.lastScanResult.schema_id || 'food_new';
-    const ov = calcWeighted(scores, schemaId);
-    const g = getGrade(ov);
-    state.lastScanResult.overall_score = ov;
-    state.lastScanResult.grade = g.grade;
-    state.lastScanResult.grade_advice = g.advice;
-    state.lastScanResult.grade_color = g.color;
-    document.getElementById('ov-score').textContent = ov;
-    document.getElementById('ov-bar-fill').style.cssText = `width:${ov}%;background:${g.color}`;
-    document.getElementById('grade-tag').textContent = g.grade;
-    document.getElementById('grade-tag').style.background = g.color;
-    document.getElementById('grade-advice').textContent = g.advice;
 }
 
 function showScanResult(item) {
@@ -612,10 +952,27 @@ function showScanResult(item) {
         imgContainer.appendChild(img);
     }
 
+    const brandEl = document.getElementById('result-brand');
+    const descEl = document.getElementById('result-desc');
+    const ratingsEl = document.getElementById('result-ratings');
+    const alt = document.getElementById('result-alt');
+    const weightedSection = document.getElementById('weighted-section');
+    const weightedDetail = document.getElementById('weighted-detail');
+    const guide = document.getElementById('disposal-guide');
+    const proveBtn = document.getElementById('lbl-prove-swap');
+
     // Basic info
-    document.getElementById('result-name').textContent = item.name;
-    document.getElementById('result-desc').textContent = item.description || '';
-    document.getElementById('result-brand').textContent = item.brand || item.category || '';
+    document.getElementById('result-name').textContent = item.name || item.waste_label || item.category || '';
+    if (brandEl) {
+        const brandText = item.brand || item.category || '';
+        brandEl.textContent = brandText;
+        brandEl.classList.toggle('hidden', !brandText);
+    }
+    if (descEl) {
+        const summaryText = item.text || item.description || item.disposal_guide || '';
+        descEl.textContent = summaryText;
+        descEl.classList.toggle('hidden', !summaryText);
+    }
 
     // Reset Add to Record button for new scan
     const addBtn = document.getElementById('lbl-add-record');
@@ -634,13 +991,14 @@ function showScanResult(item) {
         errEl.style.display = 'none';
     }
 
+    if (ratingsEl) ratingsEl.classList.remove('hidden');
+
     // Star ratings
     renderStars('result-eco-stars', item.eco_rate);
     renderStars('result-recycle-stars', item.recycle_rate);
 
     // Alternative product (purchase mode only)
     const isPurchase = item.mode === 'purchase';
-    const alt = document.getElementById('result-alt');
     if (item.alternative && isPurchase) {
         alt.classList.remove('hidden');
         document.getElementById('alt-name').textContent = item.alternative.name;
@@ -654,7 +1012,6 @@ function showScanResult(item) {
     }
 
     // Prove button — only in purchase mode
-    const proveBtn = document.getElementById('lbl-prove-swap');
     if (proveBtn) {
         if (isPurchase && item.alternative) {
             proveBtn.classList.remove('hidden');
@@ -668,6 +1025,8 @@ function showScanResult(item) {
 
     // Weighted score breakdown
     const schemaId = item.schema_id || 'food_new';
+    if (weightedSection) weightedSection.classList.remove('hidden');
+    if (weightedDetail) weightedDetail.classList.add('is-open');
     const overall = item.overall_score ||
         calcWeighted(item.weighted_scores || { a: 50, b: 50, c: 50, d: 50, e: 50 }, schemaId);
     const grade = item.grade ? { grade: item.grade, color: item.grade_color } : getGrade(overall);
@@ -690,27 +1049,27 @@ function showScanResult(item) {
     const labels = item.criteria_labels || CRITERIA_LABELS[schemaId] || CRITERIA_LABELS.food_new;
     const scores = item.weighted_scores || { a: 50, b: 50, c: 50, d: 50, e: 50 };
     const weights = SCHEMA_WEIGHTS[schemaId] || SCHEMA_WEIGHTS.food_new;
-    const detail = document.getElementById('weighted-detail');
-    detail.innerHTML = '';
+    if (weightedDetail) weightedDetail.innerHTML = '';
 
-    for (const k of ['a', 'b', 'c', 'd', 'e']) {
-        const v = scores[k] || 50;
-        const w = Math.round(weights[k] * 100);
-        const barColor = getBarColor(v);
-        detail.innerHTML += `
-            <div class="criterion-row" data-key="${k}">
-                <div class="criterion-header">
-                    <span class="criterion-name">${labels[k]} (${w}%)</span>
-                    <span class="criterion-score">${v}/100</span>
-                </div>
-                <div class="criterion-bar" data-key="${k}">
-                    <div class="criterion-bar-fill is-animated" style="width:${v}%;background:${barColor}" data-key="${k}"></div>
-                </div>
-            </div>`;
+    if (weightedDetail) {
+        for (const k of ['a', 'b', 'c', 'd', 'e']) {
+            const v = scores[k] || 50;
+            const w = Math.round(weights[k] * 100);
+            const barColor = getBarColor(v);
+            weightedDetail.innerHTML += `
+                <div class="criterion-row" data-key="${k}">
+                    <div class="criterion-header">
+                        <span class="criterion-name">${labels[k]} (${w}%)</span>
+                        <span class="criterion-score">${v}/100</span>
+                    </div>
+                    <div class="criterion-bar" data-key="${k}">
+                        <div class="criterion-bar-fill is-animated" style="width:${v}%;background:${barColor}" data-key="${k}"></div>
+                    </div>
+                </div>`;
+        }
     }
 
     // Disposal guide
-    const guide = document.getElementById('disposal-guide');
     const dispInfo = item.disposal_info;
     if (dispInfo || item.disposal_guide) {
         guide.classList.remove('hidden');
@@ -726,24 +1085,6 @@ function showScanResult(item) {
     }
 
     state.lastScanResult = item;
-}
-
-function toggleWS() {
-    const detail = document.getElementById('weighted-detail');
-    const btn = document.getElementById('ws-toggle-btn');
-    const isOpen = detail.classList.toggle('is-open');
-    btn.textContent = isOpen ? tr('hideDetails') : tr('showDetails');
-    if (isOpen) {
-        // Attach drag handlers after display becomes flex
-        requestAnimationFrame(() => {
-            detail.querySelectorAll('.criterion-bar').forEach(bar => {
-                const fill = bar.querySelector('.criterion-bar-fill');
-                if (fill) fill.classList.remove('is-animated');
-                bar.addEventListener('mousedown', startBarDrag);
-                bar.addEventListener('touchstart', startBarDrag, { passive: false });
-            });
-        });
-    }
 }
 
 function addScanToRecord() {
@@ -772,7 +1113,7 @@ function addScanToRecord() {
     }
     playBeep('success');
 
-    // Save to Firebase
+    // Save to backend storage
     FB.addItem(record).catch(err => console.error('Failed to save item:', err));
 }
 
@@ -853,8 +1194,21 @@ function resetScan() {
 
 async function loadRecords() {
     if (typeof FB === 'undefined') { console.warn('[App] FB not ready, retrying...'); setTimeout(loadRecords, 500); return; }
+    if (!state.currentUser && !state.userId && !state.userKey) {
+        state.records = [];
+        renderRecords();
+        updateStats();
+        return;
+    }
     try {
-        const items = await FB.getItems(state.userId, state.currentUser, state.userKey);
+        state.records = [];
+        renderRecords();
+        updateStats();
+        const items = await FB.getItems(
+            state.userId || null,
+            (state.userId || state.userKey) ? null : state.currentUser,
+            state.userKey || null,
+        );
         state.records = items.map(it => ({
             id: it.id,
             name: it.name,
@@ -1082,20 +1436,67 @@ function updateStats() {
 // ═══════════════════════════════════════════════════════════════════════
 
 async function loadTips() {
-    try {
-        const res = await fetch('/api/news');
-        const news = await res.json();
-        state.tips = news.map(n => ({
-            title: n.title,
-            source: n.source,
-            snippet: '',
-            link: n.link || '',
-        }));
-        renderTipsDots();
-        showTip(0);
-    } catch (e) {
-        console.error('Failed to load news:', e);
+    const cachedTips = readCachedNews();
+    if (cachedTips.length) {
+        applyTips(cachedTips);
+    } else {
+        applyTips(NEWS_FALLBACK_ITEMS);
     }
+
+    const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    const timeoutId = controller ? window.setTimeout(() => controller.abort(), 4500) : null;
+    try {
+        const res = await fetch('/api/news', {
+            headers: { Accept: 'application/json' },
+            ...(controller ? { signal: controller.signal } : {}),
+        });
+        if (!res.ok) throw new Error(`news ${res.status}`);
+        const news = await res.json();
+        const items = normalizeNewsItems(news);
+        if (items.length) {
+            applyTips(items);
+            writeCachedNews(items);
+        }
+    } catch (e) {
+        if (!e || e.name !== 'AbortError') {
+            console.warn('Green news fallback used:', e);
+        }
+    } finally {
+        if (timeoutId) clearTimeout(timeoutId);
+    }
+}
+
+function readCachedNews() {
+    try {
+        const raw = safeStorage.get(NEWS_CACHE_KEY);
+        if (!raw) return [];
+        const parsed = JSON.parse(raw);
+        return normalizeNewsItems(parsed);
+    } catch (_) {
+        return [];
+    }
+}
+
+function writeCachedNews(items) {
+    try {
+        safeStorage.set(NEWS_CACHE_KEY, JSON.stringify(items.slice(0, 8)));
+    } catch (_) {}
+}
+
+function normalizeNewsItems(news) {
+    if (!Array.isArray(news)) return [];
+    return news.map(n => ({
+        title: String(n?.title || '').trim(),
+        source: String(n?.source || '').trim() || 'Google News',
+        snippet: String(n?.snippet || '').trim(),
+        link: String(n?.link || '').trim(),
+    })).filter(item => item.title);
+}
+
+function applyTips(items) {
+    state.tips = items.length ? items : NEWS_FALLBACK_ITEMS.slice();
+    renderTipsDots();
+    showTip(0);
 }
 
 function renderTipsDots() {
@@ -1110,11 +1511,14 @@ function showTip(index) {
     state.currentTipIndex = index;
     const tip = state.tips[index];
     if (!tip) return;
+    const renderToken = ++tipsRenderToken;
     const titleEl = document.getElementById('tips-title');
     const snippetEl = document.getElementById('tips-snippet');
     if (titleEl) titleEl.classList.add('is-switching');
     if (snippetEl) snippetEl.classList.add('is-switching');
-    setTimeout(() => {
+    if (tipsSwitchTimer) clearTimeout(tipsSwitchTimer);
+    tipsSwitchTimer = setTimeout(() => {
+        if (renderToken !== tipsRenderToken) return;
         if (titleEl) {
             if (tip.link) {
                 titleEl.innerHTML = `<a href="${esc(tip.link)}" target="_blank" style="color:inherit;text-decoration:underline">${esc(tip.title)}</a>`;
@@ -1314,26 +1718,40 @@ document.addEventListener('click', e => {
 
 async function initAccounts() {
     if (typeof FB === 'undefined') { console.warn('[App] FB not ready for initAccounts, retrying...'); setTimeout(initAccounts, 500); return; }
-    const stored = safeStorage.get('RE_LIFE_CURRENT_USER');
-    if (stored) {
-        state.currentUser = stored;
+    const session = readSessionState();
+    if (session.name || session.id || session.key) {
+        state.currentUser = session.name || null;
+        state.userId = session.id || null;
+        state.userKey = session.key || session.id || null;
+        state.userAvatar = session.avatar || '👤';
         try {
-            const user = await FB.getUserByName(stored);
+            let user = null;
+            const lookupId = state.userKey || state.userId;
+            if (lookupId) {
+                user = await FB.getUserById(lookupId);
+            }
+            if (!user && state.currentUser) {
+                user = await FB.getUserByName(state.currentUser);
+            }
             if (user) {
-                state.userId = user.id;
-                state.userKey = user._key || null;
+                state.currentUser = user.displayName || state.currentUser;
+                state.userId = user.id ?? state.userId;
+                state.userKey = user._key || user.public_id || user.userId || state.userKey;
                 state.spentPoints = user.spent_points || user.spentPoints || 0;
                 state.earnedPoints = user.earned_points || user.earnedPoints || 0;
                 state.claimedCoupons = user.claimed_coupons || [];
-                // Sync avatar from Firebase, fallback to localStorage
-                state.userAvatar = user.photoUrl || safeStorage.get('RE_LIFE_USER_AVATAR') || '👤';
-                safeStorage.set('RE_LIFE_USER_AVATAR', state.userAvatar);
+                state.userAvatar = user.photoUrl || session.avatar || '👤';
+                persistSessionState({
+                    name: state.currentUser,
+                    id: state.userId,
+                    key: state.userKey,
+                    avatar: state.userAvatar,
+                });
             } else {
-                state.userAvatar = safeStorage.get('RE_LIFE_USER_AVATAR') || '👤';
+                state.userAvatar = session.avatar || '👤';
             }
         } catch (_) {
-            // Offline — use localStorage
-            state.userAvatar = safeStorage.get('RE_LIFE_USER_AVATAR') || '👤';
+            state.userAvatar = session.avatar || '👤';
         }
     }
     updateHeaderUI();
@@ -1397,22 +1815,40 @@ function handleAvatarUpload(e) {
 
 function setAvatar(emoji) {
     state.userAvatar = emoji;
-    safeStorage.set('RE_LIFE_USER_AVATAR', emoji);
+    persistSessionState({
+        name: state.currentUser,
+        id: state.userId,
+        key: state.userKey,
+        avatar: emoji,
+    });
     updateHeaderUI();
-    // Save to Firebase
+    // Save to backend storage
     if (state.userKey || state.userId) {
         FB.saveUserData(state.userKey || state.userId, { photoUrl: emoji });
     }
     closeModal();
 }
 
+function resetSessionState() {
+    state.currentUser = null;
+    state.userAvatar = '👤';
+    state.userId = null;
+    state.userKey = null;
+    state.spentPoints = 0;
+    state.earnedPoints = 0;
+    state.claimedCoupons = [];
+    state.records = [];
+    state.lastScanResult = null;
+    clearSessionState();
+    updateHeaderUI();
+    renderRecords();
+    updateStats();
+}
+
 function handleLogout() {
     if (!state.currentUser) return;
     showConfirm(tr('confirmLogout'), () => {
-        state.currentUser = null;
-        state.userAvatar = '👤';
-        safeStorage.remove('RE_LIFE_CURRENT_USER');
-        safeStorage.remove('RE_LIFE_USER_AVATAR');
+        resetSessionState();
         window.location.replace('/login');
     });
 }
@@ -1420,10 +1856,7 @@ function handleLogout() {
 function toggleLogin() {
     if (state.currentUser) {
         showConfirm(tr('confirmLogout'), () => {
-            state.currentUser = null;
-            state.userAvatar = '👤';
-            safeStorage.remove('RE_LIFE_CURRENT_USER');
-            safeStorage.remove('RE_LIFE_USER_AVATAR');
+            resetSessionState();
             window.location.replace('/login');
         });
         return;
@@ -1438,9 +1871,9 @@ async function showUserPicker() {
         document.getElementById('modal-title').textContent = tr('loginAs');
         const list = users.map(u => `
             <button class="btn btn--outline btn--full" style="margin-bottom:6px;justify-content:flex-start;gap:8px"
-                    onclick="loginAs('${u.displayName}','${u.photoUrl || '👤'}','${u.id}')">
+                    onclick='loginAs(${JSON.stringify(u.displayName || '')}, ${JSON.stringify(u.photoUrl || '👤')}, ${JSON.stringify(String(u.id ?? ''))}, ${JSON.stringify(u.public_id || u.userId || '')})'>
                 <span style="font-size:20px">${u.photoUrl || '👤'}</span>
-                <span>${u.displayName}</span>
+                <span>${esc(u.displayName || '')}</span>
             </button>
         `).join('');
         document.getElementById('modal-body').innerHTML = list;
@@ -1450,20 +1883,34 @@ async function showUserPicker() {
     } catch (_) { /* offline */ }
 }
 
-async function loginAs(name, avatar, userId) {
+async function loginAs(name, avatar, userId, userKey = null) {
     state.currentUser = name;
     state.userAvatar = avatar;
     state.userId = userId || null;
-    safeStorage.set('RE_LIFE_CURRENT_USER', name);
-    safeStorage.set('RE_LIFE_USER_AVATAR', avatar);
+    state.userKey = userKey || null;
+    persistSessionState({
+        name,
+        id: state.userId,
+        key: state.userKey,
+        avatar,
+    });
     try {
-        const user = await FB.getUserByName(name);
+        const lookupId = state.userId || state.userKey || name;
+        const user = await FB.getUserById(lookupId);
         if (user) {
-            state.userId = user.id;
-            state.userKey = user._key || null;
+            state.currentUser = user.displayName || name;
+            state.userId = user.id ?? state.userId;
+            state.userKey = user._key || user.public_id || user.userId || state.userKey;
             state.spentPoints = user.spent_points || 0;
             state.earnedPoints = user.earned_points || 0;
             state.claimedCoupons = user.claimed_coupons || [];
+            state.userAvatar = user.photoUrl || avatar || '👤';
+            persistSessionState({
+                name: state.currentUser,
+                id: state.userId,
+                key: state.userKey,
+                avatar: state.userAvatar,
+            });
         }
     } catch (_) { /* offline */ }
     closeModal();
@@ -1564,6 +2011,7 @@ async function toggleLang() {
     const langInd = document.getElementById('lang-ind');
     if (langInd) langInd.textContent = state.lang === 'en' ? 'Eng' : '中文';
     updateAllLabels();
+    updateWeatherUI();
     if (state.activeTab === 'record') renderRecords();
     if (state.activeTab === 'rewards') renderRewards();
 }
@@ -1591,7 +2039,6 @@ function updateAllLabels() {
         'lbl-scanning-text': 'scanning',
         'lbl-scanning-hint': 'scanningHint',
         'ws-title': 'criteria',
-        'ws-toggle-btn': 'showDetails',
         'lbl-overall': 'overallScore',
         'lbl-grade': 'grade',
         'lbl-advice': 'advice',
@@ -1600,6 +2047,11 @@ function updateAllLabels() {
         'lbl-disp-method': 'method',
         'lbl-disp-location': 'location',
         'lbl-fact-title': 'didYouKnow',
+        'lbl-weather-temperature': 'weather.detail.temperature',
+        'lbl-weather-location': 'weather.detail.location',
+        'lbl-weather-updated': 'weather.detail.updated',
+        'lbl-weather-source': 'weather.detail.source',
+        'lbl-weather-close': 'weather.detail.close',
         'lbl-rew-balance': 'pointsBalance',
         'lbl-rew-sub': 'rewardsSub',
         'lbl-my-coupons': 'myCoupons',

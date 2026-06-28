@@ -122,7 +122,7 @@
 
 </div>
 
-<script type="module" src="/static/firebase.js"></script>
+<script type="module" src="/static/supabase.js"></script>
 <script>
 // ── Theme ────────────────────────────────────────────────────────────
 (function initTheme() {
@@ -171,12 +171,12 @@ function goBack() {
     showStep('step-register');
 }
 
-function waitForFB(cb) {
+function waitForStorage(cb) {
     if (window.FB) { cb(); return; }
     let tries = 0;
     const timer = setInterval(() => {
         if (window.FB) { clearInterval(timer); cb(); return; }
-        if (++tries > 100) { clearInterval(timer); console.error('FB not loaded'); }
+        if (++tries > 100) { clearInterval(timer); console.error('Storage helper not loaded'); }
     }, 100);
 }
 
@@ -221,7 +221,7 @@ async function handleRegister(e) {
             pendingUsername = username;
             pendingPassword = password;
             showStep('step-verify');
-            // Show dev code if SMTP unavailable
+            // Show dev code if email delivery is unavailable
             if (data.dev_code) {
                 document.getElementById('verify-hint').textContent =
                     'DEV MODE — code: ' + data.dev_code + ' (sent to ' + pendingEmail + ')';
@@ -266,10 +266,12 @@ async function handleVerify(e) {
             return;
         }
 
-        // Code verified — now create the user in Firebase
-        await waitForFBPromise();
+        // Code verified — now create the user through backend storage
+        await waitForStoragePromise();
         const user = await window.FB.createUser(pendingUsername, pendingPassword, pendingEmail);
         localStorage.setItem('RE_LIFE_CURRENT_USER', user.displayName);
+        localStorage.setItem('RE_LIFE_CURRENT_USER_ID', String(user.id || user.public_id || ''));
+        localStorage.setItem('RE_LIFE_CURRENT_USER_KEY', String(user.public_id || user.userId || ''));
         localStorage.setItem('RE_LIFE_USER_AVATAR', '👤');
         window.location.replace('/');
     } catch (err) {
@@ -285,13 +287,13 @@ async function handleVerify(e) {
     btn.textContent = 'Verify & Create Account';
 }
 
-function waitForFBPromise() {
+function waitForStoragePromise() {
     return new Promise((resolve, reject) => {
         if (window.FB) return resolve();
         let tries = 0;
         const timer = setInterval(() => {
             if (window.FB) { clearInterval(timer); resolve(); return; }
-            if (++tries > 100) { clearInterval(timer); reject(new Error('FB not loaded')); }
+            if (++tries > 100) { clearInterval(timer); reject(new Error('Storage helper not loaded')); }
         }, 100);
     });
 }

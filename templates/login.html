@@ -104,7 +104,7 @@
 
 </div>
 
-<script type="module" src="/static/firebase.js"></script>
+<script type="module" src="/static/supabase.js"></script>
 <script>
 // ── Theme ────────────────────────────────────────────────────────────
 (function initTheme() {
@@ -121,13 +121,13 @@ function toggleTheme() {
     if (btn) btn.textContent = c === 'dark' ? '☀️' : '🌙';
 }
 
-// Wait for Firebase module to initialize window.FB
-function waitForFB(cb) {
+// Wait for backend storage helper to initialize window.FB
+function waitForStorage(cb) {
     if (window.FB) { cb(); return; }
     let tries = 0;
     const timer = setInterval(() => {
         if (window.FB) { clearInterval(timer); cb(); return; }
-        if (++tries > 100) { clearInterval(timer); console.error('FB not loaded'); }
+        if (++tries > 100) { clearInterval(timer); console.error('Storage helper not loaded'); }
     }, 100);
 }
 
@@ -138,7 +138,7 @@ function toggleLoginLang() {
     location.reload();
 }
 
-waitForFB(() => {
+waitForStorage(() => {
     document.getElementById('login-form').addEventListener('submit', handleLogin);
 });
 
@@ -161,6 +161,8 @@ async function handleLogin(e) {
     try {
         const user = await window.FB.loginUser(username, password);
         localStorage.setItem('RE_LIFE_CURRENT_USER', user.displayName);
+        localStorage.setItem('RE_LIFE_CURRENT_USER_ID', String(user.id || user.public_id || ''));
+        localStorage.setItem('RE_LIFE_CURRENT_USER_KEY', String(user.public_id || user.userId || ''));
         localStorage.setItem('RE_LIFE_USER_AVATAR', user.photoUrl || '👤');
         window.location.replace('/');
     } catch (err) {
@@ -226,17 +228,15 @@ async function handleForgotStep() {
         if (!password || password.length < 8) { errorEl.textContent = 'Password must be 8+ chars'; return; }
         btn.textContent = 'Resetting...';
         try {
-            const res = await fetch('/api/reset-password', {
-                method: 'POST', headers: {'Content-Type':'application/json'},
-                body: JSON.stringify({ email: forgotEmail, code, password }),
-            });
-            const data = await res.json();
-            if (data.ok) {
-                await waitForFBPromise();
-                await window.FB.resetPasswordByEmail(forgotEmail, password);
-                errorEl.textContent = '✅ Password reset! You can now log in.';
-                errorEl.style.color = '#047857';
-                btn.textContent = 'Done';
+        const res = await fetch('/api/reset-password', {
+            method: 'POST', headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({ email: forgotEmail, code, password }),
+        });
+        const data = await res.json();
+        if (data.ok) {
+            errorEl.textContent = '✅ Password reset! You can now log in.';
+            errorEl.style.color = '#047857';
+            btn.textContent = 'Done';
                 btn.disabled = true;
             } else {
                 errorEl.textContent = data.error || 'Invalid code';
@@ -249,13 +249,13 @@ async function handleForgotStep() {
     }
 }
 
-function waitForFBPromise() {
+function waitForStoragePromise() {
     return new Promise((resolve, reject) => {
         if (window.FB) return resolve();
         let tries = 0;
         const timer = setInterval(() => {
             if (window.FB) { clearInterval(timer); resolve(); return; }
-            if (++tries > 100) { clearInterval(timer); reject(new Error('FB not loaded')); }
+            if (++tries > 100) { clearInterval(timer); reject(new Error('Storage helper not loaded')); }
         }, 100);
     });
 }

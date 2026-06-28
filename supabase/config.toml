@@ -1,0 +1,13 @@
+project_id = "re-life"
+
+[functions.health]
+verify_jwt = false
+
+[functions.public_config]
+verify_jwt = false
+
+[functions.my_records]
+verify_jwt = true
+
+[functions.admin_users]
+verify_jwt = false

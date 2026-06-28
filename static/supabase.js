@@ -1,0 +1,214 @@
+/* ═══════════════════════════════════════════════════════════════════════
+   Re-Life — backend storage helper
+   Attached to window.FB for use by app.js (legacy interface name only).
+   ═══════════════════════════════════════════════════════════════════════ */
+
+function buildUrl(path, params = null) {
+    const url = new URL(path, window.location.origin);
+    if (params) {
+        for (const [key, value] of Object.entries(params)) {
+            if (value === undefined || value === null || value === "") continue;
+            url.searchParams.set(key, String(value));
+        }
+    }
+    return url;
+}
+
+async function requestJson(path, { method = "GET", body = undefined, params = null } = {}) {
+    const url = buildUrl(path, params);
+    const init = {
+        method,
+        headers: { Accept: "application/json" },
+    };
+    if (body !== undefined) {
+        init.headers["Content-Type"] = "application/json";
+        init.body = JSON.stringify(body);
+    }
+    const response = await fetch(url, init);
+    const text = await response.text();
+    let data = null;
+    if (text) {
+        try {
+            data = JSON.parse(text);
+        } catch {
+            data = { raw: text };
+        }
+    }
+    if (!response.ok) {
+        const message = (data && (data.error || data.detail || data.message)) || `HTTP_${response.status}`;
+        throw new Error(message);
+    }
+    return data;
+}
+
+function safeArray(value) {
+    return Array.isArray(value) ? value : [];
+}
+
+function normalizeUser(user) {
+    if (!user) return null;
+    const claimed = safeArray(user.claimed_coupons || user.claimedCoupons);
+    const publicId = user.public_id || user.userId || user._key || null;
+    return {
+        id: user.id ?? publicId,
+        public_id: publicId,
+        userId: publicId,
+        _key: publicId,
+        displayName: user.displayName || user.display_name || "",
+        display_name: user.display_name || user.displayName || "",
+        email: user.email || null,
+        photoUrl: user.photoUrl || user.photo_url || null,
+        photo_url: user.photo_url || user.photoUrl || null,
+        spent_points: user.spent_points ?? user.spentPoints ?? 0,
+        spentPoints: user.spent_points ?? user.spentPoints ?? 0,
+        earned_points: user.earned_points ?? user.earnedPoints ?? 0,
+        earnedPoints: user.earned_points ?? user.earnedPoints ?? 0,
+        claimed_coupons: claimed,
+        claimedCoupons: claimed,
+        emailVerified: !!(user.emailVerified ?? user.email_verified),
+    };
+}
+
+function normalizeItem(item) {
+    if (!item) return null;
+    return {
+        id: item.id ?? null,
+        name: item.name || "Scanned Item",
+        status: item.status || item.mode || "dispose",
+        createdAt: item.createdAt || item.created_at || Date.now(),
+        description: item.description || "",
+        photoUrl: item.photoUrl || item.photo_url || item.image_url || null,
+        dealtWithMethod: item.dealtWithMethod || item.dealt_with_method || "",
+        dealtWithDate: item.dealtWithDate || item.dealt_with_date || null,
+        userId: item.userId || item.user_id || null,
+        userName: item.userName || item.user_name || null,
+        eco_rate: item.eco_rate ?? 3,
+        recycle_rate: item.recycle_rate ?? 4,
+        overall_score: item.overall_score ?? item.overallScore ?? 0,
+        material: item.material || "",
+        grade: item.grade || "",
+        grade_color: item.grade_color || null,
+        grade_advice: item.grade_advice || null,
+        brand: item.brand || "",
+        category: item.category || "",
+        weighted_scores: item.weighted_scores || item.weightedScores || {},
+        schema_id: item.schema_id || item.schemaId || "",
+        alternative: item.alternative || null,
+        precaution: item.precaution || null,
+        image_url: item.image_url || item.photoUrl || null,
+    };
+}
+
+function fallbackUserId() {
+    return localStorage.getItem("RE_LIFE_CURRENT_USER_ID") || localStorage.getItem("RE_LIFE_CURRENT_USER_KEY") || "";
+}
+
+function fallbackUserName() {
+    return localStorage.getItem("RE_LIFE_CURRENT_USER") || "";
+}
+
+const FB = {
+    async _ensure() {
+        return true;
+    },
+
+    async createUser(displayName, password, email = null) {
+        const data = await requestJson("/api/auth/register", {
+            method: "POST",
+            body: {
+                display_name: displayName,
+                email,
+                password,
+            },
+        });
+        return normalizeUser(data.user);
+    },
+
+    async getUserById(userId) {
+        const data = await requestJson(`/api/users/by-id/${encodeURIComponent(userId)}`);
+        return normalizeUser(data);
+    },
+
+    async getUserByName(displayName) {
+        const data = await requestJson(`/api/users/by-name/${encodeURIComponent(displayName)}`);
+        return normalizeUser(data);
+    },
+
+    async getUserByEmail(email) {
+        const data = await requestJson(`/api/users/by-email/${encodeURIComponent(email)}`);
+        return normalizeUser(data);
+    },
+
+    async loginUser(displayName, password) {
+        const data = await requestJson("/api/auth/login", {
+            method: "POST",
+            body: {
+                display_name: displayName,
+                password,
+            },
+        });
+        return normalizeUser(data.user);
+    },
+
+    async resetPasswordByEmail() {
+        throw new Error("RESET_PASSWORD_REQUIRES_CODE");
+    },
+
+    async getAllUsers() {
+        const data = await requestJson("/api/users");
+        return safeArray(data).map(normalizeUser);
+    },
+
+    async getUser(userId) {
+        return FB.getUserById(userId);
+    },
+
+    async saveUserData(userId, data) {
+        const identifier = userId || fallbackUserId() || fallbackUserName();
+        if (!identifier) return false;
+        await requestJson(`/api/users/${encodeURIComponent(identifier)}`, {
+            method: "PATCH",
+            body: data || {},
+        });
+        return true;
+    },
+
+    async addItem(item) {
+        const data = await requestJson("/api/records", {
+            method: "POST",
+            body: item || {},
+        });
+        return { id: data.id ?? null };
+    },
+
+    async getItems(userId = null, displayName = null, userKey = null) {
+        if (!userId && !displayName && !userKey) return [];
+        const data = await requestJson("/api/records", {
+            params: {
+                user_id: userId || fallbackUserId() || "",
+                display_name: displayName || fallbackUserName() || "",
+                user_key: userKey || "",
+            },
+        });
+        return safeArray(data).map(normalizeItem);
+    },
+
+    async deleteItem(itemId) {
+        await requestJson(`/api/records/${encodeURIComponent(itemId)}`, {
+            method: "DELETE",
+        });
+    },
+
+    async clearAllItems(userId = null, displayName = null, userKey = null) {
+        await requestJson("/api/records", {
+            method: "DELETE",
+            params: {
+                user_id: userId || fallbackUserId() || "",
+                display_name: displayName || fallbackUserName() || "",
+                user_key: userKey || "",
+            },
+        });
+    },
+};
+
+window.FB = FB;

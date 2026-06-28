@@ -1,22 +1,35 @@
-"""Re-Life AI models — CNN classifier + multi-model AI providers."""
+"""Re-Life AI models — local transformer classifier + multi-model AI providers."""
 import io, base64, random, httpx, json
-import numpy as np
-import onnxruntime as ort
 from PIL import Image
 from pathlib import Path
 from config import (
-    root_dir, NVIDIA_API_KEY, NVIDIA_MODEL, OPENAI_API_KEY, OPENAI_MODEL,
-    GEMINI_API_KEY, GEMINI_MODEL, DEEPSEEK_API_KEY, CLAUDE_API_KEY,
+    NVIDIA_API_KEY, NVIDIA_MODEL, OPENAI_API_KEY, OPENAI_MODEL,
+    GEMINI_API_KEY, GEMINI_MODEL, DEEPSEEK_API_KEY, CLAUDE_API_KEY, CLAUDE_MODEL,
     DEFAULT_AI_MODEL, AVAILABLE_MODELS,
 )
 from data import HK_DISPOSAL
+from nlp.infer import predict_image
 
-# ── CNN Classifier ──────────────────────────────────────────────────────────
+# ── Legacy classifier metadata ──────────────────────────────────────────────
 
 CNN_CATEGORIES = ["glass", "metal", "organic", "paper", "plastic", "ewaste"]
-CNN_IMG_SIZE = 224
-CNN_MEAN = [0.485, 0.456, 0.406]
-CNN_STD  = [0.229, 0.224, 0.225]
+CNN_LABELS = {
+    "glass": "Glass",
+    "metal": "Metal",
+    "organic": "Organic",
+    "paper": "Paper",
+    "plastic": "Plastic",
+    "ewaste": "E-waste",
+}
+
+CNN_TEXT_TEMPLATES = {
+    "glass": "This looks like glass waste. Keep it clean and sort it with glass items.",
+    "metal": "This looks like metal waste. Empty it and sort it with metal items.",
+    "organic": "This looks like organic waste. Treat it as food waste or compostable waste.",
+    "paper": "This looks like paper waste. Keep it dry and sort it with paper recycling.",
+    "plastic": "This looks like plastic waste. Rinse it if possible and sort it with plastic items.",
+    "ewaste": "This looks like e-waste. Do not mix it with regular recyclables.",
+}
 
 CLASSIFIER_MATERIAL_MAP = {
     "glass":   {"material": "glass",       "standard_type": "general", "eco_rate": 4, "recycle_rate": 5, "description": "Glass container — infinitely recyclable."},
@@ -27,62 +40,62 @@ CLASSIFIER_MATERIAL_MAP = {
     "ewaste":  {"material": "plastic",     "standard_type": "general", "eco_rate": 2, "recycle_rate": 3, "description": "Electronic waste — contains hazardous materials."},
 }
 
-CLASSIFIER_NAME_POOL = {
-    "glass":   ["Glass Bottle", "Glass Jar", "Glass Container"],
-    "metal":   ["Aluminum Can", "Metal Tin", "Steel Container"],
-    "organic": ["Food Waste", "Organic Scrap", "Compostable Item"],
-    "paper":   ["Cardboard Box", "Paper Package", "Paper Carton"],
-    "plastic": ["Plastic Bottle", "Plastic Container", "Plastic Packaging"],
-    "ewaste":  ["Electronic Device", "E-Waste Item", "Electronic Component"],
-}
-
-_model_path = root_dir / "models" / "model_INT8.onnx"
-_cnn_session: ort.InferenceSession | None = None
-_cnn_loaded = False
-
-def _ensure_cnn():
-    global _cnn_session, _cnn_loaded
-    if not _cnn_loaded:
-        if _model_path.exists():
-            _cnn_session = ort.InferenceSession(str(_model_path), providers=["CPUExecutionProvider"])
-        _cnn_loaded = True
-
-def classify_image(image_bytes: bytes) -> tuple[str, float]:
-    _ensure_cnn()
-    if _cnn_session is None:
-        raise RuntimeError("Classifier model not loaded")
-    img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
-    img = img.resize((CNN_IMG_SIZE, CNN_IMG_SIZE), Image.BILINEAR)
-    arr = np.array(img, dtype=np.float32) / 255.0
-    arr = (arr - np.array(CNN_MEAN, dtype=np.float32)) / np.array(CNN_STD, dtype=np.float32)
-    arr = np.transpose(arr, (2, 0, 1))[np.newaxis, ...].astype(np.float32)
-    outputs = _cnn_session.run(["logits"], {"image": arr})
-    logits = outputs[0][0]
-    ex = np.exp(logits - np.max(logits))
-    probs = ex / ex.sum()
-    idx = int(np.argmax(probs))
-    return CNN_CATEGORIES[idx], float(probs[idx])
-
 def classifier_response(category: str, confidence: float, mode: str) -> dict:
     info  = CLASSIFIER_MATERIAL_MAP.get(category, CLASSIFIER_MATERIAL_MAP["plastic"])
-    names = CLASSIFIER_NAME_POOL.get(category, CLASSIFIER_NAME_POOL["plastic"])
-    name  = random.choice(names)
+    label = CNN_LABELS.get(category, category.replace("_", " ").title())
     eco   = info["eco_rate"]
     rec   = info["recycle_rate"]
     base  = round(((eco + rec) / 2) * 20)
     jitter = lambda: max(0, min(100, base + random.randint(-12, 12)))
     m = info["material"]
     disp = HK_DISPOSAL.get(m, HK_DISPOSAL["plastic"])
+    text = f"{label} waste."
     return {
-        "name": name, "brand": "", "category": category,
+        "name": label, "brand": "", "category": category,
+        "waste_type": category,
+        "waste_label": label,
+        "classifier_source": "cnn",
+        "text": text,
         "standard_type": info["standard_type"],
-        "description": f"{info['description']} (Server CNN, {confidence:.0%} confidence)",
+        "description": "",
         "material": m, "eco_rate": eco, "recycle_rate": rec,
         "weighted_scores": {"a": jitter(), "b": jitter(), "c": jitter(), "d": jitter(), "e": jitter()},
         "disposal_guide": disp.get("method", ""),
         "precaution": "Server-side classification — verify manually for hazardous items.",
         "disposal_info": disp,
-        "alternative": {"name": "Eco-Friendly Alternative (CNN)", "eco_rate": 5, "recycle_rate": 5} if mode == "purchase" else None,
+        "alternative": None,
+    }
+
+def local_scan_response(image_bytes: bytes, mode: str) -> dict:
+    prediction = predict_image(image_bytes)
+    category = prediction["waste_type"]
+    info = CLASSIFIER_MATERIAL_MAP.get(category, CLASSIFIER_MATERIAL_MAP["plastic"])
+    label = prediction.get("waste_label") or CNN_LABELS.get(category, category.replace("_", " ").title())
+    eco = info["eco_rate"]
+    rec = info["recycle_rate"]
+    base = round(((eco + rec) / 2) * 20)
+    jitter = lambda: max(0, min(100, base + random.randint(-12, 12)))
+    m = info["material"]
+    disp = HK_DISPOSAL.get(m, HK_DISPOSAL["plastic"])
+    return {
+        "name": label, "brand": "", "category": category,
+        "waste_type": category,
+        "waste_label": label,
+        "classifier_source": "cnn",
+        "model_source": prediction.get("model_source", "transformer"),
+        "runtime_source": prediction.get("runtime_source", "onnxruntime"),
+        "artifact": prediction.get("artifact", "transformer.onnx"),
+        "text": prediction.get("text", ""),
+        "tokens": prediction.get("tokens", []),
+        "confidence": prediction.get("confidence", 0.0),
+        "standard_type": info["standard_type"],
+        "description": "",
+        "material": m, "eco_rate": eco, "recycle_rate": rec,
+        "weighted_scores": {"a": jitter(), "b": jitter(), "c": jitter(), "d": jitter(), "e": jitter()},
+        "disposal_guide": disp.get("method", ""),
+        "precaution": "Server-side classification — verify manually for hazardous items.",
+        "disposal_info": disp,
+        "alternative": None,
     }
 
 def upload_image(contents: bytes, filename: str) -> str:
@@ -251,7 +264,6 @@ async def ai_analyze(image_bytes: bytes, sid: str) -> dict:
     else:
         raise Exception(f"Model '{model}' not available")
 
-    j = _extract_json(content)
     j = _extract_json(content)
     if not j:
         # Try to fix truncated JSON by appending closing braces

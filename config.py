@@ -1,4 +1,4 @@
-"""Re-Life configuration — env vars, constants, Firebase config."""
+"""Re-Life configuration — env vars and runtime constants."""
 import os
 from pathlib import Path
 
@@ -13,6 +13,7 @@ GEMINI_API_KEY   = os.getenv("GEMINI_API", "")
 GEMINI_MODEL     = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
 DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API", "")
 CLAUDE_API_KEY   = os.getenv("CLAUDE_API", "")
+CLAUDE_MODEL     = os.getenv("CLAUDE_MODEL", "claude-3-5-sonnet-latest")
 
 AVAILABLE_MODELS = []
 if NVIDIA_API_KEY:   AVAILABLE_MODELS.append("nvidia")
@@ -25,28 +26,31 @@ if not AVAILABLE_MODELS:
 
 DEFAULT_AI_MODEL = os.getenv("DEFAULT_AI_MODEL", AVAILABLE_MODELS[0] if AVAILABLE_MODELS else "nvidia")
 
-# ── Firebase ────────────────────────────────────────────────────────────────
-def get_firebase_config() -> dict[str, str]:
+# ── Supabase ────────────────────────────────────────────────────────────────
+def get_public_config() -> dict[str, str]:
     return {
-        "apiKey": os.getenv("FIREBASE_API_KEY", ""),
-        "authDomain": os.getenv("FIREBASE_AUTH_DOMAIN", ""),
-        "projectId": os.getenv("FIREBASE_PROJECT_ID", ""),
-        "storageBucket": os.getenv("FIREBASE_STORAGE_BUCKET", ""),
-        "messagingSenderId": os.getenv("FIREBASE_MESSAGING_SENDER_ID", ""),
-        "appId": os.getenv("FIREBASE_APP_ID", ""),
-        "databaseURL": os.getenv("FIREBASE_DATABASE_URL", ""),
+        "supabaseUrl": os.getenv("SUPABASE_URL", ""),
+        "supabasePublishableKey": os.getenv("SUPABASE_PUBLISHABLE_KEY", os.getenv("SUPABASE_ANON_KEY", "")),
+        "supabaseAnonKey": os.getenv("SUPABASE_ANON_KEY", os.getenv("SUPABASE_PUBLISHABLE_KEY", "")),
     }
 
 
-FIREBASE_CONFIG = get_firebase_config()
-FIREBASE_DB_URL = FIREBASE_CONFIG.get("databaseURL", "")
+PUBLIC_CONFIG = get_public_config()
+SUPABASE_URL = PUBLIC_CONFIG.get("supabaseUrl", "")
+SUPABASE_PUBLISHABLE_KEY = PUBLIC_CONFIG.get("supabasePublishableKey", "")
+SUPABASE_ANON_KEY = PUBLIC_CONFIG.get("supabaseAnonKey", "")
+SUPABASE_SECRET_KEY = os.getenv("SUPABASE_SECRET_KEY", os.getenv("SUPABASE_SERVICE_ROLE_KEY", ""))
+SUPABASE_SERVICE_ROLE_KEY = SUPABASE_SECRET_KEY
+SUPABASE_JWKS_URL = os.getenv("SUPABASE_JWKS_URL", "")
+SUPABASE_DB_URL = os.getenv("SUPABASE_DB_URL", "")
+
+# ── Vercel KV / Upstash Redis ───────────────────────────────────────────────
+UPSTASH_REDIS_REST_URL = os.getenv("UPSTASH_REDIS_REST_URL", os.getenv("VERCEL_KV_REST_API_URL", ""))
+UPSTASH_REDIS_REST_TOKEN = os.getenv("UPSTASH_REDIS_REST_TOKEN", os.getenv("VERCEL_KV_REST_API_TOKEN", ""))
 
 # ── Email ───────────────────────────────────────────────────────────────────
-SMTP_HOST = os.getenv("SMTP_HOST", "smtp.gmail.com")
-SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
-SMTP_USER = os.getenv("SMTP_USER", "")
-SMTP_PASS = os.getenv("SMTP_PASS", "")
-SMTP_FROM = os.getenv("SMTP_FROM", SMTP_USER)
+RESEND_API_KEY = os.getenv("RESEND_API_KEY", "")
+RESEND_FROM = os.getenv("RESEND_FROM", "Re-Life <noreply@yourdomain.com>")
 VERIFICATION_CODE_EXPIRY = 300
 
 # ── Upload ──────────────────────────────────────────────────────────────────

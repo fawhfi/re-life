@@ -220,6 +220,7 @@ async def _delete_code_row(purpose: str, email: str) -> None:
 
 async def _send_code_email(email: str, subject: str, intro: str, code: str) -> bool:
     if not RESEND_API_KEY:
+        print("[Resend] RESEND_API_KEY missing; email not sent, returning dev_code fallback")
         return False
 
     text = f"{intro}\n\nVerification code: {code}\n\nThis code expires in 5 minutes."

@@ -1,11 +1,12 @@
 from pathlib import Path
 from inspect import signature
+import asyncio
 import unittest
 from unittest.mock import AsyncMock, patch
 
 from fastapi.testclient import TestClient
 
-from models import classifier_response
+from models import classifier_response, upload_image
 from main import app
 from nlp import build_tokenizer
 from nlp.model import build_model
@@ -25,6 +26,19 @@ class CnnScanTests(unittest.TestCase):
         self.assertEqual(result["description"], "")
         self.assertIn("paper", result["text"].lower())
         self.assertIsNone(result["alternative"])
+
+    def test_upload_image_uses_supabase_storage_bucket(self):
+        with patch("models.supabase_enabled", return_value=True), \
+             patch("models.SUPABASE_STORAGE_BUCKET", "scan-images"), \
+             patch("models.SUPABASE_URL", "https://example.supabase.co"), \
+             patch("models.supabase_storage_upload", new=AsyncMock(return_value={"path": "scan.png"})) as upload_mock:
+            url = asyncio.run(upload_image(b"image-bytes", "scan.png"))
+
+        self.assertEqual(
+            url,
+            "https://example.supabase.co/storage/v1/object/public/scan-images/scan.png",
+        )
+        upload_mock.assert_awaited_once_with("scan-images", "scan.png", b"image-bytes", "image/png")
 
     def test_scan_endpoint_tries_remote_llm_before_local_fallback(self):
         sample_dir = Path(__file__).resolve().parents[2] / "cnn_classifier" / "src" / "data" / "test" / "paper"

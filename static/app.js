@@ -59,7 +59,6 @@ const state = {
     weather: null,
     weatherLoadPromise: null,
     weatherRequestId: 0,
-    weatherLocationPrompted: false,
     weatherDetailsOpen: false,
 };
 
@@ -244,6 +243,11 @@ async function resolveWeatherCoordinates(forcePrompt = false) {
     }
 
     return new Promise(resolve => {
+        const geolocationOptions = {
+            enableHighAccuracy: false,
+            timeout: forcePrompt ? 5000 : 2500,
+            maximumAge: forcePrompt ? 0 : 300000,
+        };
         navigator.geolocation.getCurrentPosition(
             position => {
                 resolve({
@@ -252,11 +256,7 @@ async function resolveWeatherCoordinates(forcePrompt = false) {
                 });
             },
             () => resolve(null),
-            {
-                enableHighAccuracy: false,
-                timeout: 2500,
-                maximumAge: 300000,
-            },
+            geolocationOptions,
         );
     });
 }
@@ -533,10 +533,7 @@ async function toggleWeatherDetails() {
     }
 
     openWeatherDetails();
-    if (!state.weatherLocationPrompted) {
-        state.weatherLocationPrompted = true;
-        refreshHeaderWeather().catch(() => {});
-    }
+    refreshHeaderWeather().catch(() => {});
 }
 
 document.addEventListener('keydown', e => {

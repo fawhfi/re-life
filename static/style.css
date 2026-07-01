@@ -169,6 +169,51 @@ body {
     will-change: opacity;
     backface-visibility: hidden;
 }
+html.is-ios .app {
+    will-change: auto;
+    backface-visibility: visible;
+}
+html.is-ios .login-card,
+html.is-ios .card,
+html.is-ios .tips-card,
+html.is-ios .fact-card,
+html.is-ios .rewards-wallet,
+html.is-ios .result-card,
+html.is-ios .app-header,
+html.is-ios nav.nav,
+html.is-ios .app-nav,
+html.is-ios .modal-overlay,
+html.is-ios .modal,
+html.is-ios .weather-overlay,
+html.is-ios .weather-panel,
+html.is-ios .upload-zone,
+html.is-ios .record-card {
+    -webkit-backdrop-filter: blur(18px) saturate(145%);
+    backdrop-filter: blur(18px) saturate(145%);
+    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.08);
+}
+html.is-ios .app-header,
+html.is-ios nav.nav,
+html.is-ios .app-nav {
+    background: rgba(255, 255, 255, 0.74);
+    border-color: rgba(255, 255, 255, 0.48);
+}
+html.is-ios .login-card,
+html.is-ios .card,
+html.is-ios .tips-card,
+html.is-ios .fact-card,
+html.is-ios .rewards-wallet,
+html.is-ios .result-card,
+html.is-ios .modal,
+html.is-ios .weather-panel,
+html.is-ios .upload-zone,
+html.is-ios .record-card {
+    background: rgba(255, 255, 255, 0.78);
+    border-color: rgba(255, 255, 255, 0.5);
+}
+html.is-ios .weather-overlay {
+    background: rgba(6, 10, 6, 0.4);
+}
 /* Keep glass surfaces on the normal paint path so backdrop filters stay visible on iOS */
 .scan-btn, .nav-btn-icon {
     will-change: transform, opacity;

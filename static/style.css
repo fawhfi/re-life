@@ -174,25 +174,25 @@ html.is-ios .app {
     backface-visibility: visible;
 }
 html.is-ios .app::before {
-    opacity: 0.06;
+    opacity: 0.08;
 }
 html.is-ios :is(.login-card, .card, .tips-card, .fact-card, .rewards-wallet, .result-card, .app-header, nav.nav, .app-nav, .modal, .weather-panel, .upload-zone, .record-card) {
-    -webkit-backdrop-filter: blur(24px) saturate(165%) contrast(108%);
-    backdrop-filter: blur(24px) saturate(165%) contrast(108%);
+    -webkit-backdrop-filter: blur(28px) saturate(180%) contrast(112%);
+    backdrop-filter: blur(28px) saturate(180%) contrast(112%);
     box-shadow: 0 10px 32px rgba(0, 0, 0, 0.10), inset 0 1px 0 rgba(255, 255, 255, 0.38);
     position: relative;
     overflow: hidden;
     isolation: isolate;
 }
 html.is-ios :is(.login-card, .card, .tips-card, .fact-card, .rewards-wallet, .result-card, .modal, .weather-panel, .upload-zone, .record-card) {
-    background: rgba(255, 255, 255, 0.62);
-    border-color: rgba(255, 255, 255, 0.58);
+    background: rgba(255, 255, 255, 0.28);
+    border-color: rgba(255, 255, 255, 0.60);
 }
 html.is-ios .app-header,
 html.is-ios nav.nav,
 html.is-ios .app-nav {
-    background: rgba(255, 255, 255, 0.60);
-    border-color: rgba(255, 255, 255, 0.60);
+    background: rgba(255, 255, 255, 0.30);
+    border-color: rgba(255, 255, 255, 0.62);
 }
 html.is-ios .weather-overlay {
     background: rgba(6, 10, 6, 0.4);
@@ -204,8 +204,8 @@ html.is-ios :is(.login-card, .card, .tips-card, .fact-card, .rewards-wallet, .re
     pointer-events: none;
     border-radius: inherit;
     background:
-        linear-gradient(135deg, rgba(255, 255, 255, 0.28) 0%, rgba(255, 255, 255, 0.10) 48%, rgba(255, 255, 255, 0.18) 100%),
-        linear-gradient(180deg, rgba(255, 255, 255, 0.10) 0%, rgba(255, 255, 255, 0.02) 100%);
+        linear-gradient(135deg, rgba(255, 255, 255, 0.16) 0%, rgba(255, 255, 255, 0.06) 48%, rgba(255, 255, 255, 0.10) 100%),
+        linear-gradient(180deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.02) 100%);
     z-index: 0;
 }
 html.is-ios :is(.login-card, .card, .tips-card, .fact-card, .rewards-wallet, .result-card, .app-header, nav.nav, .app-nav, .modal, .weather-panel, .upload-zone, .record-card) > * {
@@ -3075,7 +3075,7 @@ body:has(.camera-modal.is-shown) .app-header,
     }
 }
 
-html.perf-lite .app::before {
+html.perf-lite:not(.is-ios) .app::before {
     display: none;
 }
 

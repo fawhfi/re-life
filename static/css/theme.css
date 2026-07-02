@@ -106,15 +106,15 @@
 
 html.is-ios[data-theme="dark"] .app-header,
 html.is-ios[data-theme="midnight"] .app-header {
-    background: rgba(20, 28, 20, 0.66);
-    border-color: rgba(255, 255, 255, 0.14);
+    background: rgba(20, 28, 20, 0.52);
+    border-color: rgba(255, 255, 255, 0.16);
 }
 html.is-ios[data-theme="dark"] nav.nav,
 html.is-ios[data-theme="dark"] .app-nav,
 html.is-ios[data-theme="midnight"] nav.nav,
 html.is-ios[data-theme="midnight"] .app-nav {
-    background: rgba(20, 28, 20, 0.64);
-    border-color: rgba(255, 255, 255, 0.12);
+    background: rgba(20, 28, 20, 0.50);
+    border-color: rgba(255, 255, 255, 0.14);
 }
 html.is-ios[data-theme="dark"] .login-card,
 html.is-ios[data-theme="midnight"] .login-card,
@@ -136,12 +136,12 @@ html.is-ios[data-theme="dark"] .upload-zone,
 html.is-ios[data-theme="midnight"] .upload-zone,
 html.is-ios[data-theme="dark"] .record-card,
 html.is-ios[data-theme="midnight"] .record-card {
-    background: rgba(20, 28, 20, 0.68);
-    border-color: rgba(255, 255, 255, 0.12);
+    background: rgba(20, 28, 20, 0.56);
+    border-color: rgba(255, 255, 255, 0.14);
 }
 html.is-ios[data-theme="dark"] .weather-overlay,
 html.is-ios[data-theme="midnight"] .weather-overlay {
-    background: rgba(0, 0, 0, 0.56);
+    background: rgba(0, 0, 0, 0.60);
 }
 
 /* ── Dark Theme ────────────────────────────────────────────────────── */
@@ -173,9 +173,21 @@ html.is-ios[data-theme="midnight"] .weather-overlay {
 
 [data-theme="dark"] body { color: var(--color-gray-800); }
 
-[data-theme="dark"] .header-title { color: var(--color-emerald-200); }
+[data-theme="dark"] .header-title,
+[data-theme="midnight"] .header-title { color: #d7f3e3; }
 [data-theme="dark"] .header-time,
-[data-theme="dark"] .header-user { color: var(--color-gray-200); }
+[data-theme="dark"] .header-user,
+[data-theme="midnight"] .header-time,
+[data-theme="midnight"] .header-user { color: rgba(244, 248, 244, 0.84); }
+[data-theme="dark"] .header-weather,
+[data-theme="midnight"] .header-weather {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.14);
+}
+[data-theme="dark"] .header-weather-temp,
+[data-theme="dark"] .header-weather-city,
+[data-theme="midnight"] .header-weather-temp,
+[data-theme="midnight"] .header-weather-city { color: rgba(244, 248, 244, 0.92); }
 [data-theme="dark"] .card,
 [data-theme="dark"] .record-card,
 [data-theme="dark"] .result-card { border-color: var(--color-gray-200); }

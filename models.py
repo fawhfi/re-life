@@ -5,10 +5,11 @@ from pathlib import Path
 from config import (
     NVIDIA_API_KEY, NVIDIA_MODEL, OPENAI_API_KEY, OPENAI_MODEL,
     GEMINI_API_KEY, GEMINI_MODEL, DEEPSEEK_API_KEY, CLAUDE_API_KEY, CLAUDE_MODEL,
-    DEFAULT_AI_MODEL, AVAILABLE_MODELS,
+    DEFAULT_AI_MODEL, AVAILABLE_MODELS, SUPABASE_STORAGE_BUCKET, SUPABASE_URL,
 )
 from data import HK_DISPOSAL
 from nlp.infer import predict_image
+from storage import supabase_enabled, supabase_storage_upload
 
 # ── Legacy classifier metadata ──────────────────────────────────────────────
 
@@ -98,13 +99,33 @@ def local_scan_response(image_bytes: bytes, mode: str) -> dict:
         "alternative": None,
     }
 
-def upload_image(contents: bytes, filename: str) -> str:
-    """Return base64 data URL."""
+def _image_mime_type(filename: str) -> str:
     ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else "png"
     mime_map = {"jpg": "image/jpeg", "jpeg": "image/jpeg", "png": "image/png", "webp": "image/webp"}
-    mime = mime_map.get(ext, "image/jpeg")
+    return mime_map.get(ext, "image/jpeg")
+
+
+def _data_url(contents: bytes, filename: str) -> str:
+    mime = _image_mime_type(filename)
     b64 = base64.b64encode(contents).decode()
     return f"data:{mime};base64,{b64}"
+
+
+async def upload_image(contents: bytes, filename: str) -> str:
+    if supabase_enabled() and SUPABASE_STORAGE_BUCKET and SUPABASE_URL:
+        try:
+            await supabase_storage_upload(
+                SUPABASE_STORAGE_BUCKET,
+                filename,
+                contents,
+                _image_mime_type(filename),
+            )
+            bucket = SUPABASE_STORAGE_BUCKET.strip("/")
+            path = "/".join(part for part in filename.split("/") if part)
+            return f"{SUPABASE_URL.rstrip('/')}/storage/v1/object/public/{bucket}/{path}"
+        except Exception:
+            pass
+    return _data_url(contents, filename)
 
 # ── AI Providers ────────────────────────────────────────────────────────────
 _AI_PROMPT = """Look at this image carefully. Identify the product shown, its packaging material, and rate its environmental impact for Hong Kong.

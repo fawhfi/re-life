@@ -114,6 +114,11 @@ def _normalize_record_row(row: dict | None, user_name: str | None = None) -> dic
     if not row:
         return None
     photo_url = row.get("image_url") or row.get("photo_url")
+    overall_score = int(row.get("overall_score") or row.get("overallScore") or 0)
+    grade_info = get_grade(overall_score)
+    grade = row.get("grade") or grade_info["grade"]
+    grade_color = row.get("grade_color") or grade_info["color"]
+    grade_advice = row.get("grade_advice") or grade_info["advice"]
     return {
         "id": row.get("id"),
         "name": row.get("name") or "Scanned Item",
@@ -128,11 +133,11 @@ def _normalize_record_row(row: dict | None, user_name: str | None = None) -> dic
         "userName": user_name or row.get("user_name") or row.get("userName"),
         "eco_rate": row.get("eco_rate") or 3,
         "recycle_rate": row.get("recycle_rate") or 4,
-        "overall_score": row.get("overall_score") or row.get("overallScore") or 0,
+        "overall_score": overall_score,
         "material": row.get("material") or "",
-        "grade": row.get("grade") or "",
-        "grade_color": row.get("grade_color"),
-        "grade_advice": row.get("grade_advice"),
+        "grade": grade,
+        "grade_color": grade_color,
+        "grade_advice": grade_advice,
         "brand": row.get("brand") or "",
         "category": row.get("category") or "",
         "weighted_scores": row.get("weighted_scores") or row.get("weightedScores") or {},
@@ -228,8 +233,10 @@ async def get_news_cached(db_get=None, db_put=None) -> list[dict]:
 
 async def add_item(item: dict) -> dict:
     owner = await _resolve_user_id(item.get("userId"), item.get("userName"), item.get("userKey"))
-    owner_id = owner["id"] if owner else None
-    payload = {
+    if not owner:
+        raise ValueError("Login required to save records")
+    owner_id = owner["id"]
+    record = {
         "user_id": owner_id,
         "mode": item.get("mode") or item.get("status") or "dispose",
         "name": item.get("name") or "Scanned Item",
@@ -252,33 +259,32 @@ async def add_item(item: dict) -> dict:
     }
 
     if supabase_enabled():
-        rows = await supabase_insert("scan_records", payload)
+        rows = await supabase_insert(
+            "scan_records",
+            {
+                "user_id": record["user_id"],
+                "mode": record["mode"],
+                "name": record["name"],
+                "description": record["description"],
+                "image_url": record["image_url"],
+                "dealt_with_method": record["dealt_with_method"],
+                "eco_rate": record["eco_rate"],
+                "recycle_rate": record["recycle_rate"],
+                "overall_score": record["overall_score"],
+                "material": record["material"],
+                "grade": record["grade"],
+                "brand": record["brand"],
+                "category": record["category"],
+                "weighted_scores": record["weighted_scores"],
+                "schema_id": record["schema_id"],
+                "alternative": record["alternative"],
+                "precaution": record["precaution"],
+            },
+        )
         row = rows[0] if rows else None
         return {"id": row.get("id") if row else None}
 
-    row = _memory_store_record(
-        {
-            "user_id": owner_id,
-            "mode": payload["mode"],
-            "name": payload["name"],
-            "description": payload["description"],
-            "image_url": payload["image_url"],
-            "dealt_with_method": payload["dealt_with_method"],
-            "eco_rate": payload["eco_rate"],
-            "recycle_rate": payload["recycle_rate"],
-            "overall_score": payload["overall_score"],
-            "material": payload["material"],
-            "grade": payload["grade"],
-            "grade_color": payload["grade_color"],
-            "grade_advice": payload["grade_advice"],
-            "brand": payload["brand"],
-            "category": payload["category"],
-            "weighted_scores": payload["weighted_scores"],
-            "schema_id": payload["schema_id"],
-            "alternative": payload["alternative"],
-            "precaution": payload["precaution"],
-        }
-    )
+    row = _memory_store_record(record)
     return {"id": row["id"]}
 
 

@@ -68,11 +68,11 @@ def _infer_waste_type(payload: dict) -> str:
         return "ewaste"
     return "plastic"
 
-def _normalize_scan_payload(ai: dict, contents: bytes, filename: str, mode: str, sid: str) -> dict:
+async def _normalize_scan_payload(ai: dict, contents: bytes, filename: str, mode: str, sid: str) -> dict:
     result = dict(ai or {})
     ext = Path(str(filename)).suffix or ".png"
     fn = f"{uuid.uuid4()}{ext}"
-    result["image_url"] = upload_image(contents, fn)
+    result["image_url"] = await upload_image(contents, fn)
     result["mode"] = mode
     result["id"] = result.get("id") or str(uuid.uuid4())
     result["timestamp"] = datetime.now().isoformat()
@@ -205,7 +205,10 @@ async def list_records(request: Request, user_id: str | None = None, display_nam
 @app.post("/api/records")
 async def create_record(request: Request, data: dict):
     await check_rate_limit(request, 30, 60)
-    result = await add_item(data or {})
+    try:
+        result = await add_item(data or {})
+    except ValueError as e:
+        return JSONResponse({"error": str(e)}, 400)
     return {"ok": True, **result}
 
 
@@ -295,7 +298,7 @@ async def scan_item_ai(request: Request, file: UploadFile = File(...), mode: str
             print(f"[Classifier] Local transformer error: {str(cls_e)[:200]}")
             return JSONResponse({"error": "Image analysis failed", "mode": mode, "schema_id": sid}, 500)
 
-    ai = _normalize_scan_payload(ai, contents, file.filename, mode, sid)
+    ai = await _normalize_scan_payload(ai, contents, file.filename, mode, sid)
 
     scores = ai.get("weighted_scores", {"a": 50, "b": 50, "c": 50, "d": 50, "e": 50})
     ov = calc_weighted(scores, sid); g = get_grade(ov)

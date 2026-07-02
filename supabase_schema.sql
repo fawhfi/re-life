@@ -108,3 +108,16 @@ comment on table public.app_users is 'Re-Life user profiles and authentication r
 comment on table public.scan_records is 'Re-Life waste scan history linked to users.';
 comment on table public.auth_codes is 'Email verification and password reset codes.';
 comment on table public.news_cache is 'Cached news payloads for the home feed.';
+
+insert into storage.buckets (id, name, public)
+values ('scan-images', 'scan-images', true)
+on conflict (id) do update
+set public = excluded.public;
+
+drop policy if exists "service_role can manage scan images" on storage.objects;
+create policy "service_role can manage scan images"
+on storage.objects
+for all
+to service_role
+using (bucket_id = 'scan-images')
+with check (bucket_id = 'scan-images');

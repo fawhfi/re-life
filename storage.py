@@ -8,6 +8,7 @@ import httpx
 from config import SUPABASE_SERVICE_ROLE_KEY, SUPABASE_URL
 
 SUPABASE_REST_TIMEOUT = 15.0
+SUPABASE_STORAGE_TIMEOUT = 30.0
 
 
 def supabase_enabled() -> bool:
@@ -135,6 +136,46 @@ async def supabase_delete(
     prefer = "return=representation" if returning else None
     data = await supabase_request("DELETE", table, params=params, prefer=prefer)
     return data if isinstance(data, list) else ([] if data is None else [data])
+
+
+def _storage_path(value: object) -> str:
+    return "/".join(quote(part, safe="") for part in str(value).split("/"))
+
+
+async def supabase_storage_upload(
+    bucket: str,
+    path: str,
+    contents: bytes,
+    content_type: str,
+    *,
+    upsert: bool = True,
+) -> object | None:
+    if not supabase_enabled():
+        return None
+
+    bucket_path = quote(str(bucket), safe="")
+    object_path = _storage_path(path)
+    url = f"{SUPABASE_URL.rstrip('/')}/storage/v1/object/{bucket_path}/{object_path}"
+    headers = {
+        "apikey": SUPABASE_SERVICE_ROLE_KEY,
+        "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+        "Content-Type": content_type or "application/octet-stream",
+        "Accept": "application/json",
+        "cache-control": "3600",
+        "x-upsert": "true" if upsert else "false",
+    }
+
+    async with httpx.AsyncClient(timeout=SUPABASE_STORAGE_TIMEOUT) as client:
+        response = await client.post(url, content=contents, headers=headers)
+
+    if response.status_code >= 400:
+        raise RuntimeError(f"Supabase storage HTTP {response.status_code}: {response.text[:300]}")
+    if response.status_code == 204 or not response.text:
+        return None
+    try:
+        return response.json()
+    except Exception:
+        return response.text
 
 
 def encode_id(value: object) -> str:

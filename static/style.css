@@ -169,6 +169,49 @@ body {
     will-change: opacity;
     backface-visibility: hidden;
 }
+html.is-ios .app {
+    will-change: auto;
+    backface-visibility: visible;
+}
+html.is-ios .app::before {
+    opacity: 0.06;
+}
+html.is-ios :is(.login-card, .card, .tips-card, .fact-card, .rewards-wallet, .result-card, .app-header, nav.nav, .app-nav, .modal, .weather-panel, .upload-zone, .record-card) {
+    -webkit-backdrop-filter: blur(24px) saturate(165%) contrast(108%);
+    backdrop-filter: blur(24px) saturate(165%) contrast(108%);
+    box-shadow: 0 10px 32px rgba(0, 0, 0, 0.10), inset 0 1px 0 rgba(255, 255, 255, 0.38);
+    position: relative;
+    overflow: hidden;
+    isolation: isolate;
+}
+html.is-ios :is(.login-card, .card, .tips-card, .fact-card, .rewards-wallet, .result-card, .modal, .weather-panel, .upload-zone, .record-card) {
+    background: rgba(255, 255, 255, 0.62);
+    border-color: rgba(255, 255, 255, 0.58);
+}
+html.is-ios .app-header,
+html.is-ios nav.nav,
+html.is-ios .app-nav {
+    background: rgba(255, 255, 255, 0.60);
+    border-color: rgba(255, 255, 255, 0.60);
+}
+html.is-ios .weather-overlay {
+    background: rgba(6, 10, 6, 0.4);
+}
+html.is-ios :is(.login-card, .card, .tips-card, .fact-card, .rewards-wallet, .result-card, .app-header, nav.nav, .app-nav, .modal, .weather-panel, .upload-zone, .record-card)::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    border-radius: inherit;
+    background:
+        linear-gradient(135deg, rgba(255, 255, 255, 0.28) 0%, rgba(255, 255, 255, 0.10) 48%, rgba(255, 255, 255, 0.18) 100%),
+        linear-gradient(180deg, rgba(255, 255, 255, 0.10) 0%, rgba(255, 255, 255, 0.02) 100%);
+    z-index: 0;
+}
+html.is-ios :is(.login-card, .card, .tips-card, .fact-card, .rewards-wallet, .result-card, .app-header, nav.nav, .app-nav, .modal, .weather-panel, .upload-zone, .record-card) > * {
+    position: relative;
+    z-index: 1;
+}
 /* Keep glass surfaces on the normal paint path so backdrop filters stay visible on iOS */
 .scan-btn, .nav-btn-icon {
     will-change: transform, opacity;

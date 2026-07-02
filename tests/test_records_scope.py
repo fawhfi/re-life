@@ -17,6 +17,23 @@ class RecordScopeTests(unittest.TestCase):
         self.assertIn("await loadRecords();", source)
         self.assertIn("record.userName = state.currentUser || null;", source)
 
+    def test_nav_drag_commits_once_on_release(self):
+        source = Path("static/app.js").read_text(encoding="utf-8")
+
+        self.assertIn("let suppressNavClickUntil = 0;", source)
+        self.assertIn("const hadDrag = navbar.classList.contains('nav-is-dragging');", source)
+        self.assertIn("if (hadDrag) {", source)
+        self.assertNotIn("if (m && m[1] && state.activeTab !== m[1]) navigateTo(m[1]);", source)
+
+    def test_record_loading_uses_cache_for_same_user(self):
+        source = Path("static/app.js").read_text(encoding="utf-8")
+
+        self.assertIn("async function loadRecords({ force = false } = {})", source)
+        self.assertIn("if (!force && !state.recordsDirty && state.recordsLoadedFor === cacheKey)", source)
+        self.assertIn("if (state.recordsLoadPromise && state.recordsLoadPromiseToken === state.recordsLoadToken)", source)
+        self.assertIn("upsertRecordCache({", source)
+        self.assertIn("removeRecordCache(id);", source)
+
     def test_get_items_refuses_unauthenticated_reads(self):
         source = Path("static/supabase.js").read_text(encoding="utf-8")
 

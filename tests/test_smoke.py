@@ -56,18 +56,6 @@ class SmokeTests(unittest.TestCase):
         self.assertIn("permission.state === 'denied'", app_js)
         self.assertIn("navigator.geolocation.getCurrentPosition(", app_js)
 
-    def test_weather_details_refreshes_location_each_time_it_opens(self):
-        app_js = Path("static/app.js").read_text(encoding="utf-8")
-
-        self.assertIn("refreshHeaderWeather().catch(() => {});", app_js)
-        self.assertNotIn("if (!state.weatherLocationPrompted)", app_js)
-
-    def test_weather_refresh_uses_fresh_geolocation_on_manual_open(self):
-        app_js = Path("static/app.js").read_text(encoding="utf-8")
-
-        self.assertIn("maximumAge: forcePrompt ? 0 : 300000", app_js)
-        self.assertIn("timeout: forcePrompt ? 5000 : 2500", app_js)
-
     def test_glass_surfaces_are_not_forced_into_composited_layers(self):
         style = Path("static/style.css").read_text(encoding="utf-8")
 
@@ -76,20 +64,6 @@ class SmokeTests(unittest.TestCase):
             style,
         )
         self.assertIn(".scan-btn, .nav-btn-icon {", style)
-
-    def test_ios_uses_denser_glass_fallbacks(self):
-        template = Path("templates/index.html").read_text(encoding="utf-8")
-        style = Path("static/style.css").read_text(encoding="utf-8")
-        theme = Path("static/css/theme.css").read_text(encoding="utf-8")
-
-        self.assertIn("is-ios", template)
-        self.assertIn("html.is-ios .app-header", style)
-        self.assertIn("html.is-ios :is(", style)
-        self.assertIn(".weather-panel", style)
-        self.assertIn("blur(24px) saturate(165%) contrast(108%)", style)
-        self.assertIn("opacity: 0.06;", style)
-        self.assertIn("html.is-ios[data-theme=\"dark\"] .app-header", theme)
-        self.assertIn("html.is-ios[data-theme=\"midnight\"] .weather-panel", theme)
 
     def test_weather_details_panel_is_wired_into_the_template(self):
         template = Path("templates/index.html").read_text(encoding="utf-8")

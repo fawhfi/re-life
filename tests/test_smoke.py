@@ -84,8 +84,10 @@ class SmokeTests(unittest.TestCase):
 
         self.assertIn("is-ios", template)
         self.assertIn("html.is-ios .app-header", style)
-        self.assertIn("html.is-ios .weather-panel", style)
-        self.assertIn("html.is-ios .card", style)
+        self.assertIn("html.is-ios :is(", style)
+        self.assertIn(".weather-panel", style)
+        self.assertIn("blur(24px) saturate(165%) contrast(108%)", style)
+        self.assertIn("opacity: 0.06;", style)
         self.assertIn("html.is-ios[data-theme=\"dark\"] .app-header", theme)
         self.assertIn("html.is-ios[data-theme=\"midnight\"] .weather-panel", theme)
 

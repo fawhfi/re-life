@@ -106,14 +106,14 @@
 
 html.is-ios[data-theme="dark"] .app-header,
 html.is-ios[data-theme="midnight"] .app-header {
-    background: rgba(20, 28, 20, 0.74);
+    background: rgba(20, 28, 20, 0.66);
     border-color: rgba(255, 255, 255, 0.14);
 }
 html.is-ios[data-theme="dark"] nav.nav,
 html.is-ios[data-theme="dark"] .app-nav,
 html.is-ios[data-theme="midnight"] nav.nav,
 html.is-ios[data-theme="midnight"] .app-nav {
-    background: rgba(20, 28, 20, 0.7);
+    background: rgba(20, 28, 20, 0.64);
     border-color: rgba(255, 255, 255, 0.12);
 }
 html.is-ios[data-theme="dark"] .login-card,
@@ -136,7 +136,7 @@ html.is-ios[data-theme="dark"] .upload-zone,
 html.is-ios[data-theme="midnight"] .upload-zone,
 html.is-ios[data-theme="dark"] .record-card,
 html.is-ios[data-theme="midnight"] .record-card {
-    background: rgba(20, 28, 20, 0.82);
+    background: rgba(20, 28, 20, 0.68);
     border-color: rgba(255, 255, 255, 0.12);
 }
 html.is-ios[data-theme="dark"] .weather-overlay,

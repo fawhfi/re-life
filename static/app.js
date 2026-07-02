@@ -60,6 +60,11 @@ const state = {
     weatherLoadPromise: null,
     weatherRequestId: 0,
     weatherDetailsOpen: false,
+    recordsDirty: true,
+    recordsLoadedFor: '',
+    recordsLoadPromise: null,
+    recordsLoadPromiseToken: 0,
+    recordsLoadToken: 0,
 };
 
 const PERF = (typeof window !== 'undefined' && window.RELIFE_PERF) ? window.RELIFE_PERF : { reducedMotion: false, lowEnd: false, motionEnabled: true };
@@ -78,6 +83,71 @@ let tipsRenderToken = 0;
 function weatherTr(key, fallback) {
     const value = tr(key);
     return value === key ? fallback : value;
+}
+
+function getRecordsCacheKey() {
+    return [state.currentUser || '', state.userId || '', state.userKey || ''].join('|');
+}
+
+function invalidateRecordsCache({ clear = false } = {}) {
+    state.recordsDirty = true;
+    state.recordsLoadedFor = '';
+    state.recordsLoadToken += 1;
+    state.recordsLoadPromise = null;
+    state.recordsLoadPromiseToken = 0;
+    if (clear) {
+        state.records = [];
+        renderRecords();
+        updateStats();
+    }
+}
+
+function upsertRecordCache(record) {
+    if (!record) return;
+    const normalized = {
+        id: record.id ?? null,
+        name: record.name || 'Scanned Item',
+        mode: record.mode || record.status || 'dispose',
+        status: record.status || record.mode || 'dispose',
+        createdAt: record.createdAt || new Date().toISOString(),
+        description: record.description || '',
+        image_url: record.image_url || record.photoUrl || record.photo_url || '',
+        photoUrl: record.photoUrl || record.image_url || record.photo_url || '',
+        dealtWithMethod: record.disposal_guide || record.dealtWithMethod || record.dealt_with_method || '',
+        disposal_guide: record.disposal_guide || record.dealtWithMethod || record.dealt_with_method || '',
+        dealtWithDate: record.dealtWithDate || record.dealt_with_date || null,
+        userId: record.userId || state.userId || null,
+        userName: record.userName || state.currentUser || null,
+        eco_rate: record.eco_rate ?? 3,
+        recycle_rate: record.recycle_rate ?? 4,
+        overall_score: record.overall_score ?? 0,
+        material: record.material || '',
+        grade: record.grade || '',
+        grade_color: record.grade_color || null,
+        grade_advice: record.grade_advice || null,
+        brand: record.brand || '',
+        category: record.category || '',
+        weighted_scores: record.weighted_scores || record.weightedScores || {},
+        schema_id: record.schema_id || record.schemaId || '',
+        alternative: record.alternative || null,
+        precaution: record.precaution || null,
+        image: (record.mode || record.status) === 'purchase' ? '🥛' : '🗑️',
+    };
+    state.recordsLoadToken += 1;
+    state.records = [normalized, ...state.records.filter(r => String(r.id) !== String(normalized.id))];
+    state.recordsLoadedFor = getRecordsCacheKey();
+    state.recordsDirty = false;
+    renderRecords();
+    updateStats();
+}
+
+function removeRecordCache(recordId) {
+    state.recordsLoadToken += 1;
+    state.records = state.records.filter(r => String(r.id) !== String(recordId));
+    state.recordsLoadedFor = getRecordsCacheKey();
+    state.recordsDirty = false;
+    renderRecords();
+    updateStats();
 }
 
 const GSAP_FALLBACK = (() => {
@@ -554,6 +624,11 @@ function initNavDrag() {
     const btns = navbar.querySelectorAll('.nav-btn');
     const btnArray = Array.from(btns);
     let isDragging = false;
+    let activePointerId = null;
+    let pointerStartX = 0;
+    let pointerStartY = 0;
+    let pendingTab = state.activeTab;
+    let suppressNavClickUntil = 0;
 
     if (indicator) {
         indicator.style.transformOrigin = 'left center';
@@ -600,7 +675,7 @@ function initNavDrag() {
         requestAnimationFrame(() => requestAnimationFrame(() => snapIndicatorTo(activeBtn)));
     }
 
-    function evalTab(clientX) {
+    function getBestTab(clientX) {
         const nr = navbar.getBoundingClientRect();
         const relX = clientX - nr.left;
 
@@ -653,24 +728,50 @@ function initNavDrag() {
         });
         if (best) {
             const m = (best.getAttribute('onclick') || '').match(/navigateTo\(['"]([^'"]+)['"]\)/);
-            if (m && m[1] && state.activeTab !== m[1]) navigateTo(m[1]);
+            if (m && m[1]) {
+                pendingTab = m[1];
+                return m[1];
+            }
         }
+        return pendingTab;
     }
+
+    navbar.addEventListener('click', e => {
+        if (Date.now() < suppressNavClickUntil) {
+            e.preventDefault();
+            e.stopImmediatePropagation();
+        }
+    }, true);
 
     navbar.addEventListener('pointerdown', e => {
         if (e.button !== 0) return;
+        activePointerId = e.pointerId;
+        pointerStartX = e.clientX;
+        pointerStartY = e.clientY;
         isDragging = true;
-        navbar.classList.add('nav-is-dragging');
+        pendingTab = state.activeTab;
         navbar.setPointerCapture(e.pointerId);
-        evalTab(e.clientX);
-
-
+        getBestTab(e.clientX);
     });
-    navbar.addEventListener('pointermove', e => { if (isDragging) evalTab(e.clientX); });
-    document.addEventListener('pointermove', e => { if (isDragging) evalTab(e.clientX); });
+    const updateDrag = e => {
+        if (activePointerId === null || e.pointerId !== activePointerId) return;
+        const dx = Math.abs(e.clientX - pointerStartX);
+        const dy = Math.abs(e.clientY - pointerStartY);
+        if (!navbar.classList.contains('nav-is-dragging') && (dx > 6 || dy > 6)) {
+            navbar.classList.add('nav-is-dragging');
+        }
+        if (navbar.classList.contains('nav-is-dragging')) {
+            isDragging = true;
+            getBestTab(e.clientX);
+        }
+    };
+    navbar.addEventListener('pointermove', updateDrag);
+    document.addEventListener('pointermove', updateDrag);
     const stop = e => {
-        if (!isDragging) return;
+        if (activePointerId === null || e.pointerId !== activePointerId) return;
+        const hadDrag = navbar.classList.contains('nav-is-dragging');
         isDragging = false;
+        activePointerId = null;
         navbar.classList.remove('nav-is-dragging');
         try { navbar.releasePointerCapture(e.pointerId); } catch {}
         if (indicator) {
@@ -680,6 +781,12 @@ function initNavDrag() {
 
         const active = navbar.querySelector('.nav-btn.is-active');
         if (active) snapIndicatorTo(active);
+
+        const targetTab = getBestTab(e.clientX);
+        if (hadDrag) {
+            suppressNavClickUntil = Date.now() + 350;
+            if (targetTab && state.activeTab !== targetTab) navigateTo(targetTab);
+        }
     };
     navbar.addEventListener('pointerup', stop);
     navbar.addEventListener('pointercancel', stop);
@@ -1111,7 +1218,26 @@ function addScanToRecord() {
     playBeep('success');
 
     // Save to backend storage
-    FB.addItem(record).catch(err => console.error('Failed to save item:', err));
+    FB.addItem(record)
+        .then(({ id }) => {
+            if (id !== null && id !== undefined) {
+                upsertRecordCache({
+                    ...record,
+                    id,
+                    mode: record.mode || record.status || 'dispose',
+                    status: record.mode || record.status || 'dispose',
+                    image_url: record.image_url || record.photoUrl || '',
+                    photoUrl: record.photoUrl || record.image_url || '',
+                    disposal_guide: record.disposal_guide || record.dealtWithMethod || '',
+                    dealtWithMethod: record.dealtWithMethod || record.disposal_guide || '',
+                    userId: state.userId || null,
+                    userName: state.currentUser || null,
+                });
+            } else {
+                invalidateRecordsCache();
+            }
+        })
+        .catch(err => console.error('Failed to save item:', err));
 }
 
 function swapAlternative() {
@@ -1189,48 +1315,77 @@ function resetScan() {
 // 11. RECORDS
 // ═══════════════════════════════════════════════════════════════════════
 
-async function loadRecords() {
-    if (typeof FB === 'undefined') { console.warn('[App] FB not ready, retrying...'); setTimeout(loadRecords, 500); return; }
+async function loadRecords({ force = false } = {}) {
+    if (typeof FB === 'undefined') { console.warn('[App] FB not ready, retrying...'); setTimeout(() => loadRecords({ force }), 500); return; }
     if (!state.currentUser && !state.userId && !state.userKey) {
-        state.records = [];
-        renderRecords();
-        updateStats();
-        return;
+        invalidateRecordsCache({ clear: true });
+        return [];
     }
+
+    const cacheKey = getRecordsCacheKey();
+    if (!force && !state.recordsDirty && state.recordsLoadedFor === cacheKey) {
+        renderRecords();
+        updateStats();
+        return state.records;
+    }
+
+    if (state.recordsLoadPromise && state.recordsLoadPromiseToken === state.recordsLoadToken) {
+        return state.recordsLoadPromise;
+    }
+
+    const loadToken = ++state.recordsLoadToken;
+    const loadPromise = (async () => {
+        try {
+            state.records = [];
+            renderRecords();
+            updateStats();
+            const items = await FB.getItems(
+                state.userId || null,
+                (state.userId || state.userKey) ? null : state.currentUser,
+                state.userKey || null,
+            );
+            if (loadToken !== state.recordsLoadToken || cacheKey !== getRecordsCacheKey()) return state.records;
+            state.records = items.map(it => ({
+                id: it.id,
+                name: it.name,
+                mode: it.status,
+                eco_rate: it.eco_rate,
+                recycle_rate: it.recycle_rate,
+                overall_score: it.overall_score,
+                material: it.material,
+                grade: it.grade,
+                description: it.description,
+                image_url: it.photoUrl,
+                disposal_guide: it.dealtWithMethod,
+                disposal_info: null,
+                precaution: null,
+                alternative: it.alternative,
+                weighted_scores: it.weighted_scores,
+                schema_id: it.schema_id,
+                brand: it.brand,
+                category: it.category,
+                image: it.status === 'purchase' ? '🥛' : '🗑️',
+            }));
+            state.recordsLoadedFor = cacheKey;
+            state.recordsDirty = false;
+            renderRecords();
+            updateStats();
+            return state.records;
+        } catch (e) {
+            console.error('Failed to load records:', e);
+            throw e;
+        }
+    })();
+
+    state.recordsLoadPromise = loadPromise;
+    state.recordsLoadPromiseToken = loadToken;
     try {
-        state.records = [];
-        renderRecords();
-        updateStats();
-        const items = await FB.getItems(
-            state.userId || null,
-            (state.userId || state.userKey) ? null : state.currentUser,
-            state.userKey || null,
-        );
-        state.records = items.map(it => ({
-            id: it.id,
-            name: it.name,
-            mode: it.status,
-            eco_rate: it.eco_rate,
-            recycle_rate: it.recycle_rate,
-            overall_score: it.overall_score,
-            material: it.material,
-            grade: it.grade,
-            description: it.description,
-            image_url: it.photoUrl,
-            disposal_guide: it.dealtWithMethod,
-            disposal_info: null,
-            precaution: null,
-            alternative: it.alternative,
-            weighted_scores: it.weighted_scores,
-            schema_id: it.schema_id,
-            brand: it.brand,
-            category: it.category,
-            image: it.status === 'purchase' ? '🥛' : '🗑️',
-        }));
-        renderRecords();
-        updateStats();
-    } catch (e) {
-        console.error('Failed to load records:', e);
+        return await loadPromise;
+    } finally {
+        if (state.recordsLoadPromise === loadPromise && state.recordsLoadPromiseToken === loadToken) {
+            state.recordsLoadPromise = null;
+            state.recordsLoadPromiseToken = 0;
+        }
     }
 }
 
@@ -1341,15 +1496,8 @@ function renderRecords() {
 async function deleteRecord(id) {
     try {
         await FB.deleteItem(id);
-        const card = document.getElementById(`rec-${id}`);
-        if (card) {
-            if (MOTION_ENABLED) {
-                gsap.to(card, { opacity: 0, scaleY: 0, transformOrigin: 'top center', duration: 0.25, ease: "power2.in", onComplete: () => { card.style.display = 'none'; loadRecords(); } });
-            } else {
-                card.style.display = 'none';
-                loadRecords();
-            }
-        }
+        closeModal();
+        removeRecordCache(id);
     } catch (e) {
         console.error('Failed to delete record:', e);
     }
@@ -1398,9 +1546,8 @@ function viewRecordDetail(id) {
 async function clearAllRecords() {
     showConfirm(tr('confirmClear'), async () => {
         await FB.clearAllItems();
-        state.records = [];
-        renderRecords();
-        updateStats();
+        closeModal();
+        invalidateRecordsCache({ clear: true });
     });
 }
 
@@ -1834,12 +1981,10 @@ function resetSessionState() {
     state.spentPoints = 0;
     state.earnedPoints = 0;
     state.claimedCoupons = [];
-    state.records = [];
+    invalidateRecordsCache({ clear: true });
     state.lastScanResult = null;
     clearSessionState();
     updateHeaderUI();
-    renderRecords();
-    updateStats();
 }
 
 function handleLogout() {
@@ -1885,6 +2030,7 @@ async function loginAs(name, avatar, userId, userKey = null) {
     state.userAvatar = avatar;
     state.userId = userId || null;
     state.userKey = userKey || null;
+    invalidateRecordsCache({ clear: true });
     persistSessionState({
         name,
         id: state.userId,

@@ -12,6 +12,7 @@ import httpx
 from auth import get_user_by_id, get_user_by_name
 from config import SERPAPI_KEY
 from storage import (
+    normalize_supabase_storage_url,
     supabase_delete,
     supabase_enabled,
     supabase_insert,
@@ -113,7 +114,7 @@ def _hk_today_6am() -> float:
 def _normalize_record_row(row: dict | None, user_name: str | None = None) -> dict | None:
     if not row:
         return None
-    photo_url = row.get("image_url") or row.get("photo_url")
+    photo_url = normalize_supabase_storage_url(row.get("image_url") or row.get("photo_url"))
     overall_score = int(row.get("overall_score") or row.get("overallScore") or 0)
     grade_info = get_grade(overall_score)
     grade = row.get("grade") or grade_info["grade"]

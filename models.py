@@ -9,7 +9,7 @@ from config import (
 )
 from data import HK_DISPOSAL
 from nlp.infer import predict_image
-from storage import supabase_enabled, supabase_storage_upload
+from storage import supabase_enabled, supabase_storage_signed_url, supabase_storage_upload
 
 # ── Legacy classifier metadata ──────────────────────────────────────────────
 
@@ -121,8 +121,7 @@ async def upload_image(contents: bytes, filename: str) -> str:
                 _image_mime_type(filename),
             )
             bucket = SUPABASE_STORAGE_BUCKET.strip("/")
-            path = "/".join(part for part in filename.split("/") if part)
-            return f"{SUPABASE_URL.rstrip('/')}/storage/v1/object/public/{bucket}/{path}"
+            return supabase_storage_signed_url(bucket, filename)
         except Exception:
             pass
     return _data_url(contents, filename)

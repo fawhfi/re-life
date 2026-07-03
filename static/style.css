@@ -164,11 +164,7 @@ body {
     margin-bottom: 16px;
 }
 
-/* Hardware acceleration for smooth animations on low-end devices */
-.app {
-    will-change: opacity;
-    backface-visibility: hidden;
-}
+/* Disabled hardware acceleration on the parent container to keep glass surfaces on the normal paint path so backdrop filters stay visible on iOS */
 /* Keep glass surfaces on the normal paint path so backdrop filters stay visible on iOS */
 .scan-btn, .nav-btn-icon {
     will-change: transform, opacity;
@@ -1806,7 +1802,6 @@ body {
     border: 1px solid rgba(255, 255, 255, 0.58);
     box-shadow: 0 18px 60px rgba(0, 0, 0, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.35);
     color: var(--color-gray-800);
-    will-change: transform, opacity;
 }
 
 .weather-close {

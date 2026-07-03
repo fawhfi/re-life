@@ -11,9 +11,11 @@ from PIL import Image
 
 from .constants import IMG_SIZE, MEAN, STD
 from .labels import TOKEN_ALIASES, WASTE_TOKENS, default_caption_for
-from .tokenizer import build_tokenizer
+from .tokenizer import CaptionTokenizer, build_tokenizer
 
-DEFAULT_MODEL_PATH = Path(__file__).resolve().parent / "artifacts" / "transformer.int8.onnx"
+ARTIFACTS_DIR = Path(__file__).resolve().parent / "artifacts"
+DEFAULT_MODEL_PATH = ARTIFACTS_DIR / "model_fp16.onnx"
+DEFAULT_TOKENIZER_PATH = ARTIFACTS_DIR / "tokenizer.json"
 
 _MEAN = np.asarray(MEAN, dtype=np.float32).reshape(1, 1, 3)
 _STD = np.asarray(STD, dtype=np.float32).reshape(1, 1, 3)
@@ -21,6 +23,8 @@ _STD = np.asarray(STD, dtype=np.float32).reshape(1, 1, 3)
 
 @lru_cache(maxsize=1)
 def _get_tokenizer():
+    if DEFAULT_TOKENIZER_PATH.exists():
+        return CaptionTokenizer.from_file(DEFAULT_TOKENIZER_PATH)
     return build_tokenizer()
 
 
@@ -61,13 +65,12 @@ def _resolve_model_path(model_path: str | Path) -> Path:
         return candidate
 
     fallbacks = [
-        Path(__file__).resolve().parent / "artifacts" / "transformer.int8.onnx",
-        Path(__file__).resolve().parent / "artifacts" / "transformer.onnx",
-        Path(__file__).resolve().parent / "artifacts" / "model_fp32.onnx",
-        Path(__file__).resolve().parents[2] / "nlp" / "artifacts" / "transformer.onnx",
-        Path(__file__).resolve().parents[2] / "nlp" / "artifacts" / "transformer.int8.onnx",
+        ARTIFACTS_DIR / "model_fp16.onnx",
+        ARTIFACTS_DIR / "model_fp32.onnx",
+        ARTIFACTS_DIR / "transformer.onnx",
+        Path(__file__).resolve().parents[2] / "nlp" / "artifacts" / "model_fp16.onnx",
         Path(__file__).resolve().parents[2] / "nlp" / "artifacts" / "model_fp32.onnx",
-        Path(__file__).resolve().parents[2] / "nlp" / "artifacts" / "model_int8.onnx",
+        Path(__file__).resolve().parents[2] / "nlp" / "artifacts" / "transformer.onnx",
     ]
     for fallback in fallbacks:
         if fallback.exists():

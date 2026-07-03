@@ -107,11 +107,15 @@ async def _normalize_scan_payload(ai: dict, contents: bytes, filename: str, mode
     waste_type = result.get("waste_type") or _infer_waste_type(result)
     result["waste_type"] = waste_type
 
-    is_local = result.get("classifier_source") == "cnn"
-    result.setdefault("classifier_source", "cnn" if is_local else DEFAULT_AI_MODEL)
+    is_local = (
+        result.get("runtime_source") == "onnxruntime"
+        or result.get("model_source") == "transformer"
+        or result.get("classifier_source") in {"nlp", "transformer"}
+    )
+    result.setdefault("classifier_source", "nlp" if is_local else DEFAULT_AI_MODEL)
     result.setdefault("model_source", "transformer" if is_local else DEFAULT_AI_MODEL)
     result.setdefault("runtime_source", "onnxruntime" if is_local else "remote")
-    result.setdefault("artifact", "transformer.onnx" if is_local else result.get("model_source", DEFAULT_AI_MODEL))
+    result.setdefault("artifact", "model_fp16.onnx" if is_local else result.get("model_source", DEFAULT_AI_MODEL))
     result.setdefault("waste_label", CNN_LABELS.get(waste_type, waste_type.replace("_", " ").title()))
 
     text = result.get("text") or result.get("description") or result.get("disposal_guide") or f"{result['waste_label']} waste."

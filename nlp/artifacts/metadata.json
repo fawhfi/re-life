@@ -1,0 +1,29 @@
+{
+  "labels": [
+    "glass",
+    "metal",
+    "organic",
+    "paper",
+    "plastic",
+    "ewaste"
+  ],
+  "num_classes": 6,
+  "img_size": 224,
+  "best_epoch": 27,
+  "train_metrics": {
+    "loss": 0.05699551750676356,
+    "class_loss": 0.024519482490945422,
+    "caption_loss": 0.10825344585422156,
+    "class_acc": 0.988965744400527,
+    "token_acc": 0.9372880244468634
+  },
+  "val_metrics": {
+    "loss": 0.2903994144323091,
+    "class_loss": 0.2539126325619115,
+    "caption_loss": 0.12162260166904687,
+    "class_acc": 0.9499381953028431,
+    "token_acc": 0.975166874840512
+  },
+  "test_metrics": null,
+  "checkpoint": "student.pt"
+}

@@ -9,6 +9,7 @@ from fastapi.testclient import TestClient
 from models import classifier_response, upload_image
 from main import app
 from nlp import build_tokenizer
+from nlp.infer import DEFAULT_MODEL_PATH
 from nlp.model import build_model
 from storage import normalize_supabase_storage_url, supabase_storage_signed_url
 
@@ -54,6 +55,14 @@ class CnnScanTests(unittest.TestCase):
                 ),
             )
 
+    def test_nlp_artifacts_are_synced_from_training_repo(self):
+        artifacts = Path("nlp/artifacts")
+
+        self.assertEqual(DEFAULT_MODEL_PATH.name, "model_fp16.onnx")
+        self.assertTrue((artifacts / "model_fp16.onnx").exists())
+        self.assertTrue((artifacts / "tokenizer.json").exists())
+        self.assertTrue((artifacts / "metadata.json").exists())
+
     def test_scan_endpoint_tries_remote_llm_before_local_fallback(self):
         sample_dir = Path(__file__).resolve().parents[2] / "cnn_classifier" / "src" / "data" / "test" / "paper"
         sample = next(
@@ -73,7 +82,7 @@ class CnnScanTests(unittest.TestCase):
         self.assertEqual(remote_mock.await_count, 1)
         result = response.json()
         self.assertEqual(result["ai_error"], "AI failed to call, using fallback.")
-        self.assertEqual(result["classifier_source"], "cnn")
+        self.assertEqual(result["classifier_source"], "nlp")
         self.assertEqual(result["model_source"], "transformer")
         self.assertEqual(result["runtime_source"], "onnxruntime")
         self.assertTrue(result["artifact"].endswith(".onnx"))

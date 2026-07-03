@@ -136,6 +136,74 @@ class CnnScanTests(unittest.TestCase):
         self.assertIn("plastic", result["text"].lower())
         self.assertEqual(result["alternative"]["name"], "Refill Bottle")
 
+    def test_scan_endpoint_debug_mode_forces_local_transformer(self):
+        sample_dir = Path(__file__).resolve().parents[2] / "cnn_classifier" / "src" / "data" / "test" / "paper"
+        sample = next(
+            path for path in sorted(sample_dir.iterdir())
+            if path.suffix.lower() in {".jpg", ".jpeg", ".png"}
+        )
+
+        remote_result = {
+            "name": "Bottle",
+            "brand": "",
+            "category": "beverage",
+            "description": "Remote model identified a plastic bottle.",
+            "material": "plastic",
+            "eco_rate": 2,
+            "recycle_rate": 3,
+            "standard_type": "general",
+            "weighted_scores": {"a": 81, "b": 77, "c": 73, "d": 69, "e": 85},
+            "alternative": {"name": "Refill Bottle", "eco_rate": 5, "recycle_rate": 5},
+            "waste_type": "plastic",
+            "waste_label": "Plastic",
+            "text": "Remote LLM says plastic waste.",
+            "classifier_source": "openai",
+            "model_source": "gpt-4o-mini",
+            "runtime_source": "remote",
+            "artifact": "gpt-4o-mini",
+            "confidence": 0.91,
+        }
+
+        with patch("main.ai_analyze", new=AsyncMock(return_value=remote_result)) as remote_mock:
+            with patch("main.local_scan_response", return_value={
+                "name": "Paper",
+                "brand": "",
+                "category": "paper",
+                "waste_type": "paper",
+                "waste_label": "Paper",
+                "classifier_source": "nlp",
+                "model_source": "transformer",
+                "runtime_source": "onnxruntime",
+                "artifact": "model_fp16.onnx",
+                "text": "This looks like paper waste.",
+                "tokens": ["this", "looks", "like", "paper", "waste"],
+                "confidence": 0.99,
+                "standard_type": "general",
+                "description": "",
+                "material": "paper",
+                "eco_rate": 5,
+                "recycle_rate": 5,
+                "weighted_scores": {"a": 90, "b": 90, "c": 90, "d": 90, "e": 90},
+                "disposal_guide": "Keep dry, no grease, flatten",
+                "precaution": "",
+                "alternative": None,
+            }) as local_mock:
+                with sample.open("rb") as image_file:
+                    response = self.client.post(
+                        "/api/scan/ai",
+                        files={"file": (sample.name, image_file, "image/jpeg")},
+                        data={"mode": "dispose", "item_type": "food", "item_state": "new", "debug": "true"},
+                    )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(remote_mock.await_count, 0)
+        local_mock.assert_called_once()
+        result = response.json()
+        self.assertEqual(result["classifier_source"], "nlp")
+        self.assertEqual(result["model_source"], "transformer")
+        self.assertEqual(result["runtime_source"], "onnxruntime")
+        self.assertEqual(result["artifact"], "model_fp16.onnx")
+
     def test_tokenizer_vocab_expanded(self):
         tokenizer = build_tokenizer()
 

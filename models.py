@@ -41,25 +41,44 @@ CLASSIFIER_MATERIAL_MAP = {
     "ewaste":  {"material": "plastic",     "standard_type": "general", "eco_rate": 2, "recycle_rate": 3, "description": "Electronic waste — contains hazardous materials."},
 }
 
-def classifier_response(category: str, confidence: float, mode: str) -> dict:
-    info  = CLASSIFIER_MATERIAL_MAP.get(category, CLASSIFIER_MATERIAL_MAP["plastic"])
-    label = CNN_LABELS.get(category, category.replace("_", " ").title())
-    eco   = info["eco_rate"]
-    rec   = info["recycle_rate"]
-    base  = round(((eco + rec) / 2) * 20)
+
+def _build_waste_response(
+    category: str,
+    *,
+    label: str,
+    text: str,
+    classifier_source: str,
+    model_source: str,
+    runtime_source: str,
+    artifact: str,
+    confidence: float,
+    tokens: list[str] | None = None,
+) -> dict:
+    info = CLASSIFIER_MATERIAL_MAP.get(category, CLASSIFIER_MATERIAL_MAP["plastic"])
+    eco = info["eco_rate"]
+    rec = info["recycle_rate"]
+    base = round(((eco + rec) / 2) * 20)
     jitter = lambda: max(0, min(100, base + random.randint(-12, 12)))
-    m = info["material"]
-    disp = HK_DISPOSAL.get(m, HK_DISPOSAL["plastic"])
-    text = f"{label} waste."
+    material = info["material"]
+    disp = HK_DISPOSAL.get(material, HK_DISPOSAL["plastic"])
     return {
-        "name": label, "brand": "", "category": category,
+        "name": label,
+        "brand": "",
+        "category": category,
         "waste_type": category,
         "waste_label": label,
-        "classifier_source": "cnn",
+        "classifier_source": classifier_source,
+        "model_source": model_source,
+        "runtime_source": runtime_source,
+        "artifact": artifact,
         "text": text,
+        "tokens": tokens or [],
+        "confidence": confidence,
         "standard_type": info["standard_type"],
         "description": "",
-        "material": m, "eco_rate": eco, "recycle_rate": rec,
+        "material": material,
+        "eco_rate": eco,
+        "recycle_rate": rec,
         "weighted_scores": {"a": jitter(), "b": jitter(), "c": jitter(), "d": jitter(), "e": jitter()},
         "disposal_guide": disp.get("method", ""),
         "precaution": "Server-side classification — verify manually for hazardous items.",
@@ -67,37 +86,34 @@ def classifier_response(category: str, confidence: float, mode: str) -> dict:
         "alternative": None,
     }
 
+def classifier_response(category: str, confidence: float, mode: str) -> dict:
+    label = CNN_LABELS.get(category, category.replace("_", " ").title())
+    return _build_waste_response(
+        category,
+        label=label,
+        text=f"{label} waste.",
+        classifier_source="cnn",
+        model_source="transformer",
+        runtime_source="onnxruntime",
+        artifact="model_fp16.onnx",
+        confidence=confidence,
+    )
+
 def local_scan_response(image_bytes: bytes, mode: str) -> dict:
     prediction = predict_image(image_bytes)
     category = prediction["waste_type"]
-    info = CLASSIFIER_MATERIAL_MAP.get(category, CLASSIFIER_MATERIAL_MAP["plastic"])
     label = prediction.get("waste_label") or CNN_LABELS.get(category, category.replace("_", " ").title())
-    eco = info["eco_rate"]
-    rec = info["recycle_rate"]
-    base = round(((eco + rec) / 2) * 20)
-    jitter = lambda: max(0, min(100, base + random.randint(-12, 12)))
-    m = info["material"]
-    disp = HK_DISPOSAL.get(m, HK_DISPOSAL["plastic"])
-    return {
-        "name": label, "brand": "", "category": category,
-        "waste_type": category,
-        "waste_label": label,
-        "classifier_source": prediction.get("classifier_source", "nlp"),
-        "model_source": prediction.get("model_source", "transformer"),
-        "runtime_source": prediction.get("runtime_source", "onnxruntime"),
-        "artifact": prediction.get("artifact", "model_fp16.onnx"),
-        "text": prediction.get("text", ""),
-        "tokens": prediction.get("tokens", []),
-        "confidence": prediction.get("confidence", 0.0),
-        "standard_type": info["standard_type"],
-        "description": "",
-        "material": m, "eco_rate": eco, "recycle_rate": rec,
-        "weighted_scores": {"a": jitter(), "b": jitter(), "c": jitter(), "d": jitter(), "e": jitter()},
-        "disposal_guide": disp.get("method", ""),
-        "precaution": "Server-side classification — verify manually for hazardous items.",
-        "disposal_info": disp,
-        "alternative": None,
-    }
+    return _build_waste_response(
+        category,
+        label=label,
+        text=prediction.get("text", ""),
+        classifier_source=prediction.get("classifier_source", "nlp"),
+        model_source=prediction.get("model_source", "transformer"),
+        runtime_source=prediction.get("runtime_source", "onnxruntime"),
+        artifact=prediction.get("artifact", "model_fp16.onnx"),
+        confidence=prediction.get("confidence", 0.0),
+        tokens=prediction.get("tokens", []),
+    )
 
 def _image_mime_type(filename: str) -> str:
     ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else "png"

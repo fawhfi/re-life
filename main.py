@@ -71,6 +71,14 @@ def _infer_waste_type(payload: dict) -> str:
     return "plastic"
 
 
+def _as_bool(value: str | bool | None) -> bool:
+    if isinstance(value, bool):
+        return value
+    if value is None:
+        return False
+    return str(value).strip().lower() in {"1", "true", "yes", "on"}
+
+
 @app.get("/api/storage/{bucket}/{object_path:path}")
 async def storage_object(request: Request, bucket: str, object_path: str, exp: str | None = None, sig: str | None = None):
     bucket_name = bucket.strip("/")
@@ -124,6 +132,31 @@ async def _normalize_scan_payload(ai: dict, contents: bytes, filename: str, mode
         result["tokens"] = [token for token in re.findall(r"[A-Za-z0-9]+", text.lower()) if token]
     result.setdefault("confidence", 0.0)
     return result
+
+
+async def _analyze_scan_image(
+    contents: bytes,
+    sid: str,
+    mode: str,
+    *,
+    force_local: bool = False,
+) -> dict:
+    if force_local:
+        print("[Classifier] Debug mode enabled; using local transformer")
+        return local_scan_response(contents, mode)
+
+    try:
+        return await ai_analyze(contents, sid)
+    except Exception as remote_e:
+        print(f"[Classifier] Remote AI error: {str(remote_e)[:200]}")
+        try:
+            ai = local_scan_response(contents, mode)
+            ai["ai_error"] = "AI failed to call, using fallback."
+            ai["fallback_used"] = True
+            return ai
+        except Exception as cls_e:
+            print(f"[Classifier] Local transformer error: {str(cls_e)[:200]}")
+            raise
 
 # ── Pages ───────────────────────────────────────────────────────────────────
 
@@ -313,18 +346,10 @@ async def scan_item_ai(request: Request, file: UploadFile = File(...), mode: str
     if len(contents) > MAX_UPLOAD_BYTES:
         return JSONResponse({"error": f"File too large (max {MAX_UPLOAD_BYTES // (1024*1024)} MB)"}, 413)
     sid = f"{item_type}_{item_state}"
-    ai = None
     try:
-        ai = await ai_analyze(contents, sid)
-    except Exception as remote_e:
-        print(f"[Classifier] Remote AI error: {str(remote_e)[:200]}")
-        try:
-            ai = local_scan_response(contents, mode)
-            ai["ai_error"] = "AI failed to call, using fallback."
-            ai["fallback_used"] = True
-        except Exception as cls_e:
-            print(f"[Classifier] Local transformer error: {str(cls_e)[:200]}")
-            return JSONResponse({"error": "Image analysis failed", "mode": mode, "schema_id": sid}, 500)
+        ai = await _analyze_scan_image(contents, sid, mode, force_local=_as_bool(debug))
+    except Exception:
+        return JSONResponse({"error": "Image analysis failed", "mode": mode, "schema_id": sid}, 500)
 
     ai = await _normalize_scan_payload(ai, contents, file.filename, mode, sid)
 

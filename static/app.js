@@ -261,6 +261,11 @@ function initNavDrag() {
         }
     }
 
+    function getTabName(btn) {
+        if (!btn) return null;
+        return btn.dataset.tab || null;
+    }
+
     // Position indicator under active tab initially
     function snapIndicatorTo(btn) {
         if (!indicator || !btn) return;
@@ -338,10 +343,10 @@ function initNavDrag() {
             if (dist < minDist) { minDist = dist; best = btn; }
         });
         if (best) {
-            const m = (best.getAttribute('onclick') || '').match(/navigateTo\(['"]([^'"]+)['"]\)/);
-            if (m && m[1]) {
-                pendingTab = m[1];
-                return m[1];
+            const tabName = getTabName(best);
+            if (tabName) {
+                pendingTab = tabName;
+                return tabName;
             }
         }
         return pendingTab;
@@ -393,10 +398,12 @@ function initNavDrag() {
         const active = navbar.querySelector('.nav-btn.is-active');
         if (active) snapIndicatorTo(active);
 
-        const targetTab = getBestTab(e.clientX);
+        const targetTab = pendingTab || getBestTab(e.clientX);
+        if (targetTab && state.activeTab !== targetTab) {
+            navigateTo(targetTab);
+        }
         if (hadDrag) {
             suppressNavClickUntil = Date.now() + 350;
-            if (targetTab && state.activeTab !== targetTab) navigateTo(targetTab);
         }
     };
     navbar.addEventListener('pointerup', stop);

@@ -24,9 +24,14 @@ class RecordScopeTests(unittest.TestCase):
 
     def test_nav_drag_commits_once_on_release(self):
         source = Path("static/app.js").read_text(encoding="utf-8")
+        template = Path("templates/index.html").read_text(encoding="utf-8")
 
         self.assertIn("let suppressNavClickUntil = 0;", source)
         self.assertIn("const hadDrag = navbar.classList.contains('nav-is-dragging');", source)
+        self.assertIn("function getTabName(btn)", source)
+        self.assertIn("const targetTab = pendingTab || getBestTab(e.clientX);", source)
+        self.assertIn('data-tab="home"', template)
+        self.assertIn('data-tab="record"', template)
         self.assertIn("if (hadDrag) {", source)
         self.assertNotIn("if (m && m[1] && state.activeTab !== m[1]) navigateTo(m[1]);", source)
 

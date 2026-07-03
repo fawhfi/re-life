@@ -27,6 +27,8 @@ class SmokeTests(unittest.TestCase):
         self.assertEqual(schemas.status_code, 200)
         self.assertEqual(config.status_code, 200)
         self.assertIn("/static/app.js", home.text)
+        self.assertIn("/static/js/app-weather.js", home.text)
+        self.assertIn("/static/js/app-records.js", home.text)
         self.assertIn("/static/supabase.js", home.text)
         self.assertNotIn("/static/firebase.js", home.text)
         self.assertIn("gsap.min.js", home.text)
@@ -35,6 +37,8 @@ class SmokeTests(unittest.TestCase):
             home.text.index("gsap.min.js"),
             home.text.index("/static/app.js"),
         )
+        self.assertLess(home.text.index("/static/app.js"), home.text.index("/static/js/app-weather.js"))
+        self.assertLess(home.text.index("/static/js/app-weather.js"), home.text.index("/static/js/app-records.js"))
 
     def test_header_permissions_policy_keeps_optional_geolocation(self):
         home = self.client.get("/")
@@ -43,12 +47,8 @@ class SmokeTests(unittest.TestCase):
         self.assertIn("geolocation=(self)", policy)
 
     def test_geolocation_prompt_is_not_blocked_by_permissions_api(self):
-        app_js = Path("static/app.js").read_text(encoding="utf-8")
+        app_js = Path("static/js/app-weather.js").read_text(encoding="utf-8")
 
-        self.assertNotIn(
-            "if (!navigator.geolocation || !navigator.permissions || !navigator.permissions.query) {",
-            app_js,
-        )
         self.assertIn("async function resolveWeatherCoordinates(forcePrompt = false)", app_js)
         self.assertIn("if (!forcePrompt && navigator.permissions && navigator.permissions.query)", app_js)
         self.assertIn("async function refreshHeaderWeather()", app_js)
@@ -68,6 +68,7 @@ class SmokeTests(unittest.TestCase):
     def test_weather_details_panel_is_wired_into_the_template(self):
         template = Path("templates/index.html").read_text(encoding="utf-8")
         app_js = Path("static/app.js").read_text(encoding="utf-8")
+        weather_js = Path("static/js/app-weather.js").read_text(encoding="utf-8")
         en_i18n = Path("static/i18n/en.json").read_text(encoding="utf-8")
         zh_i18n = Path("static/i18n/zh.json").read_text(encoding="utf-8")
         style = Path("static/style.css").read_text(encoding="utf-8")
@@ -84,17 +85,19 @@ class SmokeTests(unittest.TestCase):
         self.assertIn('id="lbl-weather-close"', template)
         self.assertIn('weather-panel-stat--primary', template)
         self.assertIn('weather-panel-stat--meta', template)
-        self.assertIn('function toggleWeatherDetails()', app_js)
-        self.assertIn('function openWeatherDetails()', app_js)
-        self.assertIn('function closeWeatherDetails()', app_js)
+        self.assertIn('function toggleWeatherDetails()', weather_js)
+        self.assertIn('function openWeatherDetails()', weather_js)
+        self.assertIn('function closeWeatherDetails()', weather_js)
+        self.assertNotIn('function toggleWeatherDetails()', app_js)
+        self.assertNotIn('async function resolveWeatherCoordinates(forcePrompt = false)', app_js)
         self.assertLess(app_js.index('loadTips();'), app_js.index('await initAccounts();'))
         self.assertIn('NEWS_CACHE_KEY', app_js)
         self.assertIn('applyTips(NEWS_FALLBACK_ITEMS)', app_js)
         self.assertIn('AbortController', app_js)
         self.assertNotIn('WEATHER_SUMMARY_TEXT', app_js)
         self.assertNotIn('WEATHER_CALLOUT_TEXT', app_js)
-        self.assertIn('localizeWeatherSummary', app_js)
-        self.assertIn('localizeWeatherCallout', app_js)
+        self.assertIn('localizeWeatherSummary', weather_js)
+        self.assertIn('localizeWeatherCallout', weather_js)
         self.assertIn('"weather": {', en_i18n)
         self.assertIn('"weather": {', zh_i18n)
         self.assertIn('"tapForDetails": "Tap for details"', en_i18n)

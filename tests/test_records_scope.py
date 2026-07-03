@@ -8,6 +8,7 @@ import data
 class RecordScopeTests(unittest.TestCase):
     def test_records_load_waits_for_account_init(self):
         source = Path("static/app.js").read_text(encoding="utf-8")
+        records = Path("static/js/app-records.js").read_text(encoding="utf-8")
 
         self.assertNotIn(
             "Promise.all([initAccounts(), loadRecords()])",
@@ -15,7 +16,11 @@ class RecordScopeTests(unittest.TestCase):
         )
         self.assertIn("await initAccounts();", source)
         self.assertIn("await loadRecords();", source)
-        self.assertIn("record.userName = state.currentUser || null;", source)
+        self.assertNotIn("async function loadRecords({ force = false } = {})", source)
+        self.assertNotIn("function renderRecords()", source)
+        self.assertNotIn("function updateStats()", source)
+        self.assertIn("function syncRecordsView()", records)
+        self.assertIn("userName: record.userName || state.currentUser || null,", records)
 
     def test_nav_drag_commits_once_on_release(self):
         source = Path("static/app.js").read_text(encoding="utf-8")
@@ -26,13 +31,14 @@ class RecordScopeTests(unittest.TestCase):
         self.assertNotIn("if (m && m[1] && state.activeTab !== m[1]) navigateTo(m[1]);", source)
 
     def test_record_loading_uses_cache_for_same_user(self):
-        source = Path("static/app.js").read_text(encoding="utf-8")
+        source = Path("static/js/app-records.js").read_text(encoding="utf-8")
 
         self.assertIn("async function loadRecords({ force = false } = {})", source)
         self.assertIn("if (!force && !state.recordsDirty && state.recordsLoadedFor === cacheKey)", source)
         self.assertIn("if (state.recordsLoadPromise && state.recordsLoadPromiseToken === state.recordsLoadToken)", source)
-        self.assertIn("upsertRecordCache({", source)
-        self.assertIn("removeRecordCache(id);", source)
+        self.assertIn("syncRecordsView();", source)
+        self.assertIn("upsertRecordCache(record)", source)
+        self.assertIn("removeRecordCache(recordId)", source)
 
     def test_get_items_refuses_unauthenticated_reads(self):
         source = Path("static/supabase.js").read_text(encoding="utf-8")

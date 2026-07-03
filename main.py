@@ -1,10 +1,11 @@
 """Re-Life API — FastAPI entry point."""
 from fastapi import FastAPI, File, UploadFile, Form, Request
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 from dotenv import load_dotenv
+from io import BytesIO
 import re, uuid, os, random, traceback, time
 from pathlib import Path
 from datetime import datetime
@@ -12,6 +13,7 @@ from datetime import datetime
 from config import *
 from data import *
 from models import *
+from storage import supabase_storage_download, verify_supabase_storage_signature
 from auth import *
 from weather import get_header_weather
 
@@ -67,6 +69,28 @@ def _infer_waste_type(payload: dict) -> str:
     if any(token in haystack for token in ("ewaste", "e-waste", "electronic")):
         return "ewaste"
     return "plastic"
+
+
+@app.get("/api/storage/{bucket}/{object_path:path}")
+async def storage_object(request: Request, bucket: str, object_path: str, exp: str | None = None, sig: str | None = None):
+    bucket_name = bucket.strip("/")
+    allowed_buckets = {name for name in {SUPABASE_STORAGE_BUCKET.strip("/") if SUPABASE_STORAGE_BUCKET else "", "imgs", "scan-images"} if name}
+    if not bucket_name or bucket_name not in allowed_buckets or not object_path:
+        return JSONResponse({"error": "Not found"}, 404)
+    if not verify_supabase_storage_signature(bucket_name, object_path, exp, sig):
+        return JSONResponse({"error": "Forbidden"}, 403)
+
+    try:
+        content, content_type = await supabase_storage_download(bucket_name, object_path)
+    except Exception as e:
+        message = str(e)
+        if any(code in message for code in (" 400", " 403", " 404")):
+            return JSONResponse({"error": "Not found"}, 404)
+        return JSONResponse({"error": "Storage unavailable"}, 502)
+
+    response = StreamingResponse(BytesIO(content), media_type=content_type)
+    response.headers["Cache-Control"] = "public, max-age=86400, immutable"
+    return response
 
 async def _normalize_scan_payload(ai: dict, contents: bytes, filename: str, mode: str, sid: str) -> dict:
     result = dict(ai or {})

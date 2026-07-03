@@ -12,7 +12,8 @@ const MOTION_PROFILE = (() => {
     const saveData = !!(connection && connection.saveData);
     const deviceMemory = typeof navigator !== 'undefined' && typeof navigator.deviceMemory === 'number' ? navigator.deviceMemory : null;
     const hardwareConcurrency = typeof navigator !== 'undefined' && typeof navigator.hardwareConcurrency === 'number' ? navigator.hardwareConcurrency : null;
-    const lowEnd = forcedLite || saveData || (!!deviceMemory && deviceMemory <= 4) || (!!hardwareConcurrency && hardwareConcurrency <= 4);
+    const isIOS = typeof navigator !== 'undefined' && (/iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1));
+    const lowEnd = forcedLite || saveData || (!!deviceMemory && deviceMemory <= 4) || (!isIOS && !!hardwareConcurrency && hardwareConcurrency <= 4);
     return { reducedMotion, lowEnd, motionEnabled: !(reducedMotion || lowEnd) };
 })();
 

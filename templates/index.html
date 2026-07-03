@@ -8,13 +8,11 @@
     (function () {
       try {
         const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
-        const ua = navigator.userAgent || '';
-        const isIOS = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
         const lowEnd = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches)
           || !!(connection && connection.saveData)
           || (typeof navigator.deviceMemory === 'number' && navigator.deviceMemory > 0 && navigator.deviceMemory <= 4)
-          || (typeof navigator.hardwareConcurrency === 'number' && navigator.hardwareConcurrency > 0 && navigator.hardwareConcurrency <= 4);
-        if (isIOS) document.documentElement.classList.add('is-ios');
+          || (!isIOS && typeof navigator.hardwareConcurrency === 'number' && navigator.hardwareConcurrency > 0 && navigator.hardwareConcurrency <= 4);
         if (lowEnd) document.documentElement.classList.add('perf-lite');
       } catch (_) {}
     })();

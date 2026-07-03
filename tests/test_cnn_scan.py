@@ -10,6 +10,7 @@ from models import classifier_response, upload_image
 from main import app
 from nlp import build_tokenizer
 from nlp.model import build_model
+from storage import normalize_supabase_storage_url, supabase_storage_signed_url
 
 
 class CnnScanTests(unittest.TestCase):
@@ -31,14 +32,27 @@ class CnnScanTests(unittest.TestCase):
         with patch("models.supabase_enabled", return_value=True), \
              patch("models.SUPABASE_STORAGE_BUCKET", "scan-images"), \
              patch("models.SUPABASE_URL", "https://example.supabase.co"), \
+             patch("storage.SUPABASE_SERVICE_ROLE_KEY", "test-secret"), \
+             patch("storage.time.time", return_value=1000), \
              patch("models.supabase_storage_upload", new=AsyncMock(return_value={"path": "scan.png"})) as upload_mock:
             url = asyncio.run(upload_image(b"image-bytes", "scan.png"))
-
-        self.assertEqual(
-            url,
-            "https://example.supabase.co/storage/v1/object/public/scan-images/scan.png",
-        )
+            self.assertEqual(
+                url,
+                supabase_storage_signed_url("scan-images", "scan.png", ttl_seconds=86400),
+            )
         upload_mock.assert_awaited_once_with("scan-images", "scan.png", b"image-bytes", "image/png")
+
+    def test_legacy_supabase_storage_urls_are_normalized_to_proxy_paths(self):
+        url = "https://example.supabase.co/storage/v1/object/public/imgs/31d6efaf-fb68-46c1-bbe4-45f3cee4ed17.jpg"
+        with patch("storage.SUPABASE_SERVICE_ROLE_KEY", "test-secret"), patch("storage.time.time", return_value=1000):
+            self.assertEqual(
+                normalize_supabase_storage_url(url),
+                supabase_storage_signed_url(
+                    "imgs",
+                    "31d6efaf-fb68-46c1-bbe4-45f3cee4ed17.jpg",
+                    ttl_seconds=86400,
+                ),
+            )
 
     def test_scan_endpoint_tries_remote_llm_before_local_fallback(self):
         sample_dir = Path(__file__).resolve().parents[2] / "cnn_classifier" / "src" / "data" / "test" / "paper"

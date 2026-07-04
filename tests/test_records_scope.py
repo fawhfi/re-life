@@ -29,6 +29,9 @@ class RecordScopeTests(unittest.TestCase):
         self.assertIn("let suppressNavClickUntil = 0;", source)
         self.assertIn("const hadDrag = navbar.classList.contains('nav-is-dragging');", source)
         self.assertIn("function getTabName(btn)", source)
+        self.assertIn("function getIndicatorBox(btn", source)
+        self.assertIn("const baseLeft = 5;", source)
+        self.assertNotIn("Math.min(295", source)
         self.assertIn("const targetTab = pendingTab || getBestTab(e.clientX);", source)
         self.assertIn('data-tab="home"', template)
         self.assertIn('data-tab="record"', template)
@@ -42,9 +45,12 @@ class RecordScopeTests(unittest.TestCase):
         self.assertIn("const TAB_ORDER = ['home', 'record', 'rewards', 'more'];", source)
         self.assertIn("function getTabDirection(nextName)", source)
         self.assertIn("gsap.timeline", source)
+        self.assertIn("const lightTabAnimation = PERF.lowEnd", source)
         self.assertIn("tab-exiting", source)
         self.assertIn("runTabSideEffects(name);", source)
         self.assertIn(".tab-exiting", styles)
+        self.assertIn(".nav-btn.is-active", styles)
+        self.assertIn("transform: none;", styles)
         self.assertNotIn("@keyframes slideInTab", styles)
 
     def test_record_loading_uses_cache_for_same_user(self):

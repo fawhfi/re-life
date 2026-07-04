@@ -246,18 +246,33 @@ function initNavDrag() {
         indicator.style.transform = 'translate3d(0, 0, 0) scaleX(1)';
     }
 
-    function setIndicator(targetX, scaleX, duration, ease) {
+    function clamp(value, min, max) {
+        return Math.max(min, Math.min(max, value));
+    }
+
+    function getIndicatorBox(btn, navRect = navbar.getBoundingClientRect()) {
+        const rect = btn.getBoundingClientRect();
+        const edge = 5;
+        const baseLeft = 5;
+        const width = clamp(rect.width - 8, 52, Math.max(52, navRect.width - edge * 2));
+        const maxX = Math.max(edge, navRect.width - width - edge);
+        const x = clamp(rect.left - navRect.left + (rect.width - width) / 2, edge, maxX) - baseLeft;
+        return { x, width, center: rect.left - navRect.left + rect.width / 2, rect };
+    }
+
+    function setIndicator(targetX, width, duration, ease) {
         if (!indicator) return;
+        if (width) indicator.style.width = `${width}px`;
         if (MOTION_ENABLED) {
             gsap.to(indicator, {
                 x: targetX,
-                scaleX,
+                scaleX: 1,
                 duration,
                 ease,
                 overwrite: "auto",
             });
         } else {
-            indicator.style.transform = `translate3d(${targetX}px, 0, 0) scaleX(${scaleX})`;
+            indicator.style.transform = `translate3d(${targetX}px, 0, 0) scaleX(1)`;
         }
     }
 
@@ -269,17 +284,13 @@ function initNavDrag() {
     // Position indicator under active tab initially
     function snapIndicatorTo(btn) {
         if (!indicator || !btn) return;
-        const nr = navbar.getBoundingClientRect();
-        const br = btn.getBoundingClientRect();
-        let targetX = br.left - nr.left + (br.width - 100) / 2;
-        targetX = Math.max(5, Math.min(295, targetX));
-        setIndicator(targetX, 1, isDragging ? 0.15 : 0.45, isDragging ? "power2.out" : "elastic.out(1, 0.6)");
+        const box = getIndicatorBox(btn);
+        setIndicator(box.x, box.width, isDragging ? 0.12 : 0.28, isDragging ? "power2.out" : "power3.out");
 
-        // Bounce the nav button icon
-        if (!isDragging && MOTION_ENABLED) {
+        if (!isDragging && MOTION_ENABLED && !PERF.lowEnd) {
             const icon = btn.querySelector('.nav-btn-icon');
             if (icon) {
-                gsap.fromTo(icon, { scale: 0.85 }, { scale: 1, duration: 0.4, ease: "back.out(2)", overwrite: "auto" });
+                gsap.fromTo(icon, { scale: 0.92 }, { scale: 1, duration: 0.24, ease: "power2.out", overwrite: "auto" });
             }
         }
     }
@@ -298,40 +309,35 @@ function initNavDrag() {
         // Find which two buttons the finger is between for smooth interpolation
         let leftBtn = null, rightBtn = null;
         for (let i = 0; i < btnArray.length; i++) {
-            const r = btnArray[i].getBoundingClientRect();
-            const btnCenter = r.left - nr.left + r.width / 2;
-            if (btnCenter <= relX) leftBtn = { el: btnArray[i], rect: r, center: btnCenter };
-            if (btnCenter >= relX && !rightBtn) rightBtn = { el: btnArray[i], rect: r, center: btnCenter };
+            const box = getIndicatorBox(btnArray[i], nr);
+            if (box.center <= relX) leftBtn = { el: btnArray[i], ...box };
+            if (box.center >= relX && !rightBtn) rightBtn = { el: btnArray[i], ...box };
         }
 
         // Smoothly interpolate indicator position between adjacent buttons
         if (indicator) {
             if (leftBtn && rightBtn && leftBtn.el !== rightBtn.el) {
                 const range = rightBtn.center - leftBtn.center;
-                const t = range > 0 ? (relX - leftBtn.center) / range : 0;
-                let l = leftBtn.rect.left - nr.left + t * (rightBtn.rect.left - leftBtn.rect.left)
-                    + (leftBtn.rect.width - 100) / 2 * (1 - t) + (rightBtn.rect.width - 100) / 2 * t;
-                l = Math.max(5, Math.min(295, l));
-                setIndicator(l, 1, 0.1, "power1.out");
+                const t = range > 0 ? clamp((relX - leftBtn.center) / range, 0, 1) : 0;
+                const x = leftBtn.x + (rightBtn.x - leftBtn.x) * t;
+                const width = leftBtn.width + (rightBtn.width - leftBtn.width) * t;
+                setIndicator(x, width, 0.08, "power1.out");
             } else if (rightBtn) {
-                const r = rightBtn.rect;
-                let l = r.left - nr.left + (r.width - 100) / 2, w = 100;
-                if (rightBtn.el === btnArray[0] && clientX < r.left + r.width * 0.4) {
-                    const t = Math.min(1, (r.left + r.width * 0.4 - clientX) / 50);
-                    w = 100 * (1 - t * 0.3);
-                    l = r.left - nr.left + 2;
+                let x = rightBtn.x, width = rightBtn.width;
+                if (rightBtn.el === btnArray[0] && clientX < rightBtn.rect.left + rightBtn.rect.width * 0.4) {
+                    const t = Math.min(1, (rightBtn.rect.left + rightBtn.rect.width * 0.4 - clientX) / 50);
+                    width = rightBtn.width * (1 - t * 0.18);
+                    x = 0;
                 }
-                setIndicator(l, w / 100, 0.12, "power2.out");
+                setIndicator(x, width, 0.1, "power2.out");
             } else if (leftBtn) {
-                const r = leftBtn.rect;
-                let l = r.left - nr.left + (r.width - 100) / 2, w = 100;
-                if (leftBtn.el === btnArray[btnArray.length - 1] && clientX > r.right - r.width * 0.4) {
-                    const t = Math.min(1, (clientX - (r.right - r.width * 0.4)) / 50);
-                    w = 100 * (1 - t * 0.3);
-                    // Keep right edge anchored: l + w = r.right - nr.left
-                    l = r.right - nr.left - w;
+                let x = leftBtn.x, width = leftBtn.width;
+                if (leftBtn.el === btnArray[btnArray.length - 1] && clientX > leftBtn.rect.right - leftBtn.rect.width * 0.4) {
+                    const t = Math.min(1, (clientX - (leftBtn.rect.right - leftBtn.rect.width * 0.4)) / 50);
+                    width = leftBtn.width * (1 - t * 0.18);
+                    x = nr.width - width - 10;
                 }
-                setIndicator(l, w / 100, 0.12, "power2.out");
+                setIndicator(x, width, 0.1, "power2.out");
             }
         }
 
@@ -473,9 +479,28 @@ function navigateTo(name) {
     nextTab.classList.add('active');
     runTabSideEffects(name);
 
-    if (!MOTION_ENABLED) {
+    const lightTabAnimation = PERF.lowEnd || (window.matchMedia && window.matchMedia('(max-width: 520px)').matches);
+    if (!MOTION_ENABLED || lightTabAnimation) {
         if (currentTab) currentTab.classList.remove('active', 'tab-exiting');
-        gsap.set(nextTab, { clearProps: "all" });
+        if (currentTab) gsap.set(currentTab, { clearProps: "all" });
+        if (!MOTION_ENABLED) {
+            gsap.set(nextTab, { clearProps: "all" });
+            return;
+        }
+        _tabTween = gsap.fromTo(nextTab, {
+            autoAlpha: 0,
+            y: 6,
+        }, {
+            autoAlpha: 1,
+            y: 0,
+            duration: 0.16,
+            ease: "power1.out",
+            overwrite: "auto",
+            onComplete: () => {
+                gsap.set(nextTab, { clearProps: "all" });
+                _tabTween = null;
+            },
+        });
         return;
     }
 

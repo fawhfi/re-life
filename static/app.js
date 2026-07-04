@@ -498,30 +498,16 @@ function navigateTo(name) {
     resetTabVisuals(nextTab);
     runTabSideEffects(name);
 
-    const lightTabAnimation = PERF.lowEnd || (window.matchMedia && window.matchMedia('(max-width: 520px)').matches);
-    if (!MOTION_ENABLED || lightTabAnimation) {
+    if (!MOTION_ENABLED) {
         if (currentTab) currentTab.classList.remove('active', 'tab-exiting');
         resetTabVisuals(currentTab);
-        if (!MOTION_ENABLED) {
-            resetTabVisuals(nextTab);
-            return;
-        }
-        _tabTween = gsap.fromTo(nextTab, {
-            opacity: 0,
-            y: 6,
-        }, {
-            opacity: 1,
-            y: 0,
-            duration: 0.16,
-            ease: "power1.out",
-            overwrite: "auto",
-            onComplete: () => cleanupTabTween(null, nextTab),
-            onInterrupt: () => cleanupTabTween(null, nextTab),
-        });
+        resetTabVisuals(nextTab);
         return;
     }
 
-    const distance = PERF.lowEnd ? 10 : 18;
+    const isNarrowScreen = window.matchMedia && window.matchMedia('(max-width: 520px)').matches;
+    const distance = isNarrowScreen ? 14 : (PERF.lowEnd ? 10 : 18);
+    const duration = isNarrowScreen ? 0.22 : 0.28;
     const nextChildren = nextTab.querySelectorAll(':scope > *');
     nextTab.scrollTop = 0;
     if (currentTab) currentTab.classList.add('tab-exiting');
@@ -550,7 +536,7 @@ function navigateTo(name) {
         opacity: 1,
         x: 0,
         scale: 1,
-        duration: 0.28,
+        duration,
         ease: "power3.out",
     }, currentTab ? 0.08 : 0);
 

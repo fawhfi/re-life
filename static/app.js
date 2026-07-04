@@ -80,76 +80,6 @@ const NEWS_FALLBACK_ITEMS = [
 let tipsSwitchTimer = null;
 let tipsRenderToken = 0;
 
-function weatherTr(key, fallback) {
-    const value = tr(key);
-    return value === key ? fallback : value;
-}
-
-function getRecordsCacheKey() {
-    return [state.currentUser || '', state.userId || '', state.userKey || ''].join('|');
-}
-
-function invalidateRecordsCache({ clear = false } = {}) {
-    state.recordsDirty = true;
-    state.recordsLoadedFor = '';
-    state.recordsLoadToken += 1;
-    state.recordsLoadPromise = null;
-    state.recordsLoadPromiseToken = 0;
-    if (clear) {
-        state.records = [];
-        renderRecords();
-        updateStats();
-    }
-}
-
-function upsertRecordCache(record) {
-    if (!record) return;
-    const normalized = {
-        id: record.id ?? null,
-        name: record.name || 'Scanned Item',
-        mode: record.mode || record.status || 'dispose',
-        status: record.status || record.mode || 'dispose',
-        createdAt: record.createdAt || new Date().toISOString(),
-        description: record.description || '',
-        image_url: record.image_url || record.photoUrl || record.photo_url || '',
-        photoUrl: record.photoUrl || record.image_url || record.photo_url || '',
-        dealtWithMethod: record.disposal_guide || record.dealtWithMethod || record.dealt_with_method || '',
-        disposal_guide: record.disposal_guide || record.dealtWithMethod || record.dealt_with_method || '',
-        dealtWithDate: record.dealtWithDate || record.dealt_with_date || null,
-        userId: record.userId || state.userId || null,
-        userName: record.userName || state.currentUser || null,
-        eco_rate: record.eco_rate ?? 3,
-        recycle_rate: record.recycle_rate ?? 4,
-        overall_score: record.overall_score ?? 0,
-        material: record.material || '',
-        grade: record.grade || '',
-        grade_color: record.grade_color || null,
-        grade_advice: record.grade_advice || null,
-        brand: record.brand || '',
-        category: record.category || '',
-        weighted_scores: record.weighted_scores || record.weightedScores || {},
-        schema_id: record.schema_id || record.schemaId || '',
-        alternative: record.alternative || null,
-        precaution: record.precaution || null,
-        image: (record.mode || record.status) === 'purchase' ? '🥛' : '🗑️',
-    };
-    state.recordsLoadToken += 1;
-    state.records = [normalized, ...state.records.filter(r => String(r.id) !== String(normalized.id))];
-    state.recordsLoadedFor = getRecordsCacheKey();
-    state.recordsDirty = false;
-    renderRecords();
-    updateStats();
-}
-
-function removeRecordCache(recordId) {
-    state.recordsLoadToken += 1;
-    state.records = state.records.filter(r => String(r.id) !== String(recordId));
-    state.recordsLoadedFor = getRecordsCacheKey();
-    state.recordsDirty = false;
-    renderRecords();
-    updateStats();
-}
-
 const GSAP_FALLBACK = (() => {
     const noop = () => GSAP_FALLBACK;
     return {
@@ -294,325 +224,6 @@ function startClock() {
     state.clockInterval = setInterval(tick, 1000);
 }
 
-async function resolveWeatherCoordinates(forcePrompt = false) {
-    if (!navigator.geolocation) {
-        return null;
-    }
-
-    if (!forcePrompt && navigator.permissions && navigator.permissions.query) {
-        try {
-            const permission = await navigator.permissions.query({ name: 'geolocation' });
-            if (permission.state === 'denied') {
-                return null;
-            }
-        } catch (_) {
-            // Some browsers, including iOS Safari variants, do not expose a
-            // usable Permissions API for geolocation. Fall through and ask
-            // the Geolocation API directly so the native prompt can appear.
-        }
-    }
-
-    return new Promise(resolve => {
-        const geolocationOptions = {
-            enableHighAccuracy: false,
-            timeout: forcePrompt ? 5000 : 2500,
-            maximumAge: forcePrompt ? 0 : 300000,
-        };
-        navigator.geolocation.getCurrentPosition(
-            position => {
-                resolve({
-                    latitude: position.coords.latitude,
-                    longitude: position.coords.longitude,
-                });
-            },
-            () => resolve(null),
-            geolocationOptions,
-        );
-    });
-}
-
-function updateWeatherUI() {
-    const weather = state.weather || {};
-    const widget = document.getElementById('header-weather');
-    const emojiEl = document.getElementById('header-weather-emoji');
-    const tempEl = document.getElementById('header-weather-temp');
-    const cityEl = document.getElementById('header-weather-city');
-    const localizedSummary = localizeWeatherSummary(weather.summary);
-    const defaultTitle = weatherTr('weather.header.defaultTitle', 'Hong Kong weather');
-
-    if (emojiEl) emojiEl.textContent = weather.emoji || '🌤️';
-    if (tempEl) tempEl.textContent = Number.isFinite(weather.temperature) ? `${Math.round(weather.temperature)}°` : '--°';
-    if (cityEl) cityEl.textContent = localizeWeatherLocation(weather.location);
-
-    if (widget) {
-        const readableSummary = localizedSummary || defaultTitle;
-        const readableTemp = Number.isFinite(weather.temperature) ? ` • ${Math.round(weather.temperature)}°C` : '';
-        const tapForDetails = weatherTr('weather.header.tapForDetails', 'Tap for details');
-        const ariaDetails = weatherTr('weather.header.ariaDetails', 'Tap for weather details.');
-        widget.title = `${readableSummary}${readableTemp} • ${tapForDetails}`;
-        widget.setAttribute('aria-label', `${readableSummary}${readableTemp}. ${ariaDetails}`);
-        widget.setAttribute('aria-expanded', state.weatherDetailsOpen ? 'true' : 'false');
-        widget.classList.toggle('is-loading', !weather.loaded);
-        if (!weather.loaded && !state.weather) {
-            widget.setAttribute('aria-busy', 'true');
-        } else {
-            widget.removeAttribute('aria-busy');
-        }
-    }
-
-    if (state.weatherDetailsOpen) {
-        renderWeatherDetails();
-    }
-}
-
-async function fetchHeaderWeatherPayload(forcePrompt = false) {
-    const coords = await resolveWeatherCoordinates(forcePrompt);
-    const query = coords ? `?lat=${encodeURIComponent(coords.latitude)}&lon=${encodeURIComponent(coords.longitude)}` : '';
-    try {
-        const response = await fetch(`/api/weather/header${query}`, {
-            headers: { Accept: 'application/json' },
-        });
-        if (!response.ok) {
-            throw new Error(`weather ${response.status}`);
-        }
-        const payload = await response.json();
-        return {
-            ...payload,
-            temperature: Number.isFinite(payload.temperature) ? payload.temperature : null,
-            loaded: true,
-        };
-    } catch (_) {
-        return {
-            emoji: '🌤️',
-            summary: 'Hong Kong weather',
-            temperature: null,
-            location: 'Hong Kong',
-            loaded: true,
-        };
-    }
-}
-
-async function commitHeaderWeather(requestId, forcePrompt = false) {
-    const payload = await fetchHeaderWeatherPayload(forcePrompt);
-    if (requestId !== state.weatherRequestId) {
-        return payload;
-    }
-    state.weather = payload;
-    updateWeatherUI();
-    const widget = document.getElementById('header-weather');
-    if (widget && MOTION_ENABLED) {
-        gsap.fromTo(widget, { y: -4, opacity: 0.5, scale: 0.98 }, { y: 0, opacity: 1, scale: 1, duration: 0.35, ease: 'power2.out', overwrite: 'auto' });
-    }
-    return state.weather;
-}
-
-async function loadHeaderWeather() {
-    if (state.weatherLoadPromise) return state.weatherLoadPromise;
-
-    const requestId = ++state.weatherRequestId;
-    state.weatherLoadPromise = (async () => commitHeaderWeather(requestId, false))();
-    return state.weatherLoadPromise;
-}
-
-async function refreshHeaderWeather() {
-    const requestId = ++state.weatherRequestId;
-    state.weatherLoadPromise = (async () => commitHeaderWeather(requestId, true))();
-    return state.weatherLoadPromise;
-}
-
-function formatWeatherUpdatedAt(value) {
-    if (!value) return weatherTr('weather.detail.liveData', state.lang === 'zh' ? '即時資料' : 'Live data');
-    const stamp = new Date(value);
-    if (Number.isNaN(stamp.getTime())) return weatherTr('weather.detail.liveData', state.lang === 'zh' ? '即時資料' : 'Live data');
-    return stamp.toLocaleString(state.lang === 'zh' ? 'zh-HK' : 'en-HK', {
-        month: 'short',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: false,
-    });
-}
-
-function getWeatherDetailModel() {
-    const weather = state.weather || {};
-    const fallback = {
-        emoji: '🌤️',
-        summary: 'Hong Kong weather',
-        temperature: null,
-        location: 'Hong Kong',
-        updated_at: null,
-        source: 'HKO Open Data',
-        callout: {
-            title: weatherTr('weather.callout.default.title', 'Hong Kong weather'),
-            body: weatherTr(
-                'weather.callout.default.body',
-                'Small habits make the city easier to breathe in. Recycle what you can and keep the air cleaner.',
-            ),
-        },
-    };
-    return { ...fallback, ...weather, callout: { ...fallback.callout, ...(weather.callout || {}) } };
-}
-
-function getWeatherLanguage() {
-    return state.lang === 'zh' ? 'zh' : 'en';
-}
-
-function localizeWeatherSummary(summary) {
-    const defaultSummary = weatherTr('weather.summary.default', 'Hong Kong weather');
-    const key = !summary || summary === 'Hong Kong weather' ? 'weather.summary.default' : `weather.summary.${summary}`;
-    return weatherTr(key, summary || defaultSummary);
-}
-
-function localizeWeatherLocation(location) {
-    if (getWeatherLanguage() !== 'zh') {
-        return location || weatherTr('weather.location.hongKong', 'Hong Kong');
-    }
-    if (!location || location === 'Hong Kong') {
-        return weatherTr('weather.location.hongKong', '香港');
-    }
-    return location;
-}
-
-function localizeWeatherSource(source) {
-    if (getWeatherLanguage() !== 'zh') {
-        return source || weatherTr('weather.source.hkoOpenData', 'HKO Open Data');
-    }
-    if (source === 'Fallback') {
-        return weatherTr('weather.source.fallback', '後備資料');
-    }
-    if (!source || source === 'HKO Open Data') {
-        return weatherTr('weather.source.hkoOpenData', '香港天文台開放資料');
-    }
-    return source;
-}
-
-function localizeWeatherCallout(model) {
-    const defaultTitle = weatherTr('weather.callout.default.title', 'Hong Kong weather');
-    const defaultBody = weatherTr(
-        'weather.callout.default.body',
-        'Small habits make the city easier to breathe in. Recycle what you can and keep the air cleaner.',
-    );
-    const key = (model?.callout?.title && model.callout.title !== 'Hong Kong weather')
-        ? model.callout.title
-        : (model?.summary && model.summary !== 'Hong Kong weather')
-            ? model.summary
-            : 'default';
-    return {
-        title: weatherTr(`weather.callout.${key}.title`, defaultTitle),
-        body: weatherTr(`weather.callout.${key}.body`, defaultBody),
-    };
-}
-
-function getWeatherSubtitle(model) {
-    const baseLocation = localizeWeatherLocation(model.location);
-    if (model.temperature_place && model.temperature_place !== model.location) {
-        return state.lang === 'zh' ? `${baseLocation} · ${model.temperature_place}` : `${baseLocation} • ${model.temperature_place}`;
-    }
-    return baseLocation;
-}
-
-function renderWeatherDetails() {
-    const model = getWeatherDetailModel();
-    const titleEl = document.getElementById('weather-detail-title');
-    const subtitleEl = document.getElementById('weather-detail-subtitle');
-    const emojiEl = document.getElementById('weather-detail-emoji');
-    const tempEl = document.getElementById('weather-detail-temp');
-    const locationEl = document.getElementById('weather-detail-location');
-    const updatedEl = document.getElementById('weather-detail-updated');
-    const sourceEl = document.getElementById('weather-detail-source');
-    const calloutTitleEl = document.getElementById('weather-detail-callout-title');
-    const calloutEl = document.getElementById('weather-detail-callout');
-    const closeButton = document.querySelector('.weather-close');
-    const callout = localizeWeatherCallout(model);
-
-    if (titleEl) titleEl.textContent = localizeWeatherSummary(model.summary);
-    if (subtitleEl) {
-        subtitleEl.textContent = getWeatherSubtitle(model);
-    }
-    if (emojiEl) emojiEl.textContent = model.emoji || '🌤️';
-    if (tempEl) tempEl.textContent = Number.isFinite(model.temperature) ? `${Math.round(model.temperature)}°C` : '--°C';
-    if (locationEl) locationEl.textContent = localizeWeatherLocation(model.location);
-    if (updatedEl) updatedEl.textContent = formatWeatherUpdatedAt(model.updated_at);
-    if (sourceEl) sourceEl.textContent = localizeWeatherSource(model.source);
-    if (calloutTitleEl) calloutTitleEl.textContent = callout.title;
-    if (calloutEl) {
-        calloutEl.textContent = callout.body;
-    }
-    if (closeButton) closeButton.setAttribute('aria-label', weatherTr('weather.detail.close', tr('closeBtn')));
-}
-
-function openWeatherDetails() {
-    const overlay = document.getElementById('weather-overlay');
-    const panel = document.getElementById('weather-panel');
-    if (!overlay || !panel) return;
-
-    state.weatherDetailsOpen = true;
-    renderWeatherDetails();
-    updateWeatherUI();
-    overlay.classList.add('is-shown');
-    overlay.setAttribute('aria-hidden', 'false');
-
-    if (MOTION_ENABLED) {
-        gsap.killTweensOf([overlay, panel]);
-        gsap.fromTo(
-            overlay,
-            { autoAlpha: 0 },
-            { autoAlpha: 1, duration: 0.18, ease: 'power1.out', overwrite: 'auto' },
-        );
-        gsap.fromTo(
-            panel,
-            { y: 14, scale: 0.97, autoAlpha: 0 },
-            { y: 0, scale: 1, autoAlpha: 1, duration: 0.34, ease: 'back.out(1.35)', overwrite: 'auto' },
-        );
-    } else {
-        overlay.style.opacity = '1';
-        panel.style.opacity = '1';
-        panel.style.transform = 'none';
-    }
-}
-
-function closeWeatherDetails() {
-    const overlay = document.getElementById('weather-overlay');
-    const panel = document.getElementById('weather-panel');
-    if (!overlay || !panel || !state.weatherDetailsOpen) return;
-
-    state.weatherDetailsOpen = false;
-    updateWeatherUI();
-
-    const finalizeClose = () => {
-        overlay.classList.remove('is-shown');
-        overlay.setAttribute('aria-hidden', 'true');
-        overlay.style.opacity = '';
-        panel.style.opacity = '';
-        panel.style.transform = '';
-    };
-
-    if (MOTION_ENABLED) {
-        gsap.killTweensOf([overlay, panel]);
-        gsap.to(panel, { y: 10, scale: 0.97, autoAlpha: 0, duration: 0.18, ease: 'power2.in', overwrite: 'auto' });
-        gsap.to(overlay, { autoAlpha: 0, duration: 0.18, ease: 'power1.in', overwrite: 'auto', onComplete: finalizeClose });
-    } else {
-        finalizeClose();
-    }
-}
-
-async function toggleWeatherDetails() {
-    if (state.weatherDetailsOpen) {
-        closeWeatherDetails();
-        return;
-    }
-
-    openWeatherDetails();
-    refreshHeaderWeather().catch(() => {});
-}
-
-document.addEventListener('keydown', e => {
-    if (e.key === 'Escape') {
-        closeWeatherDetails();
-    }
-});
-
-
 // ═══════════════════════════════════════════════════════════════════════
 // 5. NAVIGATION
 // ═══════════════════════════════════════════════════════════════════════
@@ -635,35 +246,51 @@ function initNavDrag() {
         indicator.style.transform = 'translate3d(0, 0, 0) scaleX(1)';
     }
 
-    function setIndicator(targetX, scaleX, duration, ease) {
+    function clamp(value, min, max) {
+        return Math.max(min, Math.min(max, value));
+    }
+
+    function getIndicatorBox(btn, navRect = navbar.getBoundingClientRect()) {
+        const rect = btn.getBoundingClientRect();
+        const edge = 5;
+        const baseLeft = 5;
+        const width = clamp(rect.width - 8, 52, Math.max(52, navRect.width - edge * 2));
+        const maxX = Math.max(edge, navRect.width - width - edge);
+        const x = clamp(rect.left - navRect.left + (rect.width - width) / 2, edge, maxX) - baseLeft;
+        return { x, width, center: rect.left - navRect.left + rect.width / 2, rect };
+    }
+
+    function setIndicator(targetX, width, duration, ease) {
         if (!indicator) return;
+        if (width) indicator.style.width = `${width}px`;
         if (MOTION_ENABLED) {
             gsap.to(indicator, {
                 x: targetX,
-                scaleX,
+                scaleX: 1,
                 duration,
                 ease,
                 overwrite: "auto",
             });
         } else {
-            indicator.style.transform = `translate3d(${targetX}px, 0, 0) scaleX(${scaleX})`;
+            indicator.style.transform = `translate3d(${targetX}px, 0, 0) scaleX(1)`;
         }
+    }
+
+    function getTabName(btn) {
+        if (!btn) return null;
+        return btn.dataset.tab || null;
     }
 
     // Position indicator under active tab initially
     function snapIndicatorTo(btn) {
         if (!indicator || !btn) return;
-        const nr = navbar.getBoundingClientRect();
-        const br = btn.getBoundingClientRect();
-        let targetX = br.left - nr.left + (br.width - 100) / 2;
-        targetX = Math.max(5, Math.min(295, targetX));
-        setIndicator(targetX, 1, isDragging ? 0.15 : 0.45, isDragging ? "power2.out" : "elastic.out(1, 0.6)");
+        const box = getIndicatorBox(btn);
+        setIndicator(box.x, box.width, isDragging ? 0.12 : 0.28, isDragging ? "power2.out" : "power3.out");
 
-        // Bounce the nav button icon
-        if (!isDragging && MOTION_ENABLED) {
+        if (!isDragging && MOTION_ENABLED && !PERF.lowEnd) {
             const icon = btn.querySelector('.nav-btn-icon');
             if (icon) {
-                gsap.fromTo(icon, { scale: 0.85 }, { scale: 1, duration: 0.4, ease: "back.out(2)", overwrite: "auto" });
+                gsap.fromTo(icon, { scale: 0.92 }, { scale: 1, duration: 0.24, ease: "power2.out", overwrite: "auto" });
             }
         }
     }
@@ -682,40 +309,35 @@ function initNavDrag() {
         // Find which two buttons the finger is between for smooth interpolation
         let leftBtn = null, rightBtn = null;
         for (let i = 0; i < btnArray.length; i++) {
-            const r = btnArray[i].getBoundingClientRect();
-            const btnCenter = r.left - nr.left + r.width / 2;
-            if (btnCenter <= relX) leftBtn = { el: btnArray[i], rect: r, center: btnCenter };
-            if (btnCenter >= relX && !rightBtn) rightBtn = { el: btnArray[i], rect: r, center: btnCenter };
+            const box = getIndicatorBox(btnArray[i], nr);
+            if (box.center <= relX) leftBtn = { el: btnArray[i], ...box };
+            if (box.center >= relX && !rightBtn) rightBtn = { el: btnArray[i], ...box };
         }
 
         // Smoothly interpolate indicator position between adjacent buttons
         if (indicator) {
             if (leftBtn && rightBtn && leftBtn.el !== rightBtn.el) {
                 const range = rightBtn.center - leftBtn.center;
-                const t = range > 0 ? (relX - leftBtn.center) / range : 0;
-                let l = leftBtn.rect.left - nr.left + t * (rightBtn.rect.left - leftBtn.rect.left)
-                    + (leftBtn.rect.width - 100) / 2 * (1 - t) + (rightBtn.rect.width - 100) / 2 * t;
-                l = Math.max(5, Math.min(295, l));
-                setIndicator(l, 1, 0.1, "power1.out");
+                const t = range > 0 ? clamp((relX - leftBtn.center) / range, 0, 1) : 0;
+                const x = leftBtn.x + (rightBtn.x - leftBtn.x) * t;
+                const width = leftBtn.width + (rightBtn.width - leftBtn.width) * t;
+                setIndicator(x, width, 0.08, "power1.out");
             } else if (rightBtn) {
-                const r = rightBtn.rect;
-                let l = r.left - nr.left + (r.width - 100) / 2, w = 100;
-                if (rightBtn.el === btnArray[0] && clientX < r.left + r.width * 0.4) {
-                    const t = Math.min(1, (r.left + r.width * 0.4 - clientX) / 50);
-                    w = 100 * (1 - t * 0.3);
-                    l = r.left - nr.left + 2;
+                let x = rightBtn.x, width = rightBtn.width;
+                if (rightBtn.el === btnArray[0] && clientX < rightBtn.rect.left + rightBtn.rect.width * 0.4) {
+                    const t = Math.min(1, (rightBtn.rect.left + rightBtn.rect.width * 0.4 - clientX) / 50);
+                    width = rightBtn.width * (1 - t * 0.18);
+                    x = 0;
                 }
-                setIndicator(l, w / 100, 0.12, "power2.out");
+                setIndicator(x, width, 0.1, "power2.out");
             } else if (leftBtn) {
-                const r = leftBtn.rect;
-                let l = r.left - nr.left + (r.width - 100) / 2, w = 100;
-                if (leftBtn.el === btnArray[btnArray.length - 1] && clientX > r.right - r.width * 0.4) {
-                    const t = Math.min(1, (clientX - (r.right - r.width * 0.4)) / 50);
-                    w = 100 * (1 - t * 0.3);
-                    // Keep right edge anchored: l + w = r.right - nr.left
-                    l = r.right - nr.left - w;
+                let x = leftBtn.x, width = leftBtn.width;
+                if (leftBtn.el === btnArray[btnArray.length - 1] && clientX > leftBtn.rect.right - leftBtn.rect.width * 0.4) {
+                    const t = Math.min(1, (clientX - (leftBtn.rect.right - leftBtn.rect.width * 0.4)) / 50);
+                    width = leftBtn.width * (1 - t * 0.18);
+                    x = nr.width - width - 10;
                 }
-                setIndicator(l, w / 100, 0.12, "power2.out");
+                setIndicator(x, width, 0.1, "power2.out");
             }
         }
 
@@ -727,10 +349,10 @@ function initNavDrag() {
             if (dist < minDist) { minDist = dist; best = btn; }
         });
         if (best) {
-            const m = (best.getAttribute('onclick') || '').match(/navigateTo\(['"]([^'"]+)['"]\)/);
-            if (m && m[1]) {
-                pendingTab = m[1];
-                return m[1];
+            const tabName = getTabName(best);
+            if (tabName) {
+                pendingTab = tabName;
+                return tabName;
             }
         }
         return pendingTab;
@@ -782,10 +404,12 @@ function initNavDrag() {
         const active = navbar.querySelector('.nav-btn.is-active');
         if (active) snapIndicatorTo(active);
 
-        const targetTab = getBestTab(e.clientX);
+        const targetTab = pendingTab || getBestTab(e.clientX);
+        if (targetTab && state.activeTab !== targetTab) {
+            navigateTo(targetTab);
+        }
         if (hadDrag) {
             suppressNavClickUntil = Date.now() + 350;
-            if (targetTab && state.activeTab !== targetTab) navigateTo(targetTab);
         }
     };
     navbar.addEventListener('pointerup', stop);
@@ -806,29 +430,16 @@ function initNavDrag() {
 
 let _tabTween = null;
 
-function navigateTo(name) {
-    // Kill any in-progress tab animation
-    if (_tabTween) { _tabTween.kill(); _tabTween = null; }
+const TAB_ORDER = ['home', 'record', 'rewards', 'more'];
 
-    state.activeTab = name;
-    document.querySelectorAll('.nav-btn').forEach(el => el.classList.remove('is-active'));
-    const nav = document.getElementById(`nav-${name}`);
-    if (nav) { nav.classList.add('is-active'); if (window._snapNavIndicator) window._snapNavIndicator(); }
+function getTabDirection(nextName) {
+    const currentIndex = TAB_ORDER.indexOf(state.activeTab);
+    const nextIndex = TAB_ORDER.indexOf(nextName);
+    if (currentIndex === -1 || nextIndex === -1 || currentIndex === nextIndex) return 1;
+    return nextIndex > currentIndex ? 1 : -1;
+}
 
-    const currentTab = document.querySelector('.tab.active');
-    const nextTab = document.getElementById(`tab-${name}`);
-    if (!nextTab) return;
-    if (currentTab === nextTab) return;
-
-    // Immediately clean up all tabs
-    document.querySelectorAll('.tab').forEach(t => { t.classList.remove('active'); gsap.set(t, { clearProps: "all" }); });
-    nextTab.classList.add('active');
-
-    // Animate new tab in
-    if (MOTION_ENABLED) {
-        gsap.fromTo(nextTab, { opacity: 0, y: 8 }, { opacity: 1, y: 0, duration: 0.3, ease: "power2.out" });
-    }
-
+function runTabSideEffects(name) {
     if (name === 'record') loadRecords();
     if (name === 'rewards') {
         renderRewards();
@@ -838,6 +449,108 @@ function navigateTo(name) {
             const cur = parseInt(ptsEl.textContent) || 0;
             animateNumber('rew-pts', cur, balance, 1000);
         }
+    }
+}
+
+function navigateTo(name) {
+    if (_tabTween) { _tabTween.kill(); _tabTween = null; }
+    document.querySelectorAll('.tab-exiting').forEach(tab => {
+        tab.classList.remove('active', 'tab-exiting');
+        gsap.set(tab, { clearProps: "all" });
+    });
+
+    const direction = getTabDirection(name);
+    const currentTab = document.querySelector(`#tab-${state.activeTab}.active`) || document.querySelector('.tab.active');
+    const nextTab = document.getElementById(`tab-${name}`);
+    if (!nextTab) return;
+    if (currentTab === nextTab) return;
+
+    state.activeTab = name;
+    document.querySelectorAll('.nav-btn').forEach(el => el.classList.remove('is-active'));
+    const nav = document.getElementById(`nav-${name}`);
+    if (nav) { nav.classList.add('is-active'); if (window._snapNavIndicator) window._snapNavIndicator(); }
+
+    document.querySelectorAll('.tab').forEach(tab => {
+        if (tab !== currentTab && tab !== nextTab) {
+            tab.classList.remove('active', 'tab-exiting');
+            gsap.set(tab, { clearProps: "all" });
+        }
+    });
+    nextTab.classList.add('active');
+    runTabSideEffects(name);
+
+    const lightTabAnimation = PERF.lowEnd || (window.matchMedia && window.matchMedia('(max-width: 520px)').matches);
+    if (!MOTION_ENABLED || lightTabAnimation) {
+        if (currentTab) currentTab.classList.remove('active', 'tab-exiting');
+        if (currentTab) gsap.set(currentTab, { clearProps: "all" });
+        if (!MOTION_ENABLED) {
+            gsap.set(nextTab, { clearProps: "all" });
+            return;
+        }
+        _tabTween = gsap.fromTo(nextTab, {
+            autoAlpha: 0,
+            y: 6,
+        }, {
+            autoAlpha: 1,
+            y: 0,
+            duration: 0.16,
+            ease: "power1.out",
+            overwrite: "auto",
+            onComplete: () => {
+                gsap.set(nextTab, { clearProps: "all" });
+                _tabTween = null;
+            },
+        });
+        return;
+    }
+
+    const distance = PERF.lowEnd ? 10 : 18;
+    const nextChildren = nextTab.querySelectorAll(':scope > *');
+    nextTab.scrollTop = 0;
+    if (currentTab) currentTab.classList.add('tab-exiting');
+
+    _tabTween = gsap.timeline({
+        defaults: { ease: "power2.out", overwrite: "auto" },
+        onComplete: () => {
+            if (currentTab) currentTab.classList.remove('active', 'tab-exiting');
+            gsap.set([currentTab, nextTab, ...nextChildren].filter(Boolean), { clearProps: "all" });
+            _tabTween = null;
+        },
+    });
+
+    if (currentTab) {
+        _tabTween.to(currentTab, {
+            autoAlpha: 0,
+            x: -distance * direction,
+            scale: 0.985,
+            duration: 0.16,
+            ease: "power1.out",
+        }, 0);
+    }
+
+    _tabTween.fromTo(nextTab, {
+        autoAlpha: 0,
+        x: distance * direction,
+        scale: 0.985,
+    }, {
+        autoAlpha: 1,
+        x: 0,
+        scale: 1,
+        duration: 0.28,
+        ease: "power3.out",
+    }, currentTab ? 0.08 : 0);
+
+    if (!PERF.lowEnd && nextChildren.length) {
+        _tabTween.fromTo(nextChildren, {
+            autoAlpha: 0,
+            y: 8,
+        }, {
+            autoAlpha: 1,
+            y: 0,
+            duration: 0.24,
+            stagger: 0.025,
+            ease: "power2.out",
+        }, 0.13);
     }
 }
 
@@ -1308,270 +1021,6 @@ function resetScan() {
     clearPreview();
     document.getElementById('weighted-detail').classList.remove('is-open');
     state.lastScanResult = null;
-}
-
-
-// ═══════════════════════════════════════════════════════════════════════
-// 11. RECORDS
-// ═══════════════════════════════════════════════════════════════════════
-
-async function loadRecords({ force = false } = {}) {
-    if (typeof FB === 'undefined') { console.warn('[App] FB not ready, retrying...'); setTimeout(() => loadRecords({ force }), 500); return; }
-    if (!state.currentUser && !state.userId && !state.userKey) {
-        invalidateRecordsCache({ clear: true });
-        return [];
-    }
-
-    const cacheKey = getRecordsCacheKey();
-    if (!force && !state.recordsDirty && state.recordsLoadedFor === cacheKey) {
-        renderRecords();
-        updateStats();
-        return state.records;
-    }
-
-    if (state.recordsLoadPromise && state.recordsLoadPromiseToken === state.recordsLoadToken) {
-        return state.recordsLoadPromise;
-    }
-
-    const loadToken = ++state.recordsLoadToken;
-    const loadPromise = (async () => {
-        try {
-            state.records = [];
-            renderRecords();
-            updateStats();
-            const items = await FB.getItems(
-                state.userId || null,
-                (state.userId || state.userKey) ? null : state.currentUser,
-                state.userKey || null,
-            );
-            if (loadToken !== state.recordsLoadToken || cacheKey !== getRecordsCacheKey()) return state.records;
-            state.records = items.map(it => ({
-                id: it.id,
-                name: it.name,
-                mode: it.status,
-                eco_rate: it.eco_rate,
-                recycle_rate: it.recycle_rate,
-                overall_score: it.overall_score,
-                material: it.material,
-                grade: it.grade,
-                description: it.description,
-                image_url: it.photoUrl,
-                disposal_guide: it.dealtWithMethod,
-                disposal_info: null,
-                precaution: null,
-                alternative: it.alternative,
-                weighted_scores: it.weighted_scores,
-                schema_id: it.schema_id,
-                brand: it.brand,
-                category: it.category,
-                image: it.status === 'purchase' ? '🥛' : '🗑️',
-            }));
-            state.recordsLoadedFor = cacheKey;
-            state.recordsDirty = false;
-            renderRecords();
-            updateStats();
-            return state.records;
-        } catch (e) {
-            console.error('Failed to load records:', e);
-            throw e;
-        }
-    })();
-
-    state.recordsLoadPromise = loadPromise;
-    state.recordsLoadPromiseToken = loadToken;
-    try {
-        return await loadPromise;
-    } finally {
-        if (state.recordsLoadPromise === loadPromise && state.recordsLoadPromiseToken === loadToken) {
-            state.recordsLoadPromise = null;
-            state.recordsLoadPromiseToken = 0;
-        }
-    }
-}
-
-function renderRecords() {
-    const container = document.getElementById('records-list');
-    const empty = document.getElementById('records-empty');
-
-    if (!state.records.length) {
-        container.innerHTML = '';
-        empty.classList.remove('hidden');
-        return;
-    }
-
-    empty.classList.add('hidden');
-    container.innerHTML = state.records.map(r => {
-        const schemaId = r.schema_id || 'food_new';
-        const overall = r.overall_score ||
-            calcWeighted(r.weighted_scores || { a: 50, b: 50, c: 50, d: 50, e: 50 }, schemaId);
-        const grade = getGrade(overall);
-
-        // Alternative card
-        let altHtml = '';
-        if (r.alternative) {
-            altHtml = `
-                <div class="alternative-card">
-                    <div class="alternative-card-label">${tr('alternativeProduct')}</div>
-                    <div class="alternative-card-name">${esc(r.alternative.name)}</div>
-                    <div class="alternative-card-ratings">
-                        <div class="rating-item">
-                            <span class="rating-label">${tr('ecoRate')}:</span>
-                            <div class="star-rating">${buildStars(r.alternative.eco_rate)}</div>
-                        </div>
-                        <div class="rating-item">
-                            <span class="rating-label">${tr('recycleRate')}:</span>
-                            <div class="star-rating">${buildStars(r.alternative.recycle_rate)}</div>
-                        </div>
-                    </div>
-                </div>`;
-        }
-
-        // Disposal guide
-        let guideHtml = '';
-        if (r.disposal_guide || r.disposal_info) {
-            guideHtml = `
-                <div class="disposal-guide">
-                    <div class="disposal-guide-title">♻️ ${tr('disposalGuide')}</div>
-                    ${r.disposal_info ? `
-                        <div class="disposal-guide-row"><span class="disposal-guide-label">${tr('material')}:</span> ${esc(r.disposal_info.type)}</div>
-                        <div class="disposal-guide-row"><span class="disposal-guide-label">${tr('method')}:</span> ${esc(r.disposal_info.method)}</div>
-                        <div class="disposal-guide-row"><span class="disposal-guide-label">${tr('location')}:</span> ${esc(r.disposal_info.location)}</div>
-                    ` : ''}
-                    ${r.disposal_guide ? `<div class="disposal-guide-row" style="margin-top:3px">${esc(r.disposal_guide)}</div>` : ''}
-                    ${r.precaution ? `<div class="disposal-guide-precaution">⚠️ ${esc(r.precaution)}</div>` : ''}
-                </div>`;
-        }
-
-        const photoHtml = r.image_url
-            ? `<img src="${esc(r.image_url)}" loading="lazy" decoding="async" style="width:100%;height:100%;object-fit:cover;border-radius:8px" alt="">`
-            : (r.image || '📦');
-
-        return `
-        <div class="record-card" id="rec-${r.id}" onclick="viewRecordDetail('${r.id}')" style="cursor:pointer">
-            <div class="record-card-inner">
-                <div class="record-card-image">${photoHtml}</div>
-                <div class="record-card-info">
-                    <div class="record-card-name">${esc(r.name)}</div>
-                    <div class="record-card-meta">
-                        <span class="record-card-badge record-card-badge--${r.mode}">${r.mode === 'purchase' ? tr('purchaseBadge') : tr('disposeBadge')}</span>
-                        <span class="grade-tag" style="background:${grade.color};font-size:8px">${grade.grade}</span>
-                    </div>
-                    <div class="record-card-ratings">
-                        <div class="rating-item">
-                            <span class="rating-label">${tr('ecoRate')}</span>
-                            <div class="star-rating">${buildStars(r.eco_rate)}</div>
-                        </div>
-                        <div class="rating-item">
-                            <span class="rating-label">${tr('recycleRate')}</span>
-                            <div class="star-rating">${buildStars(r.recycle_rate)}</div>
-                        </div>
-                        <div class="rating-item">
-                            <span class="rating-label">${tr('ecoGradeLabel')}</span>
-                            <span style="font-size:13px;font-weight:900;color:${grade.color}">${overall}/100</span>
-                        </div>
-                    </div>
-                    ${altHtml}
-                    ${guideHtml}
-                </div>
-            </div>
-            <div class="record-card-actions">
-                <button class="btn btn--outline btn--small" onclick="event.stopPropagation();viewRecordDetail('${r.id}')">🔍 Details</button>
-                <button class="btn btn--danger" onclick="event.stopPropagation();deleteRecord('${r.id}')">🗑️</button>
-            </div>
-        </div>`;
-    }).join('');
-
-    // GSAP staggered card entrance
-    if (MOTION_ENABLED) {
-        const cards = Array.from(document.querySelectorAll('#records-list .record-card')).slice(0, 8);
-        if (cards.length) {
-            gsap.fromTo(cards,
-                { opacity: 0, y: 24 },
-                { opacity: 1, y: 0, duration: 0.4, stagger: 0.06, ease: "power2.out" }
-            );
-        }
-    }
-}
-
-async function deleteRecord(id) {
-    try {
-        await FB.deleteItem(id);
-        closeModal();
-        removeRecordCache(id);
-    } catch (e) {
-        console.error('Failed to delete record:', e);
-    }
-}
-
-function viewRecordDetail(id) {
-    const r = state.records.find(rec => rec.id === id);
-    if (!r) return;
-
-    const grade = getGrade(r.overall_score || 50);
-    const photoHtml = r.image_url
-        ? `<img src="${esc(r.image_url)}" loading="lazy" decoding="async" style="width:100%;max-height:200px;object-fit:cover;border-radius:12px;margin-bottom:12px" alt="">`
-        : `<div style="font-size:48px;text-align:center;margin-bottom:12px">${r.image || '📦'}</div>`;
-
-    const guideHtml = (r.disposal_guide || r.material) ? `
-        <div class="disposal-guide" style="margin-top:12px">
-            <div class="disposal-guide-title">♻️ ${tr('disposalGuide')}</div>
-            ${r.material ? `<div class="disposal-guide-row"><span class="disposal-guide-label">${tr('material')}:</span> ${esc(r.material)}</div>` : ''}
-            ${r.disposal_guide ? `<div class="disposal-guide-row">${esc(r.disposal_guide)}</div>` : ''}
-        </div>` : '';
-
-    document.getElementById('modal-icon').textContent = '';
-    document.getElementById('modal-title').textContent = r.name;
-    document.getElementById('modal-body').innerHTML = `
-        ${photoHtml}
-        <div style="font-size:11px;color:var(--color-gray-500);margin-bottom:8px">${esc(r.description || '')}</div>
-        <div style="display:flex;gap:6px;align-items:center;margin-bottom:8px">
-            <span class="record-card-badge record-card-badge--${r.mode}">${r.mode === 'purchase' ? tr('purchaseBadge') : tr('disposeBadge')}</span>
-            <span class="grade-tag" style="background:${grade.color}">${grade.grade}</span>
-        </div>
-        <div style="display:flex;gap:16px;margin-bottom:10px">
-            <div class="rating-item"><span class="rating-label">${tr('ecoRate')}</span><div class="star-rating">${buildStars(r.eco_rate)}</div></div>
-            <div class="rating-item"><span class="rating-label">${tr('recycleRate')}</span><div class="star-rating">${buildStars(r.recycle_rate)}</div></div>
-        </div>
-        <div class="overall-row"><span class="overall-label">${tr('overallScore')}</span><div><span class="overall-value">${r.overall_score || 50}</span><span class="overall-max">/100</span></div></div>
-        <div class="overall-bar" style="margin-bottom:0"><div class="overall-bar-fill" style="width:${r.overall_score || 50}%;background:${grade.color}"></div></div>
-        ${guideHtml}
-    `;
-    document.getElementById('modal-actions').innerHTML = `
-        <button class="btn btn--outline btn--full" onclick="closeModal()">${tr('closeBtn')}</button>
-        <button class="btn btn--danger" onclick="closeModal();deleteRecord('${r.id}')">🗑️ ${tr('clearAll') || 'Delete'}</button>
-    `;
-    document.getElementById('modal-overlay').classList.add('is-shown');
-}
-
-async function clearAllRecords() {
-    showConfirm(tr('confirmClear'), async () => {
-        await FB.clearAllItems();
-        closeModal();
-        invalidateRecordsCache({ clear: true });
-    });
-}
-
-function updateStats() {
-    const n = state.records.length;
-    const itemsEl = document.getElementById('stat-items');
-    const ecoEl = document.getElementById('stat-eco');
-    const recycleEl = document.getElementById('stat-recycle');
-
-    const animateEl = (el, value) => {
-        if (!el) return;
-        el.textContent = value;
-        if (!MOTION_ENABLED) return;
-        el.classList.remove('anim-entrance');
-        requestAnimationFrame(() => el.classList.add('anim-entrance'));
-    };
-
-    animateEl(itemsEl, n);
-    animateEl(ecoEl, n
-        ? (state.records.reduce((s, r) => s + (r.eco_rate || 3), 0) / n).toFixed(1)
-        : '0');
-    animateEl(recycleEl, n
-        ? (state.records.reduce((s, r) => s + (r.recycle_rate || 3), 0) / n).toFixed(1)
-        : '0');
 }
 
 

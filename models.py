@@ -7,8 +7,8 @@ from config import (
     GEMINI_API_KEY, GEMINI_MODEL, DEEPSEEK_API_KEY, CLAUDE_API_KEY, CLAUDE_MODEL,
     DEFAULT_AI_MODEL, AVAILABLE_MODELS, SUPABASE_STORAGE_BUCKET, SUPABASE_URL,
 )
-from data import HK_DISPOSAL
 from nlp.infer import predict_image
+from scoring import HK_DISPOSAL
 from storage import supabase_enabled, supabase_storage_signed_url, supabase_storage_upload
 
 # ── Legacy classifier metadata ──────────────────────────────────────────────

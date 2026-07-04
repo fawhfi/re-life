@@ -6,15 +6,30 @@ from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 from dotenv import load_dotenv
 from io import BytesIO
-import re, uuid, os, random, traceback, time
+import os, random, uuid
 from pathlib import Path
-from datetime import datetime
 
-from config import *
-from data import *
-from models import *
+from auth import (
+    check_rate_limit,
+    create_user,
+    get_all_users,
+    get_user_by_email,
+    get_user_by_id,
+    get_user_by_name,
+    login_user,
+    save_user_data,
+    send_reset_code,
+    send_verification_code,
+    update_password,
+    verify_code,
+    verify_reset_code,
+)
+from config import ALLOWED_IMAGE_TYPES, MAX_UPLOAD_BYTES, SUPABASE_STORAGE_BUCKET, get_public_config
+from data import add_item, clear_all_items, delete_item, get_items, get_news_cached
+from models import ai_analyze, local_scan_response
+from scan_service import analyze_scan_image, enrich_scan_result, normalize_scan_payload, parse_bool
+from scoring import CRITERIA_LABELS, REWARDS_CATALOG, SCHEMA_WEIGHTS
 from storage import supabase_storage_download, verify_supabase_storage_signature
-from auth import *
 from weather import get_header_weather
 
 root_dir = Path(__file__).parent
@@ -53,31 +68,6 @@ app.mount("/static", StaticFiles(directory=root_dir / "static"), name="static")
 def _page(path: str) -> str:
     return (root_dir / "templates" / path).read_text(encoding="utf-8")
 
-def _infer_waste_type(payload: dict) -> str:
-    haystack = " ".join(
-        str(payload.get(key, ""))
-        for key in ("waste_type", "material", "category", "name", "description")
-    ).lower()
-    if "glass" in haystack:
-        return "glass"
-    if any(token in haystack for token in ("metal", "aluminum", "aluminium", "steel", "tin")):
-        return "metal"
-    if any(token in haystack for token in ("organic", "compost", "food")):
-        return "organic"
-    if any(token in haystack for token in ("paper", "cardboard", "carton", "wood")):
-        return "paper"
-    if any(token in haystack for token in ("ewaste", "e-waste", "electronic")):
-        return "ewaste"
-    return "plastic"
-
-
-def _as_bool(value: str | bool | None) -> bool:
-    if isinstance(value, bool):
-        return value
-    if value is None:
-        return False
-    return str(value).strip().lower() in {"1", "true", "yes", "on"}
-
 
 @app.get("/api/storage/{bucket}/{object_path:path}")
 async def storage_object(request: Request, bucket: str, object_path: str, exp: str | None = None, sig: str | None = None):
@@ -99,64 +89,6 @@ async def storage_object(request: Request, bucket: str, object_path: str, exp: s
     response = StreamingResponse(BytesIO(content), media_type=content_type)
     response.headers["Cache-Control"] = "public, max-age=86400, immutable"
     return response
-
-async def _normalize_scan_payload(ai: dict, contents: bytes, filename: str, mode: str, sid: str) -> dict:
-    result = dict(ai or {})
-    ext = Path(str(filename)).suffix or ".png"
-    fn = f"{uuid.uuid4()}{ext}"
-    result["image_url"] = await upload_image(contents, fn)
-    result["mode"] = mode
-    result["id"] = result.get("id") or str(uuid.uuid4())
-    result["timestamp"] = datetime.now().isoformat()
-    result["schema_id"] = sid
-    if mode != "purchase":
-        result["alternative"] = None
-
-    waste_type = result.get("waste_type") or _infer_waste_type(result)
-    result["waste_type"] = waste_type
-
-    is_local = (
-        result.get("runtime_source") == "onnxruntime"
-        or result.get("model_source") == "transformer"
-        or result.get("classifier_source") in {"nlp", "transformer"}
-    )
-    result.setdefault("classifier_source", "nlp" if is_local else DEFAULT_AI_MODEL)
-    result.setdefault("model_source", "transformer" if is_local else DEFAULT_AI_MODEL)
-    result.setdefault("runtime_source", "onnxruntime" if is_local else "remote")
-    result.setdefault("artifact", "model_fp16.onnx" if is_local else result.get("model_source", DEFAULT_AI_MODEL))
-    result.setdefault("waste_label", CNN_LABELS.get(waste_type, waste_type.replace("_", " ").title()))
-
-    text = result.get("text") or result.get("description") or result.get("disposal_guide") or f"{result['waste_label']} waste."
-    result["text"] = text
-    if not result.get("tokens"):
-        result["tokens"] = [token for token in re.findall(r"[A-Za-z0-9]+", text.lower()) if token]
-    result.setdefault("confidence", 0.0)
-    return result
-
-
-async def _analyze_scan_image(
-    contents: bytes,
-    sid: str,
-    mode: str,
-    *,
-    force_local: bool = False,
-) -> dict:
-    if force_local:
-        print("[Classifier] Debug mode enabled; using local transformer")
-        return local_scan_response(contents, mode)
-
-    try:
-        return await ai_analyze(contents, sid)
-    except Exception as remote_e:
-        print(f"[Classifier] Remote AI error: {str(remote_e)[:200]}")
-        try:
-            ai = local_scan_response(contents, mode)
-            ai["ai_error"] = "AI failed to call, using fallback."
-            ai["fallback_used"] = True
-            return ai
-        except Exception as cls_e:
-            print(f"[Classifier] Local transformer error: {str(cls_e)[:200]}")
-            raise
 
 # ── Pages ───────────────────────────────────────────────────────────────────
 
@@ -347,18 +279,19 @@ async def scan_item_ai(request: Request, file: UploadFile = File(...), mode: str
         return JSONResponse({"error": f"File too large (max {MAX_UPLOAD_BYTES // (1024*1024)} MB)"}, 413)
     sid = f"{item_type}_{item_state}"
     try:
-        ai = await _analyze_scan_image(contents, sid, mode, force_local=_as_bool(debug))
+        ai = await analyze_scan_image(
+            contents,
+            sid,
+            mode,
+            force_local=parse_bool(debug),
+            remote_analyzer=ai_analyze,
+            local_analyzer=local_scan_response,
+        )
     except Exception:
         return JSONResponse({"error": "Image analysis failed", "mode": mode, "schema_id": sid}, 500)
 
-    ai = await _normalize_scan_payload(ai, contents, file.filename, mode, sid)
-
-    scores = ai.get("weighted_scores", {"a": 50, "b": 50, "c": 50, "d": 50, "e": 50})
-    ov = calc_weighted(scores, sid); g = get_grade(ov)
-    ai["overall_score"] = ov; ai["grade"] = g["grade"]; ai["grade_advice"] = g["advice"]; ai["grade_color"] = g["color"]
-    m = ai.get("material", "plastic")
-    if m in HK_DISPOSAL: ai["disposal_info"] = HK_DISPOSAL[m]
-    if sid in CRITERIA_LABELS: ai["criteria_labels"] = CRITERIA_LABELS[sid]
+    ai = await normalize_scan_payload(ai, contents, file.filename, mode, sid)
+    ai = enrich_scan_result(ai, sid)
     return JSONResponse(ai)
 
 # ── Data endpoints ──────────────────────────────────────────────────────────

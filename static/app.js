@@ -32,6 +32,93 @@ function tr(key) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════
+// 2b. TOAST NOTIFICATIONS
+// ═══════════════════════════════════════════════════════════════════════
+
+const TOAST_ICONS = {
+    success: '✓',
+    error: '✕',
+    warning: '⚠',
+    info: 'ℹ',
+};
+
+function showToast(message, type = 'info', duration = 3000) {
+    const container = document.getElementById('toast-container');
+    if (!container) return;
+
+    const toast = document.createElement('div');
+    toast.className = `toast toast--${type}`;
+    toast.setAttribute('role', 'alert');
+
+    const icon = TOAST_ICONS[type] || TOAST_ICONS.info;
+    toast.innerHTML = `
+        <span class="toast-icon">${icon}</span>
+        <span class="toast-message">${message}</span>
+        <button class="toast-close" onclick="dismissToast(this.parentElement)" aria-label="Dismiss">✕</button>
+        <div class="toast-progress"></div>
+    `;
+
+    container.appendChild(toast);
+
+    // Animate in
+    if (typeof gsap !== 'undefined' && gsap.to !== '[function]') {
+        try {
+            gsap.fromTo(toast, {
+                opacity: 0,
+                y: -20,
+                scale: 0.92,
+            }, {
+                opacity: 1,
+                y: 0,
+                scale: 1,
+                duration: 0.35,
+                ease: 'back.out(1.4)',
+                clearProps: 'transform',
+            });
+        } catch (_) {
+            toast.style.opacity = '1';
+        }
+    } else {
+        requestAnimationFrame(() => { toast.style.opacity = '1'; });
+    }
+
+    // Auto-dismiss
+    toast._dismissTimer = setTimeout(() => dismissToast(toast), duration);
+
+    // Dismiss on tap
+    toast.addEventListener('click', (e) => {
+        if (e.target.closest('.toast-close')) return;
+        dismissToast(toast);
+    });
+
+    return toast;
+}
+
+function dismissToast(toast, immediate = false) {
+    if (toast._dismissed) return;
+    toast._dismissed = true;
+
+    clearTimeout(toast._dismissTimer);
+
+    if (typeof gsap !== 'undefined' && gsap.to !== '[function]') {
+        try {
+            gsap.to(toast, {
+                opacity: 0,
+                y: -12,
+                scale: 0.95,
+                duration: immediate ? 0.1 : 0.25,
+                ease: 'power2.in',
+                onComplete: () => toast.remove(),
+            });
+        } catch (_) {
+            toast.remove();
+        }
+    } else {
+        toast.remove();
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
 // 3. APP STATE
 // ═══════════════════════════════════════════════════════════════════════
 
@@ -505,15 +592,14 @@ function navigateTo(name) {
         return;
     }
 
-    const isNarrowScreen = window.matchMedia && window.matchMedia('(max-width: 520px)').matches;
-    const distance = isNarrowScreen ? 14 : (PERF.lowEnd ? 10 : 18);
-    const duration = isNarrowScreen ? 0.22 : 0.28;
+    const distance = PERF.lowEnd ? 12 : 24;
+    const duration = 0.32;
     const nextChildren = nextTab.querySelectorAll(':scope > *');
     nextTab.scrollTop = 0;
     if (currentTab) currentTab.classList.add('tab-exiting');
 
     _tabTween = gsap.timeline({
-        defaults: { ease: "power2.out", overwrite: "auto" },
+        defaults: { ease: "power3.out", overwrite: "auto" },
         onComplete: () => cleanupTabTween(currentTab, nextTab),
         onInterrupt: () => cleanupTabTween(currentTab, nextTab),
     });
@@ -522,35 +608,38 @@ function navigateTo(name) {
         _tabTween.to(currentTab, {
             opacity: 0,
             x: -distance * direction,
-            scale: 0.985,
-            duration: 0.16,
-            ease: "power1.out",
+            scale: 0.97,
+            duration: 0.18,
+            ease: "power2.in",
         }, 0);
     }
 
     _tabTween.fromTo(nextTab, {
         opacity: 0,
         x: distance * direction,
-        scale: 0.985,
+        scale: 0.97,
     }, {
         opacity: 1,
         x: 0,
         scale: 1,
         duration,
         ease: "power3.out",
+        clearProps: "transform",
     }, currentTab ? 0.08 : 0);
 
-    if (!PERF.lowEnd && window.innerWidth > 760 && nextChildren.length) {
+    // Children stagger - apply on all screens, smaller stagger on mobile
+    if (!PERF.lowEnd && nextChildren.length) {
+        const isMobile = window.innerWidth <= 760;
         _tabTween.fromTo(nextChildren, {
             opacity: 0,
-            y: 8,
+            y: isMobile ? 6 : 10,
         }, {
             opacity: 1,
             y: 0,
-            duration: 0.24,
-            stagger: 0.025,
+            duration: isMobile ? 0.2 : 0.28,
+            stagger: isMobile ? 0.02 : 0.035,
             ease: "power2.out",
-        }, 0.13);
+        }, currentTab ? 0.14 : 0.08);
     }
 }
 
@@ -856,8 +945,25 @@ function showScanResult(item) {
             gsap.fromTo(barFill, { scaleX: 0 }, { scaleX: overall / 100, duration: 0.8, ease: "power3.out" });
         }
         barFill.style.backgroundColor = grade.color;
-        barFill.style.width = `${overall}%`; // set actual width for layout
+        barFill.style.width = `${overall}%`;
     }
+
+    // Animate circular ring fill
+    const ringFill = document.getElementById('score-ring-fill');
+    if (ringFill) {
+        const circumference = 326.73; // 2 * π * 52
+        const offset = circumference - (overall / 100) * circumference;
+        if (MOTION_ENABLED && typeof gsap !== 'undefined' && gsap.to) {
+            gsap.fromTo(ringFill,
+                { strokeDashoffset: circumference, stroke: grade.color },
+                { strokeDashoffset: offset, stroke: grade.color, duration: 0.9, ease: "power3.out" }
+            );
+        } else {
+            ringFill.style.strokeDashoffset = offset;
+            ringFill.style.stroke = grade.color;
+        }
+    }
+
     document.getElementById('grade-tag').textContent = grade.grade;
     document.getElementById('grade-tag').style.background = grade.color;
     document.getElementById('grade-advice').textContent = item.grade_advice || '';
@@ -1168,7 +1274,26 @@ function renderRewards() {
 
     // Catalogue
     const catalogue = document.getElementById('rew-catalogue');
-    catalogue.innerHTML = state.rewards.map(rw => {
+
+    if (!state.rewards.length) {
+        catalogue.innerHTML = `
+            <div class="empty-state empty-state--rewards">
+                <div class="empty-state-icon">
+                    <svg class="empty-state-svg" viewBox="0 0 120 120" fill="none">
+                        <rect x="10" y="20" width="100" height="80" rx="16" stroke="currentColor" stroke-width="1.5" stroke-dasharray="4 3" fill="none" opacity="0.25"/>
+                        <circle cx="38" cy="45" r="8" fill="currentColor" opacity="0.08"/>
+                        <circle cx="60" cy="45" r="8" fill="currentColor" opacity="0.08"/>
+                        <circle cx="82" cy="45" r="8" fill="currentColor" opacity="0.08"/>
+                        <rect x="30" y="62" width="60" height="6" rx="3" fill="currentColor" opacity="0.06"/>
+                        <rect x="35" y="72" width="50" height="4" rx="2" fill="currentColor" opacity="0.04"/>
+                        <path d="M60 8v6M50 10l4 3M70 10l-4 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" opacity="0.15"/>
+                    </svg>
+                </div>
+                <div class="empty-state-text">${tr('noRewards')}</div>
+                <div class="empty-state-hint">${tr('noRewardsHint')}</div>
+            </div>`;
+    } else {
+        catalogue.innerHTML = state.rewards.map(rw => {
         const canBuy = balance >= rw.cost;
         return `
         <div class="rewards-item">
@@ -1187,6 +1312,7 @@ function renderRewards() {
             </div>
         </div>`;
     }).join('');
+    } // end else
 
     // GSAP staggered entrance for rewards
     const items = document.querySelectorAll('#rew-catalogue .rewards-item');
@@ -1201,15 +1327,23 @@ function renderRewards() {
     // Claimed coupons grid
     const grid = document.getElementById('rew-coupon-grid');
     if (!grid) return;
-    grid.innerHTML = state.claimedCoupons.map(c => `
-        <button onclick="showCouponTicket('${c.code}')" class="rewards-coupon">
-            <span style="font-size:20px">${c.image}</span>
-            <div style="min-width:0">
-                <div style="font-weight:700;font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.title}</div>
-                <div style="font-size:8px;color:var(--color-gray-400);font-family:monospace">${c.code}</div>
-            </div>
-        </button>
-    `).join('');
+    if (!state.claimedCoupons.length) {
+        grid.innerHTML = `
+            <div class="empty-state empty-state--rewards" style="grid-column:1/-1;padding:24px 12px">
+                <div class="empty-state-text" style="font-size:12px">${tr('noCoupons')}</div>
+                <div class="empty-state-hint" style="font-size:10px">${tr('noCouponsHint')}</div>
+            </div>`;
+    } else {
+        grid.innerHTML = state.claimedCoupons.map(c => `
+            <button onclick="showCouponTicket('${c.code}')" class="rewards-coupon">
+                <span style="font-size:20px">${c.image}</span>
+                <div style="min-width:0">
+                    <div style="font-weight:700;font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.title}</div>
+                    <div style="font-size:8px;color:var(--color-gray-400);font-family:monospace">${c.code}</div>
+                </div>
+            </button>
+        `).join('');
+    }
 }
 
 function redeemReward(rewardId) {

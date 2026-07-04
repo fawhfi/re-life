@@ -35,6 +35,18 @@ class RecordScopeTests(unittest.TestCase):
         self.assertIn("if (hadDrag) {", source)
         self.assertNotIn("if (m && m[1] && state.activeTab !== m[1]) navigateTo(m[1]);", source)
 
+    def test_tab_switching_uses_gsap_animation(self):
+        source = Path("static/app.js").read_text(encoding="utf-8")
+        styles = Path("static/style.css").read_text(encoding="utf-8")
+
+        self.assertIn("const TAB_ORDER = ['home', 'record', 'rewards', 'more'];", source)
+        self.assertIn("function getTabDirection(nextName)", source)
+        self.assertIn("gsap.timeline", source)
+        self.assertIn("tab-exiting", source)
+        self.assertIn("runTabSideEffects(name);", source)
+        self.assertIn(".tab-exiting", styles)
+        self.assertNotIn("@keyframes slideInTab", styles)
+
     def test_record_loading_uses_cache_for_same_user(self):
         source = Path("static/js/app-records.js").read_text(encoding="utf-8")
 

@@ -424,29 +424,16 @@ function initNavDrag() {
 
 let _tabTween = null;
 
-function navigateTo(name) {
-    // Kill any in-progress tab animation
-    if (_tabTween) { _tabTween.kill(); _tabTween = null; }
+const TAB_ORDER = ['home', 'record', 'rewards', 'more'];
 
-    state.activeTab = name;
-    document.querySelectorAll('.nav-btn').forEach(el => el.classList.remove('is-active'));
-    const nav = document.getElementById(`nav-${name}`);
-    if (nav) { nav.classList.add('is-active'); if (window._snapNavIndicator) window._snapNavIndicator(); }
+function getTabDirection(nextName) {
+    const currentIndex = TAB_ORDER.indexOf(state.activeTab);
+    const nextIndex = TAB_ORDER.indexOf(nextName);
+    if (currentIndex === -1 || nextIndex === -1 || currentIndex === nextIndex) return 1;
+    return nextIndex > currentIndex ? 1 : -1;
+}
 
-    const currentTab = document.querySelector('.tab.active');
-    const nextTab = document.getElementById(`tab-${name}`);
-    if (!nextTab) return;
-    if (currentTab === nextTab) return;
-
-    // Immediately clean up all tabs
-    document.querySelectorAll('.tab').forEach(t => { t.classList.remove('active'); gsap.set(t, { clearProps: "all" }); });
-    nextTab.classList.add('active');
-
-    // Animate new tab in
-    if (MOTION_ENABLED) {
-        gsap.fromTo(nextTab, { opacity: 0, y: 8 }, { opacity: 1, y: 0, duration: 0.3, ease: "power2.out" });
-    }
-
+function runTabSideEffects(name) {
     if (name === 'record') loadRecords();
     if (name === 'rewards') {
         renderRewards();
@@ -456,6 +443,89 @@ function navigateTo(name) {
             const cur = parseInt(ptsEl.textContent) || 0;
             animateNumber('rew-pts', cur, balance, 1000);
         }
+    }
+}
+
+function navigateTo(name) {
+    if (_tabTween) { _tabTween.kill(); _tabTween = null; }
+    document.querySelectorAll('.tab-exiting').forEach(tab => {
+        tab.classList.remove('active', 'tab-exiting');
+        gsap.set(tab, { clearProps: "all" });
+    });
+
+    const direction = getTabDirection(name);
+    const currentTab = document.querySelector(`#tab-${state.activeTab}.active`) || document.querySelector('.tab.active');
+    const nextTab = document.getElementById(`tab-${name}`);
+    if (!nextTab) return;
+    if (currentTab === nextTab) return;
+
+    state.activeTab = name;
+    document.querySelectorAll('.nav-btn').forEach(el => el.classList.remove('is-active'));
+    const nav = document.getElementById(`nav-${name}`);
+    if (nav) { nav.classList.add('is-active'); if (window._snapNavIndicator) window._snapNavIndicator(); }
+
+    document.querySelectorAll('.tab').forEach(tab => {
+        if (tab !== currentTab && tab !== nextTab) {
+            tab.classList.remove('active', 'tab-exiting');
+            gsap.set(tab, { clearProps: "all" });
+        }
+    });
+    nextTab.classList.add('active');
+    runTabSideEffects(name);
+
+    if (!MOTION_ENABLED) {
+        if (currentTab) currentTab.classList.remove('active', 'tab-exiting');
+        gsap.set(nextTab, { clearProps: "all" });
+        return;
+    }
+
+    const distance = PERF.lowEnd ? 10 : 18;
+    const nextChildren = nextTab.querySelectorAll(':scope > *');
+    nextTab.scrollTop = 0;
+    if (currentTab) currentTab.classList.add('tab-exiting');
+
+    _tabTween = gsap.timeline({
+        defaults: { ease: "power2.out", overwrite: "auto" },
+        onComplete: () => {
+            if (currentTab) currentTab.classList.remove('active', 'tab-exiting');
+            gsap.set([currentTab, nextTab, ...nextChildren].filter(Boolean), { clearProps: "all" });
+            _tabTween = null;
+        },
+    });
+
+    if (currentTab) {
+        _tabTween.to(currentTab, {
+            autoAlpha: 0,
+            x: -distance * direction,
+            scale: 0.985,
+            duration: 0.16,
+            ease: "power1.out",
+        }, 0);
+    }
+
+    _tabTween.fromTo(nextTab, {
+        autoAlpha: 0,
+        x: distance * direction,
+        scale: 0.985,
+    }, {
+        autoAlpha: 1,
+        x: 0,
+        scale: 1,
+        duration: 0.28,
+        ease: "power3.out",
+    }, currentTab ? 0.08 : 0);
+
+    if (!PERF.lowEnd && nextChildren.length) {
+        _tabTween.fromTo(nextChildren, {
+            autoAlpha: 0,
+            y: 8,
+        }, {
+            autoAlpha: 1,
+            y: 0,
+            duration: 0.24,
+            stagger: 0.025,
+            ease: "power2.out",
+        }, 0.13);
     }
 }
 

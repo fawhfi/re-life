@@ -331,6 +331,7 @@ body {
 
 /* ── Main Content ───────────────────────────────────────────────────── */
 .main {
+    position: relative;
     flex: 1;
     padding: 95px 16px 120px;
     height: 100%;
@@ -347,23 +348,20 @@ body {
     flex-direction: column;
     gap: 12px;
     opacity: 0;
+    transform: translate3d(0, 0, 0);
 }
 
-/* Active tab with spring entrance animation */
 .tab.active {
     display: flex;
-    animation: slideInTab 0.4s var(--ease-out-quint) forwards;
+    opacity: 1;
 }
 
-@keyframes slideInTab {
-    from {
-        opacity: 0;
-        transform: scale(0.97) translateY(12px);
-    }
-    to {
-        opacity: 1;
-        transform: scale(1) translateY(0);
-    }
+.tab-exiting {
+    pointer-events: none;
+    position: absolute;
+    left: 16px;
+    right: 16px;
+    width: auto;
 }
 
 /* ── Card ──────────────────────────────────────────────────────────── */

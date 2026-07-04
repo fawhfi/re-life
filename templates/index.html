@@ -55,18 +55,18 @@
         <h2 class="card-header" id="lbl-scan-title">SCAN YOUR ITEMS</h2>
         <div class="scan-grid">
           <button class="scan-btn scan-btn--dispose" onclick="startScanningMode('dispose')">
-            <div class="scan-btn-icon"><svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width:70%;height:70%"><path d="M32 6l8 8-4 4-8-8 4-4z" opacity="0.5"/><path d="M6 32l10-10 10 10-10 10z" opacity="0.7"/><path d="M28 16l4 4" opacity="0.4"/><path d="M16 28l4 4" opacity="0.4"/><path d="M8 40l6-6" opacity="0.9" stroke-width="3"/><circle cx="36" cy="12" r="3" fill="currentColor" opacity="0.3"/></svg></div>
+            <div class="scan-btn-icon"><img src="/static/assets/to_dispose.png" alt="Dispose" class="img-cover"></div>
             <span class="scan-btn-label" id="lbl-dispose-btn">TO DISPOSE</span>
           </button>
           <button class="scan-btn scan-btn--purchase" onclick="startScanningMode('purchase')">
-            <div class="scan-btn-icon"><svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width:70%;height:70%"><path d="M8 14h32l-4 20H12L8 14z" opacity="0.7"/><path d="M16 22v2" stroke-width="3"/><path d="M24 22v2" stroke-width="3"/><path d="M32 22v2" stroke-width="3"/><circle cx="18" cy="36" r="3" fill="currentColor" opacity="0.3"/><circle cx="30" cy="36" r="3" fill="currentColor" opacity="0.3"/></svg></div>
+            <div class="scan-btn-icon"><img src="/static/assets/to_purchase.png" alt="Purchase" class="img-cover"></div>
             <span class="scan-btn-label" id="lbl-purchase-btn">TO PURCHASE</span>
           </button>
         </div>
       </div>
 
       <div class="upload-zone" id="upload-zone" onclick="zoneTap()">
-        <div class="upload-zone-icon"><svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width:80%;height:80%;opacity:0.65"><rect x="6" y="14" width="16" height="12" rx="3"/><rect x="42" y="14" width="16" height="12" rx="3"/><path d="M22 20h20"/><rect x="14" y="38" width="16" height="12" rx="3"/><rect x="34" y="38" width="16" height="12" rx="3"/><path d="M32 32v-8"/><circle cx="32" cy="28" r="4" fill="currentColor" opacity="0.15"/></svg></div>
+        <div class="upload-zone-icon"><img src="/static/assets/Scan.png" alt="Scan" class="img-cover" style="opacity:0.7"></div>
         <div class="upload-zone-text" id="lbl-upload-text">Tap to scan</div>
         <div class="upload-zone-sub" id="lbl-upload-hint">or drag &amp; drop anywhere</div>
         <input type="file" id="file-input" accept="image/*" capture="environment" onchange="handleFileSelect(event)" class="hidden">
@@ -192,19 +192,7 @@
       <button class="btn btn--danger btn--full" id="clear-btn" onclick="clearAllRecords()">Clear All</button>
       <div id="records-list"></div>
       <div id="records-empty" class="empty-state">
-        <div class="empty-state-icon">
-          <svg class="empty-state-svg" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <rect x="20" y="30" width="80" height="65" rx="12" stroke="currentColor" stroke-width="2" stroke-dasharray="4 3" fill="none" opacity="0.3"/>
-            <rect x="30" y="45" width="16" height="12" rx="3" fill="currentColor" opacity="0.08"/>
-            <rect x="52" y="45" width="30" height="8" rx="4" fill="currentColor" opacity="0.06"/>
-            <rect x="30" y="62" width="16" height="12" rx="3" fill="currentColor" opacity="0.08"/>
-            <rect x="52" y="62" width="24" height="8" rx="4" fill="currentColor" opacity="0.06"/>
-            <rect x="30" y="79" width="16" height="12" rx="3" fill="currentColor" opacity="0.08"/>
-            <rect x="52" y="79" width="20" height="8" rx="4" fill="currentColor" opacity="0.06"/>
-            <circle cx="90" cy="26" r="14" fill="currentColor" opacity="0.08"/>
-            <path d="M84 26h12M90 20v12" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity="0.2"/>
-          </svg>
-        </div>
+        <div class="empty-state-icon"><img src="/static/assets/Record.png" alt="No records" style="width:100%;height:100%;object-fit:contain;opacity:0.5"></div>
         <div class="empty-state-text" id="lbl-empty-text">No records yet</div>
         <div class="empty-state-hint" id="lbl-empty-hint">Start by scanning an item</div>
       </div>
@@ -247,9 +235,9 @@
                 <option value="midnight">✨ Midnight</option>
               </select>
             </div>
-            <button class="btn btn--outline btn--full btn--small" id="sound-btn" onclick="toggleSound()"><svg id="sound-icon" class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 010 14.14M15.54 8.46a5 5 0 010 7.07"/></svg><span id="sound-label">Sound ON</span></button>
-            <button class="btn btn--outline btn--full btn--small" onclick="toggleLang()"><svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg><span id="lang-label">Language</span> <span id="lang-ind">Eng</span></button>
-            <button class="btn btn--outline btn--full btn--small" onclick="openPolicy()"><svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg><span id="lbl-policy">Policy</span></button>
+            <button class="btn btn--outline btn--full btn--small" id="sound-btn" onclick="toggleSound()"><img id="sound-icon" src="/static/assets/Sound_On.png" alt="Sound" class="btn-icon"><span id="sound-label">Sound ON</span></button>
+            <button class="btn btn--outline btn--full btn--small" onclick="toggleLang()"><img id="lang-icon" src="/static/assets/Language.png" alt="Language" class="btn-icon"><span id="lang-label">Language</span> <span id="lang-ind">Eng</span></button>
+            <button class="btn btn--outline btn--full btn--small" onclick="openPolicy()"><img src="/static/assets/Policy.png" alt="Policy" class="btn-icon"><span id="lbl-policy">Policy</span></button>
             <button class="btn btn--outline btn--full btn--small" id="debug-btn" onclick="toggleDebug()"><span id="debug-label">🔧 Debug Mode: OFF</span></button>
             <button class="btn btn--danger btn--full btn--small" id="logout-btn" onclick="handleLogout()" style="display:none"><span id="logout-label">Logout</span></button>
           </div>
@@ -263,10 +251,10 @@
   <!-- ═══ NAV ═══ -->
   <nav class="nav" id="main-nav">
     <div class="nav-indicator" id="nav-indicator"></div>
-    <button id="nav-home" class="nav-btn is-active" data-tab="home" onclick="navigateTo('home')"><span class="nav-btn-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg></span><span id="nav-lbl-home">Home</span></button>
-    <button id="nav-record" class="nav-btn" data-tab="record" onclick="navigateTo('record')"><span class="nav-btn-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="M9 12l2 2 4-4"/></svg></span><span id="nav-lbl-record">Record</span></button>
-    <button id="nav-rewards" class="nav-btn" data-tab="rewards" onclick="navigateTo('rewards')"><span class="nav-btn-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg></span><span id="nav-lbl-rewards">Rewards</span></button>
-    <button id="nav-more" class="nav-btn" data-tab="more" onclick="navigateTo('more')"><span class="nav-btn-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg></span><span id="nav-lbl-more">More</span></button>
+    <button id="nav-home" class="nav-btn is-active" data-tab="home" onclick="navigateTo('home')"><span class="nav-btn-icon"><img src="/static/assets/Home.png" alt="Home" style="width:100%;height:100%;object-fit:contain"></span><span id="nav-lbl-home">Home</span></button>
+    <button id="nav-record" class="nav-btn" data-tab="record" onclick="navigateTo('record')"><span class="nav-btn-icon"><img src="/static/assets/Record.png" alt="Record" style="width:100%;height:100%;object-fit:contain"></span><span id="nav-lbl-record">Record</span></button>
+    <button id="nav-rewards" class="nav-btn" data-tab="rewards" onclick="navigateTo('rewards')"><span class="nav-btn-icon"><img src="/static/assets/Reward.png" alt="Rewards" style="width:100%;height:100%;object-fit:contain"></span><span id="nav-lbl-rewards">Rewards</span></button>
+    <button id="nav-more" class="nav-btn" data-tab="more" onclick="navigateTo('more')"><span class="nav-btn-icon"><img src="/static/assets/More.png" alt="More" style="width:100%;height:100%;object-fit:contain"></span><span id="nav-lbl-more">More</span></button>
   </nav>
 
 </div>

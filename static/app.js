@@ -452,11 +452,29 @@ function runTabSideEffects(name) {
     }
 }
 
+function resetTabVisuals(tab) {
+    if (!tab) return;
+    gsap.killTweensOf(tab);
+    gsap.killTweensOf(tab.children);
+    gsap.set([tab, ...tab.children], { clearProps: "opacity,visibility,transform" });
+}
+
+function cleanupTabTween(currentTab, nextTab) {
+    if (currentTab) currentTab.classList.remove('active', 'tab-exiting');
+    resetTabVisuals(currentTab);
+    resetTabVisuals(nextTab);
+    if (nextTab) {
+        nextTab.style.opacity = '';
+        nextTab.style.visibility = '';
+    }
+    _tabTween = null;
+}
+
 function navigateTo(name) {
     if (_tabTween) { _tabTween.kill(); _tabTween = null; }
     document.querySelectorAll('.tab-exiting').forEach(tab => {
         tab.classList.remove('active', 'tab-exiting');
-        gsap.set(tab, { clearProps: "all" });
+        resetTabVisuals(tab);
     });
 
     const direction = getTabDirection(name);
@@ -473,33 +491,32 @@ function navigateTo(name) {
     document.querySelectorAll('.tab').forEach(tab => {
         if (tab !== currentTab && tab !== nextTab) {
             tab.classList.remove('active', 'tab-exiting');
-            gsap.set(tab, { clearProps: "all" });
+            resetTabVisuals(tab);
         }
     });
     nextTab.classList.add('active');
+    resetTabVisuals(nextTab);
     runTabSideEffects(name);
 
     const lightTabAnimation = PERF.lowEnd || (window.matchMedia && window.matchMedia('(max-width: 520px)').matches);
     if (!MOTION_ENABLED || lightTabAnimation) {
         if (currentTab) currentTab.classList.remove('active', 'tab-exiting');
-        if (currentTab) gsap.set(currentTab, { clearProps: "all" });
+        resetTabVisuals(currentTab);
         if (!MOTION_ENABLED) {
-            gsap.set(nextTab, { clearProps: "all" });
+            resetTabVisuals(nextTab);
             return;
         }
         _tabTween = gsap.fromTo(nextTab, {
-            autoAlpha: 0,
+            opacity: 0,
             y: 6,
         }, {
-            autoAlpha: 1,
+            opacity: 1,
             y: 0,
             duration: 0.16,
             ease: "power1.out",
             overwrite: "auto",
-            onComplete: () => {
-                gsap.set(nextTab, { clearProps: "all" });
-                _tabTween = null;
-            },
+            onComplete: () => cleanupTabTween(null, nextTab),
+            onInterrupt: () => cleanupTabTween(null, nextTab),
         });
         return;
     }
@@ -511,16 +528,13 @@ function navigateTo(name) {
 
     _tabTween = gsap.timeline({
         defaults: { ease: "power2.out", overwrite: "auto" },
-        onComplete: () => {
-            if (currentTab) currentTab.classList.remove('active', 'tab-exiting');
-            gsap.set([currentTab, nextTab, ...nextChildren].filter(Boolean), { clearProps: "all" });
-            _tabTween = null;
-        },
+        onComplete: () => cleanupTabTween(currentTab, nextTab),
+        onInterrupt: () => cleanupTabTween(currentTab, nextTab),
     });
 
     if (currentTab) {
         _tabTween.to(currentTab, {
-            autoAlpha: 0,
+            opacity: 0,
             x: -distance * direction,
             scale: 0.985,
             duration: 0.16,
@@ -529,23 +543,23 @@ function navigateTo(name) {
     }
 
     _tabTween.fromTo(nextTab, {
-        autoAlpha: 0,
+        opacity: 0,
         x: distance * direction,
         scale: 0.985,
     }, {
-        autoAlpha: 1,
+        opacity: 1,
         x: 0,
         scale: 1,
         duration: 0.28,
         ease: "power3.out",
     }, currentTab ? 0.08 : 0);
 
-    if (!PERF.lowEnd && nextChildren.length) {
+    if (!PERF.lowEnd && window.innerWidth > 760 && nextChildren.length) {
         _tabTween.fromTo(nextChildren, {
-            autoAlpha: 0,
+            opacity: 0,
             y: 8,
         }, {
-            autoAlpha: 1,
+            opacity: 1,
             y: 0,
             duration: 0.24,
             stagger: 0.025,

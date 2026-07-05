@@ -176,6 +176,29 @@
 [data-theme="dark"] .record-card-badge--purchase { background: var(--color-emerald-100); color: var(--color-emerald-700); }
 [data-theme="dark"] .scanning-status { background: var(--color-gray-50); }
 [data-theme="dark"] .disposal-guide { background: var(--color-gray-50); border-color: var(--color-gray-200); }
+[data-theme="dark"] .nearby-recycling,
+[data-theme="midnight"] .nearby-recycling { border-color: rgba(255, 255, 255, 0.10); }
+[data-theme="dark"] .nearby-recycling-card,
+[data-theme="midnight"] .nearby-recycling-card,
+[data-theme="dark"] .nearby-recycling-refresh,
+[data-theme="midnight"] .nearby-recycling-refresh,
+[data-theme="dark"] .nearby-recycling-actions a,
+[data-theme="midnight"] .nearby-recycling-actions a {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(255, 255, 255, 0.10);
+}
+[data-theme="dark"] .nearby-recycling-title,
+[data-theme="midnight"] .nearby-recycling-title,
+[data-theme="dark"] .nearby-recycling-name,
+[data-theme="midnight"] .nearby-recycling-name { color: var(--color-gray-800); }
+[data-theme="dark"] .nearby-recycling-subtitle,
+[data-theme="midnight"] .nearby-recycling-subtitle,
+[data-theme="dark"] .nearby-recycling-empty,
+[data-theme="midnight"] .nearby-recycling-empty,
+[data-theme="dark"] .nearby-recycling-meta,
+[data-theme="midnight"] .nearby-recycling-meta,
+[data-theme="dark"] .nearby-recycling-note,
+[data-theme="midnight"] .nearby-recycling-note { color: var(--color-gray-500); }
 [data-theme="dark"] .nav-btn.is-active { color: var(--color-primary-light); }
 [data-theme="dark"] .ai-switch::after { background: #e5e7e5; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3); }
 [data-theme="dark"] .result-card-name,

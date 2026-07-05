@@ -2,13 +2,12 @@
 from __future__ import annotations
 
 from datetime import datetime
-from pathlib import Path
 import re
 import uuid
 from collections.abc import Awaitable, Callable
 
 from config import DEFAULT_AI_MODEL
-from models import CNN_LABELS, ai_analyze, local_scan_response, upload_image
+from models import CNN_LABELS, ai_analyze, local_scan_response
 from scoring import CRITERIA_LABELS, HK_DISPOSAL, calc_weighted, get_grade
 
 
@@ -71,9 +70,6 @@ async def analyze_scan_image(
 
 async def normalize_scan_payload(ai: dict, contents: bytes, filename: str, mode: str, schema_id: str) -> dict:
     result = dict(ai or {})
-    ext = Path(str(filename)).suffix or ".png"
-    image_name = f"{uuid.uuid4()}{ext}"
-    result["image_url"] = await upload_image(contents, image_name)
     result["mode"] = mode
     result["id"] = result.get("id") or str(uuid.uuid4())
     result["timestamp"] = datetime.now().isoformat()

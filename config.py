@@ -14,6 +14,10 @@ GEMINI_MODEL     = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
 DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API", "")
 CLAUDE_API_KEY   = os.getenv("CLAUDE_API", "")
 CLAUDE_MODEL     = os.getenv("CLAUDE_MODEL", "claude-3-5-sonnet-latest")
+CUSTOM_MODEL     = os.getenv("CUSTOM_ENDPOINT_MODEL", "")
+CUSTOM_BASE_URL  = os.getenv("CUSTOM_BASE_URL", "")
+CUSTOM_API_KEY   = os.getenv("CUSTOM_API", "")
+CUSTOM_METHOD    = os.getenv("CUSTOM_ENDPOINT_METHOD", "openai")
 
 AVAILABLE_MODELS = []
 if NVIDIA_API_KEY:   AVAILABLE_MODELS.append("nvidia")
@@ -21,6 +25,8 @@ if OPENAI_API_KEY:   AVAILABLE_MODELS.append("openai")
 if GEMINI_API_KEY:   AVAILABLE_MODELS.append("gemini")
 if DEEPSEEK_API_KEY:  AVAILABLE_MODELS.append("deepseek")
 if CLAUDE_API_KEY:    AVAILABLE_MODELS.append("claude")
+if CUSTOM_API_KEY and CUSTOM_BASE_URL and CUSTOM_MODEL:
+    AVAILABLE_MODELS.append("custom")
 if not AVAILABLE_MODELS:
     AVAILABLE_MODELS.append("nvidia")
 
@@ -45,8 +51,19 @@ SUPABASE_JWKS_URL = os.getenv("SUPABASE_JWKS_URL", "")
 SUPABASE_DB_URL = os.getenv("SUPABASE_DB_URL", "")
 
 # ── Vercel KV / Upstash Redis ───────────────────────────────────────────────
-UPSTASH_REDIS_REST_URL = os.getenv("UPSTASH_REDIS_REST_URL", os.getenv("VERCEL_KV_REST_API_URL", ""))
-UPSTASH_REDIS_REST_TOKEN = os.getenv("UPSTASH_REDIS_REST_TOKEN", os.getenv("VERCEL_KV_REST_API_TOKEN", ""))
+UPSTASH_REDIS_REST_URL = (
+    os.getenv("UPSTASH_REDIS_REST_URL")
+    or os.getenv("KV_REST_API_URL")
+    or os.getenv("VERCEL_KV_REST_API_URL")
+    or ""
+)
+UPSTASH_REDIS_REST_TOKEN = (
+    os.getenv("UPSTASH_REDIS_REST_TOKEN")
+    or os.getenv("KV_REST_API_TOKEN")
+    or os.getenv("VERCEL_KV_REST_API_TOKEN")
+    or ""
+)
+REDIS_URL = os.getenv("REDIS_URL", os.getenv("KV_URL", ""))
 
 # ── Email ───────────────────────────────────────────────────────────────────
 RESEND_API_KEY = os.getenv("RESEND_API_KEY", "")

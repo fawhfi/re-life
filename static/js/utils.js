@@ -34,7 +34,8 @@ function buildStars(rating) {
     const r = Math.round(rating);
     let h = '';
     for (let i = 1; i <= 5; i++) {
-        h += `<span class="star ${i <= r ? 'is-filled' : ''}">★</span>`;
+        const filled = i <= r;
+        h += `<span class="star ${filled ? 'is-filled' : ''}" data-index="${i}" style="${filled ? 'opacity:0;transform:scale(0.5)' : ''}">★</span>`;
     }
     h += `<span class="rating-value">${r}/5</span>`;
     return h;
@@ -42,7 +43,32 @@ function buildStars(rating) {
 
 function renderStars(id, rating) {
     const el = document.getElementById(id);
-    if (el) el.innerHTML = buildStars(rating);
+    if (!el) return;
+    const oldEls = el.querySelectorAll('.star');
+    el.innerHTML = buildStars(rating);
+
+    // Animate stars in with GSAP if available
+    if (typeof window.gsap !== 'undefined' && window.gsap.to && typeof window.gsap.to === 'function') {
+        const filledStars = el.querySelectorAll('.star.is-filled');
+        if (filledStars.length) {
+            window.gsap.fromTo(filledStars,
+                { opacity: 0, scale: 0.5, rotate: -15 },
+                {
+                    opacity: 1, scale: 1, rotate: 0,
+                    duration: 0.4,
+                    stagger: 0.07,
+                    ease: 'back.out(1.7)',
+                    clearProps: 'transform',
+                }
+            );
+        }
+    } else {
+        // Fallback: just show them
+        el.querySelectorAll('.star.is-filled').forEach(s => {
+            s.style.opacity = '1';
+            s.style.transform = 'none';
+        });
+    }
 }
 
 function calcWeighted(scores, schemaId) {
@@ -91,6 +117,26 @@ function animateNumber(elementId, start, end, duration = 800) {
         return;
     }
     const decimals = String(end).includes('.') ? Math.min(1, String(end).split('.')[1].length) : 0;
+
+    // Use GSAP for smoother animation if available
+    if (typeof window.gsap !== 'undefined' && window.gsap.to && typeof window.gsap.to === 'function') {
+        const wrapper = { val: initial };
+        window.gsap.killTweensOf(wrapper);
+        window.gsap.to(wrapper, {
+            val: target,
+            duration: Math.min(duration, 1500) / 1000,
+            ease: 'power2.out',
+            onUpdate: () => {
+                obj.textContent = decimals ? wrapper.val.toFixed(decimals) : Math.floor(wrapper.val).toLocaleString();
+            },
+            onComplete: () => {
+                obj.textContent = decimals ? target.toFixed(decimals) : target.toLocaleString();
+            },
+        });
+        return;
+    }
+
+    // Fallback: requestAnimationFrame
     let startTimestamp = null;
     const step = (timestamp) => {
         if (!startTimestamp) startTimestamp = timestamp;

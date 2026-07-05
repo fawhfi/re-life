@@ -32,6 +32,93 @@ function tr(key) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════
+// 2b. TOAST NOTIFICATIONS
+// ═══════════════════════════════════════════════════════════════════════
+
+const TOAST_ICONS = {
+    success: '✓',
+    error: '✕',
+    warning: '⚠',
+    info: 'ℹ',
+};
+
+function showToast(message, type = 'info', duration = 3000) {
+    const container = document.getElementById('toast-container');
+    if (!container) return;
+
+    const toast = document.createElement('div');
+    toast.className = `toast toast--${type}`;
+    toast.setAttribute('role', 'alert');
+
+    const icon = TOAST_ICONS[type] || TOAST_ICONS.info;
+    toast.innerHTML = `
+        <span class="toast-icon">${icon}</span>
+        <span class="toast-message">${message}</span>
+        <button class="toast-close" onclick="dismissToast(this.parentElement)" aria-label="Dismiss">✕</button>
+        <div class="toast-progress"></div>
+    `;
+
+    container.appendChild(toast);
+
+    // Animate in
+    if (typeof gsap !== 'undefined' && gsap.to !== '[function]') {
+        try {
+            gsap.fromTo(toast, {
+                opacity: 0,
+                y: -20,
+                scale: 0.92,
+            }, {
+                opacity: 1,
+                y: 0,
+                scale: 1,
+                duration: 0.35,
+                ease: 'back.out(1.4)',
+                clearProps: 'transform',
+            });
+        } catch (_) {
+            toast.style.opacity = '1';
+        }
+    } else {
+        requestAnimationFrame(() => { toast.style.opacity = '1'; });
+    }
+
+    // Auto-dismiss
+    toast._dismissTimer = setTimeout(() => dismissToast(toast), duration);
+
+    // Dismiss on tap
+    toast.addEventListener('click', (e) => {
+        if (e.target.closest('.toast-close')) return;
+        dismissToast(toast);
+    });
+
+    return toast;
+}
+
+function dismissToast(toast, immediate = false) {
+    if (toast._dismissed) return;
+    toast._dismissed = true;
+
+    clearTimeout(toast._dismissTimer);
+
+    if (typeof gsap !== 'undefined' && gsap.to !== '[function]') {
+        try {
+            gsap.to(toast, {
+                opacity: 0,
+                y: -12,
+                scale: 0.95,
+                duration: immediate ? 0.1 : 0.25,
+                ease: 'power2.in',
+                onComplete: () => toast.remove(),
+            });
+        } catch (_) {
+            toast.remove();
+        }
+    } else {
+        toast.remove();
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
 // 3. APP STATE
 // ═══════════════════════════════════════════════════════════════════════
 
@@ -39,6 +126,7 @@ const state = {
     activeTab: 'home',
     scanMode: 'dispose',
     selectedFile: null,
+    selectedFileDataUrl: '',
     currentTipIndex: 0,
     tips: [],
     lang: 'en',
@@ -60,6 +148,10 @@ const state = {
     weatherLoadPromise: null,
     weatherRequestId: 0,
     weatherDetailsOpen: false,
+    nearbyRecyclingPoints: [],
+    nearbyRecyclingStatus: 'idle',
+    nearbyRecyclingSourceUrl: '',
+    nearbyRecyclingRequestId: 0,
     recordsDirty: true,
     recordsLoadedFor: '',
     recordsLoadPromise: null,
@@ -452,11 +544,29 @@ function runTabSideEffects(name) {
     }
 }
 
+function resetTabVisuals(tab) {
+    if (!tab) return;
+    gsap.killTweensOf(tab);
+    gsap.killTweensOf(tab.children);
+    gsap.set([tab, ...tab.children], { clearProps: "opacity,visibility,transform" });
+}
+
+function cleanupTabTween(currentTab, nextTab) {
+    if (currentTab) currentTab.classList.remove('active', 'tab-exiting');
+    resetTabVisuals(currentTab);
+    resetTabVisuals(nextTab);
+    if (nextTab) {
+        nextTab.style.opacity = '';
+        nextTab.style.visibility = '';
+    }
+    _tabTween = null;
+}
+
 function navigateTo(name) {
     if (_tabTween) { _tabTween.kill(); _tabTween = null; }
     document.querySelectorAll('.tab-exiting').forEach(tab => {
         tab.classList.remove('active', 'tab-exiting');
-        gsap.set(tab, { clearProps: "all" });
+        resetTabVisuals(tab);
     });
 
     const direction = getTabDirection(name);
@@ -473,84 +583,68 @@ function navigateTo(name) {
     document.querySelectorAll('.tab').forEach(tab => {
         if (tab !== currentTab && tab !== nextTab) {
             tab.classList.remove('active', 'tab-exiting');
-            gsap.set(tab, { clearProps: "all" });
+            resetTabVisuals(tab);
         }
     });
     nextTab.classList.add('active');
+    resetTabVisuals(nextTab);
     runTabSideEffects(name);
 
-    const lightTabAnimation = PERF.lowEnd || (window.matchMedia && window.matchMedia('(max-width: 520px)').matches);
-    if (!MOTION_ENABLED || lightTabAnimation) {
+    if (!MOTION_ENABLED) {
         if (currentTab) currentTab.classList.remove('active', 'tab-exiting');
-        if (currentTab) gsap.set(currentTab, { clearProps: "all" });
-        if (!MOTION_ENABLED) {
-            gsap.set(nextTab, { clearProps: "all" });
-            return;
-        }
-        _tabTween = gsap.fromTo(nextTab, {
-            autoAlpha: 0,
-            y: 6,
-        }, {
-            autoAlpha: 1,
-            y: 0,
-            duration: 0.16,
-            ease: "power1.out",
-            overwrite: "auto",
-            onComplete: () => {
-                gsap.set(nextTab, { clearProps: "all" });
-                _tabTween = null;
-            },
-        });
+        resetTabVisuals(currentTab);
+        resetTabVisuals(nextTab);
         return;
     }
 
-    const distance = PERF.lowEnd ? 10 : 18;
+    const isNarrowScreen = window.matchMedia('(max-width: 760px)').matches;
+    const distance = isNarrowScreen ? 14 : (PERF.lowEnd ? 12 : 24);
+    const duration = 0.32;
     const nextChildren = nextTab.querySelectorAll(':scope > *');
     nextTab.scrollTop = 0;
     if (currentTab) currentTab.classList.add('tab-exiting');
 
     _tabTween = gsap.timeline({
-        defaults: { ease: "power2.out", overwrite: "auto" },
-        onComplete: () => {
-            if (currentTab) currentTab.classList.remove('active', 'tab-exiting');
-            gsap.set([currentTab, nextTab, ...nextChildren].filter(Boolean), { clearProps: "all" });
-            _tabTween = null;
-        },
+        defaults: { ease: "power3.out", overwrite: "auto" },
+        onComplete: () => cleanupTabTween(currentTab, nextTab),
+        onInterrupt: () => cleanupTabTween(currentTab, nextTab),
     });
 
     if (currentTab) {
         _tabTween.to(currentTab, {
-            autoAlpha: 0,
+            opacity: 0,
             x: -distance * direction,
-            scale: 0.985,
-            duration: 0.16,
-            ease: "power1.out",
+            scale: 0.97,
+            duration: 0.18,
+            ease: "power2.in",
         }, 0);
     }
 
     _tabTween.fromTo(nextTab, {
-        autoAlpha: 0,
+        opacity: 0,
         x: distance * direction,
-        scale: 0.985,
+        scale: 0.97,
     }, {
-        autoAlpha: 1,
+        opacity: 1,
         x: 0,
         scale: 1,
-        duration: 0.28,
+        duration,
         ease: "power3.out",
+        clearProps: "transform",
     }, currentTab ? 0.08 : 0);
 
+    // Children stagger - apply on all screens, smaller stagger on mobile
     if (!PERF.lowEnd && nextChildren.length) {
         _tabTween.fromTo(nextChildren, {
-            autoAlpha: 0,
-            y: 8,
+            opacity: 0,
+            y: isNarrowScreen ? 6 : 10,
         }, {
-            autoAlpha: 1,
+            opacity: 1,
             y: 0,
-            duration: 0.24,
-            stagger: 0.025,
+            duration: isNarrowScreen ? 0.2 : 0.28,
+            stagger: isNarrowScreen ? 0.02 : 0.035,
             ease: "power2.out",
-        }, 0.13);
+        }, currentTab ? 0.14 : 0.08);
     }
 }
 
@@ -622,7 +716,8 @@ function processFile(file) {
     state.selectedFile = file;
     const reader = new FileReader();
     reader.onload = () => {
-        showPreview(reader.result);
+        state.selectedFileDataUrl = reader.result;
+        showPreview(state.selectedFileDataUrl);
         doScan(); // auto-scan after file selection
     };
     reader.readAsDataURL(file);
@@ -651,6 +746,10 @@ function showPreview(dataUrl) {
 
 function clearPreview() {
     state.selectedFile = null;
+    state.selectedFileDataUrl = '';
+    if (typeof resetNearbyRecyclingUI === 'function') {
+        resetNearbyRecyclingUI();
+    }
     const zone = document.getElementById('upload-zone');
     const preview = document.getElementById('upload-preview');
     const icon = zone.querySelector('.upload-zone-icon');
@@ -707,6 +806,11 @@ async function doScan() {
         const data = await res.json();
 
         data.mode = data.mode || state.scanMode;
+        if (state.selectedFileDataUrl) {
+            data.image_url = state.selectedFileDataUrl;
+            data.photoUrl = state.selectedFileDataUrl;
+            data.image_cached_locally = true;
+        }
 
         // Enrich if backend didn't fully score
         if (data.overall_score === undefined) {
@@ -724,6 +828,9 @@ async function doScan() {
         playBeep('success');
     } catch (err) {
         console.error('Scan error:', err);
+        if (typeof resetNearbyRecyclingUI === 'function') {
+            resetNearbyRecyclingUI();
+        }
         const msg = (err.message || String(err));
         document.getElementById('scan-result').classList.remove('hidden');
         const imgContainer = document.getElementById('result-img');
@@ -777,6 +884,9 @@ function showScanResult(item) {
     const weightedDetail = document.getElementById('weighted-detail');
     const guide = document.getElementById('disposal-guide');
     const proveBtn = document.getElementById('lbl-prove-swap');
+    if (typeof resetNearbyRecyclingUI === 'function') {
+        resetNearbyRecyclingUI();
+    }
 
     // Basic info
     document.getElementById('result-name').textContent = item.name || item.waste_label || item.category || '';
@@ -828,11 +938,13 @@ function showScanResult(item) {
         alt.classList.add('hidden');
     }
 
-    // Prove button — only in purchase mode
+    // Swap proof button — only in purchase mode when there is a swap path.
     if (proveBtn) {
-        if (isPurchase && item.alternative) {
+        if (isPurchase && (item.alternative || item.swap_pending)) {
             proveBtn.classList.remove('hidden');
-            proveBtn.textContent = '📸 Prove You Swapped → Earn +50 Pts';
+            proveBtn.textContent = item.alternative
+                ? '♻️ Swap & Prove You Swapped → Earn +50 Pts'
+                : '📸 Prove Your Swap → Earn +50 Pts';
             proveBtn.style.background = '';
             proveBtn.disabled = false;
         } else {
@@ -856,8 +968,25 @@ function showScanResult(item) {
             gsap.fromTo(barFill, { scaleX: 0 }, { scaleX: overall / 100, duration: 0.8, ease: "power3.out" });
         }
         barFill.style.backgroundColor = grade.color;
-        barFill.style.width = `${overall}%`; // set actual width for layout
+        barFill.style.width = `${overall}%`;
     }
+
+    // Animate circular ring fill
+    const ringFill = document.getElementById('score-ring-fill');
+    if (ringFill) {
+        const circumference = 326.73; // 2 * π * 52
+        const offset = circumference - (overall / 100) * circumference;
+        if (MOTION_ENABLED && typeof gsap !== 'undefined' && gsap.to) {
+            gsap.fromTo(ringFill,
+                { strokeDashoffset: circumference, stroke: grade.color },
+                { strokeDashoffset: offset, stroke: grade.color, duration: 0.9, ease: "power3.out" }
+            );
+        } else {
+            ringFill.style.strokeDashoffset = offset;
+            ringFill.style.stroke = grade.color;
+        }
+    }
+
     document.getElementById('grade-tag').textContent = grade.grade;
     document.getElementById('grade-tag').style.background = grade.color;
     document.getElementById('grade-advice').textContent = item.grade_advice || '';
@@ -889,12 +1018,13 @@ function showScanResult(item) {
     // Disposal guide
     const dispInfo = item.disposal_info;
     if (dispInfo || item.disposal_guide) {
+        const reuseTip = item.reuse_tip || item.reuse || getReuseTip(item);
+        item.reuse_tip = reuseTip;
         guide.classList.remove('hidden');
-        if (dispInfo) {
-            document.getElementById('disp-material').textContent = dispInfo.type || '';
-            document.getElementById('disp-method').textContent = dispInfo.method || '';
-            document.getElementById('disp-location').textContent = dispInfo.location || '';
-        }
+        document.getElementById('disp-material').textContent = dispInfo?.type || '';
+        document.getElementById('disp-method').textContent = dispInfo?.method || '';
+        document.getElementById('disp-location').textContent = dispInfo?.location || '';
+        document.getElementById('disp-reuse').textContent = reuseTip;
         document.getElementById('disp-guide').textContent = item.disposal_guide || '';
         document.getElementById('disp-prec').textContent = item.precaution || '';
     } else {
@@ -902,6 +1032,9 @@ function showScanResult(item) {
     }
 
     state.lastScanResult = item;
+    if (guide && !guide.classList.contains('hidden') && typeof loadNearbyRecyclingPointsForScan === 'function') {
+        loadNearbyRecyclingPointsForScan(item);
+    }
 }
 
 function addScanToRecord() {
@@ -928,19 +1061,19 @@ function addScanToRecord() {
         addBtn.disabled = true;
         addBtn.style.opacity = '0.6';
     }
-    playBeep('success');
 
     // Save to backend storage
     FB.addItem(record)
-        .then(({ id }) => {
+        .then(({ id, image_url }) => {
+            const savedImageUrl = image_url || record.image_url || record.photoUrl || '';
             if (id !== null && id !== undefined) {
                 upsertRecordCache({
                     ...record,
                     id,
                     mode: record.mode || record.status || 'dispose',
                     status: record.mode || record.status || 'dispose',
-                    image_url: record.image_url || record.photoUrl || '',
-                    photoUrl: record.photoUrl || record.image_url || '',
+                    image_url: savedImageUrl,
+                    photoUrl: savedImageUrl,
                     disposal_guide: record.disposal_guide || record.dealtWithMethod || '',
                     dealtWithMethod: record.dealtWithMethod || record.disposal_guide || '',
                     userId: state.userId || null,
@@ -949,8 +1082,36 @@ function addScanToRecord() {
             } else {
                 invalidateRecordsCache();
             }
+            playBeep('success');
         })
-        .catch(err => console.error('Failed to save item:', err));
+        .catch(err => {
+            const message = err?.message || String(err || 'Unknown error');
+            console.error('Failed to save item:', message, err);
+            if (addBtn) {
+                addBtn.textContent = tr('addToRecord');
+                addBtn.disabled = false;
+                addBtn.style.opacity = '';
+            }
+            playBeep('error');
+            showToast(`Failed to save record: ${message}`, 'error', 5000);
+        });
+}
+
+function getReuseTip(item = {}) {
+    const category = String(item.category || item.material || item.name || '').toLowerCase();
+    if (category.includes('food') || category.includes('organic')) {
+        return "If it is still safe, turn leftovers into tomorrow's soup base, lunch-box remix, or share-it-now snack; otherwise compost it.";
+    }
+    if (category.includes('glass') || category.includes('bottle') || category.includes('jar')) {
+        return 'Give it a second career: spice jar, cutting-root vase, desk coin catcher, then recycle it clean.';
+    }
+    if (category.includes('paper') || category.includes('cardboard')) {
+        return 'Fold it into drawer dividers, gift tags, seed-starting trays, or a messy-desk scratch pad before recycling.';
+    }
+    if (category.includes('elect') || category.includes('device') || category.includes('ewaste')) {
+        return 'Try one rescue lap: repair cafe, school maker box, parts donor, or certified e-waste handoff.';
+    }
+    return 'Run a 24-hour second-life challenge: refill it, loan it, turn it into storage, then choose recycling/disposal.';
 }
 
 function swapAlternative() {
@@ -960,9 +1121,18 @@ function swapAlternative() {
     state.lastScanResult.eco_rate = alt.eco_rate;
     state.lastScanResult.recycle_rate = alt.recycle_rate;
     state.lastScanResult.alternative = null;
+    state.lastScanResult.swap_pending = true;
     state.lastScanResult.description = 'Swapped to eco-friendly alternative.';
     showScanResult(state.lastScanResult);
     playBeep('beep');
+}
+
+function completeSwapFlow() {
+    if (!state.lastScanResult) return;
+    if (state.lastScanResult.alternative) {
+        swapAlternative();
+    }
+    triggerSwapProof();
 }
 
 function triggerSwapProof() {
@@ -979,7 +1149,11 @@ async function handleSwapProof(e) {
     if (!addBtn || !addBtn.disabled) {
         const btn = document.getElementById('lbl-prove-swap');
         if (btn) btn.textContent = '⚠️ Add to Record first';
-        setTimeout(() => { if (btn) btn.textContent = '📸 Prove You Swapped → Earn +50 Pts'; }, 2000);
+        setTimeout(() => {
+            if (btn) btn.textContent = state.lastScanResult?.alternative
+                ? '♻️ Swap & Prove You Swapped → Earn +50 Pts'
+                : '📸 Prove Your Swap → Earn +50 Pts';
+        }, 2000);
         return;
     }
 
@@ -1021,6 +1195,9 @@ function resetScan() {
     clearPreview();
     document.getElementById('weighted-detail').classList.remove('is-open');
     state.lastScanResult = null;
+    if (typeof resetNearbyRecyclingUI === 'function') {
+        resetNearbyRecyclingUI();
+    }
 }
 
 
@@ -1168,7 +1345,26 @@ function renderRewards() {
 
     // Catalogue
     const catalogue = document.getElementById('rew-catalogue');
-    catalogue.innerHTML = state.rewards.map(rw => {
+
+    if (!state.rewards.length) {
+        catalogue.innerHTML = `
+            <div class="empty-state empty-state--rewards">
+                <div class="empty-state-icon">
+                    <svg class="empty-state-svg" viewBox="0 0 120 120" fill="none">
+                        <rect x="10" y="20" width="100" height="80" rx="16" stroke="currentColor" stroke-width="1.5" stroke-dasharray="4 3" fill="none" opacity="0.25"/>
+                        <circle cx="38" cy="45" r="8" fill="currentColor" opacity="0.08"/>
+                        <circle cx="60" cy="45" r="8" fill="currentColor" opacity="0.08"/>
+                        <circle cx="82" cy="45" r="8" fill="currentColor" opacity="0.08"/>
+                        <rect x="30" y="62" width="60" height="6" rx="3" fill="currentColor" opacity="0.06"/>
+                        <rect x="35" y="72" width="50" height="4" rx="2" fill="currentColor" opacity="0.04"/>
+                        <path d="M60 8v6M50 10l4 3M70 10l-4 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" opacity="0.15"/>
+                    </svg>
+                </div>
+                <div class="empty-state-text">${tr('noRewards')}</div>
+                <div class="empty-state-hint">${tr('noRewardsHint')}</div>
+            </div>`;
+    } else {
+        catalogue.innerHTML = state.rewards.map(rw => {
         const canBuy = balance >= rw.cost;
         return `
         <div class="rewards-item">
@@ -1187,6 +1383,7 @@ function renderRewards() {
             </div>
         </div>`;
     }).join('');
+    } // end else
 
     // GSAP staggered entrance for rewards
     const items = document.querySelectorAll('#rew-catalogue .rewards-item');
@@ -1201,15 +1398,23 @@ function renderRewards() {
     // Claimed coupons grid
     const grid = document.getElementById('rew-coupon-grid');
     if (!grid) return;
-    grid.innerHTML = state.claimedCoupons.map(c => `
-        <button onclick="showCouponTicket('${c.code}')" class="rewards-coupon">
-            <span style="font-size:20px">${c.image}</span>
-            <div style="min-width:0">
-                <div style="font-weight:700;font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.title}</div>
-                <div style="font-size:8px;color:var(--color-gray-400);font-family:monospace">${c.code}</div>
-            </div>
-        </button>
-    `).join('');
+    if (!state.claimedCoupons.length) {
+        grid.innerHTML = `
+            <div class="empty-state empty-state--rewards" style="grid-column:1/-1;padding:24px 12px">
+                <div class="empty-state-text" style="font-size:12px">${tr('noCoupons')}</div>
+                <div class="empty-state-hint" style="font-size:10px">${tr('noCouponsHint')}</div>
+            </div>`;
+    } else {
+        grid.innerHTML = state.claimedCoupons.map(c => `
+            <button onclick="showCouponTicket('${c.code}')" class="rewards-coupon">
+                <span style="font-size:20px">${c.image}</span>
+                <div style="min-width:0">
+                    <div style="font-weight:700;font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.title}</div>
+                    <div style="font-size:8px;color:var(--color-gray-400);font-family:monospace">${c.code}</div>
+                </div>
+            </button>
+        `).join('');
+    }
 }
 
 function redeemReward(rewardId) {
@@ -1432,6 +1637,9 @@ function resetSessionState() {
     state.claimedCoupons = [];
     invalidateRecordsCache({ clear: true });
     state.lastScanResult = null;
+    if (typeof resetNearbyRecyclingUI === 'function') {
+        resetNearbyRecyclingUI();
+    }
     clearSessionState();
     updateHeaderUI();
 }
@@ -1638,6 +1846,8 @@ function updateAllLabels() {
         'lbl-disp-material': 'material',
         'lbl-disp-method': 'method',
         'lbl-disp-location': 'location',
+        'lbl-disp-reuse': 'reuse',
+        'lbl-nearby-recycling-title': 'recycling.nearbyTitle',
         'lbl-fact-title': 'didYouKnow',
         'lbl-weather-temperature': 'weather.detail.temperature',
         'lbl-weather-location': 'weather.detail.location',
@@ -1662,7 +1872,6 @@ function updateAllLabels() {
         'nav-lbl-record': 'navRecord',
         'nav-lbl-rewards': 'navRewards',
         'nav-lbl-more': 'navMore',
-        'lbl-swap': 'swapMe',
     };
 
     Object.entries(map).forEach(([id, key]) => {

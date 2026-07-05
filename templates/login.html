@@ -17,6 +17,7 @@
       } catch (_) {}
     })();
   </script>
+  <script src="/static/js/auth-theme.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap" rel="stylesheet">
@@ -95,7 +96,17 @@
     </div>
 
     <div class="login-footer">
-      <button class="login-footer-link" onclick="toggleTheme()" id="theme-btn">🌙</button>
+      <div class="auth-theme-control">
+        <span class="auth-theme-icon" data-auth-theme-icon aria-hidden="true">🌿</span>
+        <select class="auth-theme-select" data-auth-theme-select aria-label="Theme" onchange="applyAuthTheme(this.value)">
+          <option value="light">Light</option>
+          <option value="dark">Dark</option>
+          <option value="forest">Forest</option>
+          <option value="ocean">Ocean</option>
+          <option value="sunset">Sunset</option>
+          <option value="midnight">Midnight</option>
+        </select>
+      </div>
       <span class="login-footer-dot">·</span>
       <button class="login-footer-link" onclick="toggleLoginLang()">🌐 EN</button>
       <span class="login-footer-dot">·</span>
@@ -107,21 +118,6 @@
 
 <script type="module" src="/static/supabase.js"></script>
 <script>
-// ── Theme ────────────────────────────────────────────────────────────
-(function initTheme() {
-    const saved = localStorage.getItem('RE_LIFE_THEME') || 'light';
-    document.documentElement.setAttribute('data-theme', saved);
-    const btn = document.getElementById('theme-btn');
-    if (btn) btn.textContent = saved === 'dark' ? '☀️' : '🌙';
-})();
-function toggleTheme() {
-    const c = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
-    document.documentElement.setAttribute('data-theme', c);
-    localStorage.setItem('RE_LIFE_THEME', c);
-    const btn = document.getElementById('theme-btn');
-    if (btn) btn.textContent = c === 'dark' ? '☀️' : '🌙';
-}
-
 // Wait for backend storage helper to initialize window.FB
 function waitForStorage(cb) {
     if (window.FB) { cb(); return; }

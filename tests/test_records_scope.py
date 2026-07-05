@@ -45,7 +45,12 @@ class RecordScopeTests(unittest.TestCase):
         self.assertIn("const TAB_ORDER = ['home', 'record', 'rewards', 'more'];", source)
         self.assertIn("function getTabDirection(nextName)", source)
         self.assertIn("gsap.timeline", source)
-        self.assertIn("const lightTabAnimation = PERF.lowEnd", source)
+        self.assertIn("const isNarrowScreen = window.matchMedia", source)
+        self.assertIn("const distance = isNarrowScreen ? 14", source)
+        self.assertIn("function resetTabVisuals(tab)", source)
+        self.assertIn("onInterrupt: () => cleanupTabTween", source)
+        self.assertNotIn("autoAlpha", source)
+        self.assertNotIn("lightTabAnimation", source)
         self.assertIn("tab-exiting", source)
         self.assertIn("runTabSideEffects(name);", source)
         self.assertIn(".tab-exiting", styles)
@@ -63,6 +68,14 @@ class RecordScopeTests(unittest.TestCase):
         self.assertIn("upsertRecordCache(record)", source)
         self.assertIn("removeRecordCache(recordId)", source)
 
+    def test_record_detail_matches_numeric_or_string_ids(self):
+        source = Path("static/js/app-records.js").read_text(encoding="utf-8")
+
+        self.assertIn(
+            "state.records.find(rec => String(rec.id) === String(id))",
+            source,
+        )
+
     def test_get_items_refuses_unauthenticated_reads(self):
         source = Path("static/supabase.js").read_text(encoding="utf-8")
 
@@ -73,6 +86,22 @@ class RecordScopeTests(unittest.TestCase):
         self.assertIn("display_name: displayName || fallbackUserName() || \"\"", source)
         self.assertIn("user_key: userKey || \"\"", source)
         self.assertIn("async getItems(userId = null, displayName = null, userKey = null)", source)
+
+    def test_request_json_formats_nested_backend_errors(self):
+        source = Path("static/supabase.js").read_text(encoding="utf-8")
+
+        self.assertIn("function formatErrorMessage", source)
+        self.assertIn("JSON.stringify", source)
+        self.assertIn("response.status", source)
+        self.assertNotIn("Error(message)", source)
+
+    def test_add_record_failure_restores_button_and_notifies_user(self):
+        source = Path("static/app.js").read_text(encoding="utf-8")
+
+        self.assertIn(".catch(err => {", source)
+        self.assertIn("addBtn.textContent = tr('addToRecord');", source)
+        self.assertIn("addBtn.disabled = false;", source)
+        self.assertIn("showToast(`Failed to save record:", source)
 
 
 class RecordInsertTests(unittest.IsolatedAsyncioTestCase):

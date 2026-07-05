@@ -52,6 +52,7 @@ function upsertRecordCache(record) {
         weighted_scores: record.weighted_scores || record.weightedScores || {},
         schema_id: record.schema_id || record.schemaId || '',
         alternative: record.alternative || null,
+        reuse_tip: record.reuse_tip || record.reuse || '',
         precaution: record.precaution || null,
         image: (record.mode || record.status) === 'purchase' ? '🥛' : '🗑️',
     };
@@ -117,6 +118,7 @@ async function loadRecords({ force = false } = {}) {
                 schema_id: it.schema_id,
                 brand: it.brand,
                 category: it.category,
+                reuse_tip: it.reuse_tip || it.reuse || '',
                 image: it.status === 'purchase' ? '🥛' : '🗑️',
             }));
             state.recordsLoadedFor = cacheKey;
@@ -253,7 +255,7 @@ async function deleteRecord(id) {
 }
 
 function viewRecordDetail(id) {
-    const r = state.records.find(rec => rec.id === id);
+    const r = state.records.find(rec => String(rec.id) === String(id));
     if (!r) return;
 
     const grade = getGrade(r.overall_score || 50);
@@ -265,6 +267,7 @@ function viewRecordDetail(id) {
         <div class="disposal-guide" style="margin-top:12px">
             <div class="disposal-guide-title">♻️ ${tr('disposalGuide')}</div>
             ${r.material ? `<div class="disposal-guide-row"><span class="disposal-guide-label">${tr('material')}:</span> ${esc(r.material)}</div>` : ''}
+            ${r.reuse_tip ? `<div class="disposal-guide-row"><span class="disposal-guide-label">${tr('reuse')}:</span> ${esc(r.reuse_tip)}</div>` : ''}
             ${r.disposal_guide ? `<div class="disposal-guide-row">${esc(r.disposal_guide)}</div>` : ''}
         </div>` : '';
 

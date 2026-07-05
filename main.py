@@ -25,8 +25,9 @@ from auth import (
     verify_reset_code,
 )
 from config import ALLOWED_IMAGE_TYPES, MAX_UPLOAD_BYTES, SUPABASE_STORAGE_BUCKET, get_public_config
-from data import add_item, clear_all_items, delete_item, get_items, get_news_cached
+from data import add_item, clear_all_items, delete_item, get_items, get_news_cached, persist_record_image
 from models import ai_analyze, local_scan_response
+from recycling_points import find_nearby_recycling_points
 from scan_service import analyze_scan_image, enrich_scan_result, normalize_scan_payload, parse_bool
 from scoring import CRITERIA_LABELS, REWARDS_CATALOG, SCHEMA_WEIGHTS
 from storage import supabase_storage_download, verify_supabase_storage_signature
@@ -195,6 +196,32 @@ async def list_records(request: Request, user_id: str | None = None, display_nam
     return await get_items(user_id, display_name, user_key)
 
 
+@app.post("/api/records/image")
+async def upload_record_image(request: Request, file: UploadFile = File(...),
+                              user_id: str | None = Form(None), display_name: str | None = Form(None),
+                              user_key: str | None = Form(None)):
+    await check_rate_limit(request, 30, 60)
+    owner = await get_user_by_id(user_id) if user_id else None
+    if not owner and user_key and user_key != user_id:
+        owner = await get_user_by_id(user_key)
+    if not owner and display_name:
+        owner = await get_user_by_name(display_name)
+    if not owner:
+        return JSONResponse({"error": "Login required to save records"}, 401)
+    if file.content_type and file.content_type not in ALLOWED_IMAGE_TYPES:
+        return JSONResponse({"error": "Only JPEG, PNG, WebP allowed"}, 400)
+
+    contents = await file.read()
+    if len(contents) > MAX_UPLOAD_BYTES:
+        return JSONResponse({"error": f"File too large (max {MAX_UPLOAD_BYTES // (1024*1024)} MB)"}, 413)
+
+    try:
+        image_url = await persist_record_image(contents, file.filename or "scan-record.jpg", file.content_type or "image/jpeg")
+    except Exception:
+        return JSONResponse({"error": "Image upload failed"}, 502)
+    return JSONResponse({"image_url": image_url})
+
+
 @app.post("/api/records")
 async def create_record(request: Request, data: dict):
     await check_rate_limit(request, 30, 60)
@@ -312,6 +339,22 @@ async def schemas(request: Request):
 async def rewards(request: Request):
     await check_rate_limit(request, 60, 60)
     return REWARDS_CATALOG
+
+
+@app.get("/api/recycling/nearby")
+async def nearby_recycling_points(request: Request, lat: float, lon: float, material: str | None = None,
+                                  limit: int = 5, distance_km: int = 3):
+    await check_rate_limit(request, 30, 60)
+    if not (22.0 <= lat <= 22.7 and 113.7 <= lon <= 114.5):
+        return JSONResponse({"error": "Valid Hong Kong coordinates required"}, 400)
+
+    safe_limit = min(max(int(limit or 5), 1), 8)
+    safe_distance = min(max(int(distance_km or 3), 1), 10)
+    try:
+        return await find_nearby_recycling_points(lat, lon, material=material, limit=safe_limit, distance_km=safe_distance)
+    except Exception:
+        return JSONResponse({"error": "Recycling map unavailable"}, 502)
+
 
 @app.post("/api/rewards/redeem")
 async def redeem(request: Request, data: dict):

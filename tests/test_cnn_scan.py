@@ -1,12 +1,17 @@
 from pathlib import Path
 from inspect import signature
 import asyncio
+import contextlib
+import io
+import json
 import unittest
-from unittest.mock import AsyncMock, patch
+from unittest.mock import ANY, AsyncMock, patch
 
 from fastapi.testclient import TestClient
+import httpx
 
-from models import classifier_response, upload_image
+from models import ai_analyze, classifier_response, upload_image
+import models
 from main import app
 from nlp import build_tokenizer
 from nlp.infer import DEFAULT_MODEL_PATH
@@ -18,6 +23,52 @@ class CnnScanTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.client = TestClient(app)
+
+    def _remote_json(self, name="Custom Bottle"):
+        return json.dumps({
+            "name": name,
+            "brand": "",
+            "category": "beverage",
+            "description": "Custom model identified a reusable bottle.",
+            "ecoRate": 4,
+            "recycleRate": 5,
+            "standardType": "general",
+            "material": "plastic",
+            "disposalGuide": "Rinse and reuse before recycling.",
+            "precaution": "",
+            "weightedScores": {"a": 80, "b": 82, "c": 78, "d": 76, "e": 90},
+            "alternative": {"name": "Refill Bottle", "ecoRate": 5, "recycleRate": 5},
+        })
+
+    def _failing_async_client(self, status_code=401, body=None, text=None, content_type="application/json"):
+        response_body = body or {"error": {"message": "bad key"}}
+
+        class FailingAsyncClient:
+            def __init__(self, *args, **kwargs):
+                pass
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, exc_type, exc, tb):
+                return False
+
+            async def post(self, url, headers=None, json=None):
+                if text is not None:
+                    return httpx.Response(
+                        status_code,
+                        text=text,
+                        request=httpx.Request("POST", url),
+                        headers={"content-type": content_type},
+                    )
+                return httpx.Response(
+                    status_code,
+                    json=response_body,
+                    request=httpx.Request("POST", url),
+                    headers={"content-type": "application/json"},
+                )
+
+        return FailingAsyncClient
 
     def test_classifier_response_uses_waste_type_label(self):
         result = classifier_response("paper", 0.91, "dispose")
@@ -212,6 +263,16 @@ class CnnScanTests(unittest.TestCase):
     def test_training_defaults_use_pretrained_backbone(self):
         self.assertTrue(signature(build_model).parameters["pretrained"].default)
 
+    def test_ai_prompt_requests_grounded_actionable_scan_details(self):
+        source = Path("models.py").read_text(encoding="utf-8")
+
+        self.assertIn("do not invent a brand", source.lower())
+        self.assertIn("Hong Kong recycling or disposal route", source)
+        self.assertIn("material-specific", source)
+        self.assertIn('"reuseTip"', source)
+        self.assertIn('"reuse_tip": j.get("reuseTip", "")', source)
+        self.assertIn("integer 0-100", source)
+
     def test_scan_ui_no_longer_allows_score_dragging(self):
         app = Path("static/app.js").read_text(encoding="utf-8")
         template = Path("templates/index.html").read_text(encoding="utf-8")
@@ -225,3 +286,161 @@ class CnnScanTests(unittest.TestCase):
         self.assertNotIn("updateBarFromEvent", app)
         self.assertNotIn("stopBarDrag", app)
         self.assertNotIn("weighted-toggle", template)
+
+    def test_ai_analyze_uses_custom_openai_compatible_endpoint(self):
+        with patch("models.DEFAULT_AI_MODEL", "custom"), \
+             patch("models.CUSTOM_METHOD", "openai"), \
+             patch("models.CUSTOM_API_KEY", "custom-key"), \
+             patch("models.CUSTOM_BASE_URL", "https://llm.example.com/v1"), \
+             patch("models.CUSTOM_MODEL", "vision-model"), \
+             patch("models._compress_image", return_value=(b"compressed", "image/png")), \
+             patch("models._call_openai_compat", new=AsyncMock(return_value=self._remote_json())) as custom_mock:
+            result = asyncio.run(ai_analyze(b"image-bytes", "sid-custom"))
+
+        custom_mock.assert_awaited_once_with(
+            "custom-key",
+            "https://llm.example.com/v1",
+            "vision-model",
+            ANY,
+            "Y29tcHJlc3NlZA==",
+            "image/png",
+        )
+        self.assertEqual(result["name"], "Custom Bottle")
+        self.assertEqual(result["alternative"]["name"], "Refill Bottle")
+
+    def test_ai_analyze_uses_custom_anthropic_endpoint(self):
+        with patch("models.DEFAULT_AI_MODEL", "custom"), \
+             patch("models.CUSTOM_METHOD", "anthropic"), \
+             patch("models.CUSTOM_API_KEY", "custom-key"), \
+             patch("models.CUSTOM_BASE_URL", "https://anthropic-proxy.example.com/v1"), \
+             patch("models.CUSTOM_MODEL", "claude-proxy-model"), \
+             patch("models._compress_image", return_value=(b"compressed", "image/png")), \
+             patch("models._call_anthropic_compat", new=AsyncMock(return_value=self._remote_json("Proxy Bottle"))) as custom_mock:
+            result = asyncio.run(ai_analyze(b"image-bytes", "sid-custom"))
+
+        custom_mock.assert_awaited_once_with(
+            "custom-key",
+            "https://anthropic-proxy.example.com/v1",
+            "claude-proxy-model",
+            ANY,
+            "Y29tcHJlc3NlZA==",
+            "image/png",
+        )
+        self.assertEqual(result["name"], "Proxy Bottle")
+
+    def test_ai_analyze_keeps_builtin_claude_provider_working(self):
+        with patch("models.DEFAULT_AI_MODEL", "claude"), \
+             patch("models.CLAUDE_API_KEY", "claude-key"), \
+             patch("models.CLAUDE_MODEL", "claude-test-model"), \
+             patch("models._compress_image", return_value=(b"compressed", "image/png")), \
+             patch("models._call_anthropic_compat", new=AsyncMock(return_value=self._remote_json("Claude Bottle"))) as claude_mock:
+            result = asyncio.run(ai_analyze(b"image-bytes", "sid-claude"))
+
+        claude_mock.assert_awaited_once_with(
+            "claude-key",
+            "https://api.anthropic.com/v1",
+            "claude-test-model",
+            ANY,
+            "Y29tcHJlc3NlZA==",
+            "image/png",
+        )
+        self.assertEqual(result["name"], "Claude Bottle")
+
+    def test_openai_compatible_root_base_url_uses_v1_chat_completions(self):
+        self.assertEqual(
+            models._openai_chat_url("https://ai.furry.edu.gr"),
+            "https://ai.furry.edu.gr/v1/chat/completions",
+        )
+        self.assertEqual(
+            models._openai_chat_url("https://ai.furry.edu.gr/v1"),
+            "https://ai.furry.edu.gr/v1/chat/completions",
+        )
+
+    def test_openai_compatible_failure_raises_without_debug_prints(self):
+        stream = io.StringIO()
+
+        with patch("models.httpx.AsyncClient", self._failing_async_client(401)), \
+             contextlib.redirect_stdout(stream), \
+             self.assertRaises(httpx.HTTPStatusError):
+            asyncio.run(models._call_openai_compat(
+                "secret-api-key",
+                "https://llm.example.com/v1",
+                "vision-model",
+                "prompt",
+                "base64-image-payload",
+                "image/png",
+            ))
+
+        output = stream.getvalue()
+        self.assertEqual(output, "")
+        self.assertNotIn("secret-api-key", output)
+        self.assertNotIn("base64-image-payload", output)
+
+    def test_openai_compatible_200_non_json_raises_without_debug_prints(self):
+        stream = io.StringIO()
+
+        with patch("models.httpx.AsyncClient", self._failing_async_client(
+                200,
+                text="not-json response from proxy",
+                content_type="text/plain",
+             )), \
+             contextlib.redirect_stdout(stream), \
+             self.assertRaisesRegex(Exception, "non-JSON"):
+            asyncio.run(models._call_openai_compat(
+                "secret-api-key",
+                "https://ai.furry.edu.gr",
+                "vision-model",
+                "prompt",
+                "base64-image-payload",
+                "image/png",
+            ))
+
+        output = stream.getvalue()
+        self.assertEqual(output, "")
+        self.assertNotIn("secret-api-key", output)
+        self.assertNotIn("base64-image-payload", output)
+
+    def test_openai_compatible_html_response_reports_frontend_url_hint(self):
+        stream = io.StringIO()
+        html = '<!doctype html><html><head><title>PawsAI - AI API Gateway</title></head></html>'
+
+        with patch("models.httpx.AsyncClient", self._failing_async_client(
+                200,
+                text=html,
+                content_type="text/html; charset=utf-8",
+             )), \
+             contextlib.redirect_stdout(stream), \
+             self.assertRaisesRegex(Exception, "returned HTML"):
+            asyncio.run(models._call_openai_compat(
+                "secret-api-key",
+                "https://ai.furry.edu.gr",
+                "vision-model",
+                "prompt",
+                "base64-image-payload",
+                "image/png",
+            ))
+
+        output = stream.getvalue()
+        self.assertEqual(output, "")
+        self.assertNotIn("secret-api-key", output)
+        self.assertNotIn("base64-image-payload", output)
+
+    def test_anthropic_compatible_failure_raises_without_debug_prints(self):
+        stream = io.StringIO()
+
+        with patch("models.httpx.AsyncClient", self._failing_async_client(502, {"error": "upstream overloaded"})), \
+             contextlib.redirect_stdout(stream), \
+             self.assertRaises(httpx.HTTPStatusError):
+            asyncio.run(models._call_anthropic_compat(
+                "secret-api-key",
+                "https://anthropic-proxy.example.com/v1",
+                "claude-proxy-model",
+                "prompt",
+                "base64-image-payload",
+                "image/png",
+            ))
+
+        output = stream.getvalue()
+        self.assertEqual(output, "")
+        self.assertNotIn("secret-api-key", output)
+        self.assertNotIn("base64-image-payload", output)

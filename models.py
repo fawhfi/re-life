@@ -2,10 +2,12 @@
 import io, base64, random, httpx, json
 from PIL import Image
 from pathlib import Path
+from urllib.parse import urlsplit, urlunsplit
 from config import (
     NVIDIA_API_KEY, NVIDIA_MODEL, OPENAI_API_KEY, OPENAI_MODEL,
     GEMINI_API_KEY, GEMINI_MODEL, DEEPSEEK_API_KEY, CLAUDE_API_KEY, CLAUDE_MODEL,
     DEFAULT_AI_MODEL, AVAILABLE_MODELS, SUPABASE_STORAGE_BUCKET, SUPABASE_URL,
+    CUSTOM_API_KEY, CUSTOM_BASE_URL, CUSTOM_METHOD, CUSTOM_MODEL
 )
 from nlp.infer import predict_image
 from scoring import HK_DISPOSAL
@@ -143,7 +145,16 @@ async def upload_image(contents: bytes, filename: str) -> str:
     return _data_url(contents, filename)
 
 # ── AI Providers ────────────────────────────────────────────────────────────
-_AI_PROMPT = """Look at this image carefully. Identify the product shown, its packaging material, and rate its environmental impact for Hong Kong.
+_AI_PROMPT = """Look at this image carefully as a Hong Kong recycling assistant. Identify the visible item, its likely packaging material, and practical next steps.
+
+Rules:
+- Ground every answer in visible evidence; if the brand is not readable, use an empty brand string and do not invent a brand.
+- Name the item plainly, then describe both the product and packaging in one concise sentence.
+- Choose the most likely material from the allowed material list; do not use vague values like "mixed" unless the item is genuinely unclear.
+- Give a Hong Kong recycling or disposal route with a concrete action and likely collection channel.
+- Make disposalGuide, precaution, and reuseTip material-specific and actionable, not generic advice like "dispose properly".
+- weightedScores values must be integer 0-100 numbers, calibrated to the selected schema criteria.
+- If uncertain, keep confidence conservative in scores and explain the uncertainty in precaution.
 
 Respond with ONLY a JSON object (no markdown, no explanation):
 
@@ -154,11 +165,12 @@ Respond with ONLY a JSON object (no markdown, no explanation):
   "standardType": "food" or "general",
   "description": "One sentence about product and packaging",
   "material": "plastic" or "pp_plastic" or "paper" or "metal" or "glass" or "compostable" or "wood",
-  "disposalGuide": "HK disposal instruction",
-  "precaution": "Safety note",
+  "disposalGuide": "Hong Kong recycling or disposal route",
+  "reuseTip": "Creative material-specific reuse idea before disposal",
+  "precaution": "Safety note or uncertainty note",
   "ecoRate": 1-5,
   "recycleRate": 1-5,
-  "weightedScores": {"a":0-100,"b":0-100,"c":0-100,"d":0-100,"e":0-100},
+  "weightedScores": {"a": 70, "b": 70, "c": 70, "d": 70, "e": 70},
   "alternative": {"name": "A more eco-friendly alternative", "ecoRate": 5, "recycleRate": 5}
 }"""
 
@@ -201,10 +213,76 @@ def _extract_json(text):
             except: pass
     return None
 
+def _openai_chat_url(base_url: str) -> str:
+    base = (base_url or "").strip().rstrip("/")
+    if not base:
+        raise ValueError("OpenAI-compatible base URL is required")
+    if base.endswith("/chat/completions"):
+        return base
+    parsed = urlsplit(base)
+    if not parsed.path or parsed.path == "/":
+        return f"{base}/v1/chat/completions"
+    return f"{base}/chat/completions"
+
+def _anthropic_messages_url(base_url: str) -> str:
+    base = (base_url or "").strip().rstrip("/")
+    if not base:
+        raise ValueError("Anthropic-compatible base URL is required")
+    if base.endswith("/messages"):
+        return base
+    if base.endswith("/v1"):
+        return f"{base}/messages"
+    return f"{base}/v1/messages"
+
+def _looks_like_html_response(response: httpx.Response) -> bool:
+    content_type = (response.headers.get("content-type", "") or "").lower()
+    body_start = (response.text or "").lstrip().lower()
+    return (
+        "text/html" in content_type
+        or body_start.startswith("<!doctype html")
+        or body_start.startswith("<html")
+    )
+
+def _candidate_api_base_urls(request_url: str) -> list[str]:
+    parsed = urlsplit(str(request_url))
+    path = parsed.path.rstrip("/")
+    for suffix in ("/chat/completions", "/messages"):
+        if path.endswith(suffix):
+            path = path[: -len(suffix)].rstrip("/")
+            break
+    root = urlunsplit((parsed.scheme, parsed.netloc, "", "", "")).rstrip("/")
+    base = urlunsplit((parsed.scheme, parsed.netloc, path, "", "")).rstrip("/")
+    candidates = []
+    if path.endswith("/v1") or path.endswith("/api/v1"):
+        seed_candidates = (base, f"{root}/v1", f"{root}/api/v1")
+    else:
+        seed_candidates = (f"{base}/v1", f"{base}/api/v1", f"{root}/v1", f"{root}/api/v1")
+    for candidate in seed_candidates:
+        if candidate not in candidates:
+            candidates.append(candidate)
+    return candidates
+
+def _raise_for_ai_status(response: httpx.Response, provider: str) -> None:
+    response.raise_for_status()
+
+def _parse_ai_json(response: httpx.Response, provider: str) -> dict:
+    if _looks_like_html_response(response):
+        candidates = _candidate_api_base_urls(str(response.request.url))
+        raise Exception(
+            f"{provider} endpoint returned HTML instead of JSON. "
+            f"CUSTOM_BASE_URL likely points to a web frontend; try {', '.join(candidates[:2])}"
+        )
+    try:
+        return response.json()
+    except ValueError as exc:
+        raise Exception(f"{provider} endpoint returned non-JSON response: {exc}") from exc
+
 async def _call_openai_compat(api_key: str, base_url: str, model_id: str, prompt: str, b64: str, mime: str) -> str:
+    provider = "openai-compatible"
+    url = _openai_chat_url(base_url)
     async with httpx.AsyncClient(timeout=180) as client:
         r = await client.post(
-            f"{base_url}/chat/completions",
+            url,
             headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
             json={
                 "model": model_id,
@@ -215,8 +293,12 @@ async def _call_openai_compat(api_key: str, base_url: str, model_id: str, prompt
                 "max_tokens": 8192, "temperature": 0.6, "stream": False,
             },
         )
-        r.raise_for_status()
-    return r.json()["choices"][0]["message"]["content"]
+        _raise_for_ai_status(r, provider)
+    data = _parse_ai_json(r, provider)
+    try:
+        return data["choices"][0]["message"]["content"]
+    except (KeyError, IndexError, TypeError) as exc:
+        raise Exception("openai-compatible endpoint returned JSON without choices[0].message.content") from exc
 
 async def _call_gemini(prompt: str, b64: str, mime: str) -> str:
     async with httpx.AsyncClient(timeout=60) as client:
@@ -228,19 +310,45 @@ async def _call_gemini(prompt: str, b64: str, mime: str) -> str:
         r.raise_for_status()
     return r.json()["candidates"][0]["content"]["parts"][0]["text"]
 
-async def _call_claude(prompt: str, b64: str, mime: str) -> str:
-    async with httpx.AsyncClient(timeout=60) as client:
+async def _call_anthropic_compat(api_key: str, base_url: str, model_id: str, prompt: str, b64: str, mime: str) -> str:
+    provider = "anthropic-compatible"
+    url = _anthropic_messages_url(base_url)
+    async with httpx.AsyncClient(timeout=180) as client:
         r = await client.post(
-            "https://api.anthropic.com/v1/messages",
-            headers={"x-api-key": CLAUDE_API_KEY, "anthropic-version": "2023-06-01", "Content-Type": "application/json"},
+            url,
+            headers={
+                "x-api-key": api_key,
+                "anthropic-version": "2023-06-01",
+                "Content-Type": "application/json",
+            },
             json={
-                "model": CLAUDE_MODEL, "max_tokens": 4096,
+                "model": model_id,
+                "max_tokens": 8192,
                 "system": "You are an environmental packaging evaluator. Respond with ONLY a single JSON object.",
-                "messages": [{"role": "user", "content": [{"type": "image", "source": {"type": "base64", "media_type": mime, "data": b64}}, {"type": "text", "text": prompt}]}],
+                "messages": [{
+                    "role": "user",
+                    "content": [
+                        {"type": "image", "source": {"type": "base64", "media_type": mime, "data": b64}},
+                        {"type": "text", "text": prompt},
+                    ],
+                }],
             },
         )
-        r.raise_for_status()
-    return r.json()["content"][0]["text"]
+        _raise_for_ai_status(r, provider)
+    data = _parse_ai_json(r, provider)
+    blocks = data.get("content", []) if isinstance(data, dict) else []
+    text_blocks = [
+        block.get("text", "")
+        for block in blocks
+        if isinstance(block, dict) and block.get("text")
+    ]
+    text = "".join(text_blocks)
+    if not text:
+        raise Exception("anthropic-compatible endpoint returned JSON without content text")
+    return text
+
+async def _call_claude(prompt: str, b64: str, mime: str) -> str:
+    return await _call_anthropic_compat(CLAUDE_API_KEY, "https://api.anthropic.com/v1", CLAUDE_MODEL, prompt, b64, mime)
 
 async def _call_nvidia_stream(api_key: str, model_id: str, prompt: str, b64: str, mime: str) -> str:
     """Call NVIDIA API with streaming to avoid truncated responses."""
@@ -281,6 +389,19 @@ async def _call_nvidia_stream(api_key: str, model_id: str, prompt: str, b64: str
                         continue
             return full_text
 
+async def _call_custom_endpoint(prompt: str, b64: str, mime: str) -> str:
+    api_key = (CUSTOM_API_KEY or "").strip()
+    base_url = (CUSTOM_BASE_URL or "").strip()
+    model_id = (CUSTOM_MODEL or "").strip()
+    method = (CUSTOM_METHOD or "openai").strip().lower()
+    if not api_key or not base_url or not model_id:
+        raise Exception("Custom endpoint requires CUSTOM_API, CUSTOM_BASE_URL, and CUSTOM_ENDPOINT_MODEL")
+    if method in {"openai", "openai-compatible", "chat-completions"}:
+        return await _call_openai_compat(api_key, base_url, model_id, prompt, b64, mime)
+    if method in {"anthropic", "claude"}:
+        return await _call_anthropic_compat(api_key, base_url, model_id, prompt, b64, mime)
+    raise Exception(f"Unsupported custom endpoint method '{CUSTOM_METHOD}'")
+
 async def ai_analyze(image_bytes: bytes, sid: str) -> dict:
     """Route to the correct AI provider based on DEFAULT_AI_MODEL."""
     compressed, mime = _compress_image(image_bytes)
@@ -297,6 +418,8 @@ async def ai_analyze(image_bytes: bytes, sid: str) -> dict:
         content = await _call_gemini(_AI_PROMPT, b64, mime)
     elif model == "claude" and CLAUDE_API_KEY:
         content = await _call_claude(_AI_PROMPT, b64, mime)
+    elif model == "custom":
+        content = await _call_custom_endpoint(_AI_PROMPT, b64, mime)
     else:
         raise Exception(f"Model '{model}' not available")
 
@@ -321,6 +444,7 @@ async def ai_analyze(image_bytes: bytes, sid: str) -> dict:
         "description": j.get("description", ""), "eco_rate": j.get("ecoRate", 3), "recycle_rate": j.get("recycleRate", 4),
         "standard_type": j.get("standardType", "food"), "material": j.get("material", "plastic"),
         "disposal_guide": j.get("disposalGuide", ""), "precaution": j.get("precaution", ""),
+        "reuse_tip": j.get("reuseTip", ""),
         "weighted_scores": j.get("weightedScores", {"a": 50, "b": 50, "c": 50, "d": 50, "e": 50}),
         "alternative": alternative,
     }

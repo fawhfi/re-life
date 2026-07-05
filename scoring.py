@@ -26,9 +26,9 @@ HK_DISPOSAL = {
 
 REWARDS_CATALOG = [
     {"id": "tree-plant", "title": "Plant a Native Tree in HK Country Park", "provider": "Tree Planting HK", "cost": 500, "image": "🌳", "category": "Environment", "description": "Sponsor planting a native sapling in Tai Lam or Sai Kung country park."},
-    {"id": "fairprice-voucher", "title": "PARKnSHOP HK$30 Cash Voucher", "provider": "PARKnSHOP", "cost": 350, "image": "🎟️", "category": "Voucher", "description": "Valid at all PARKnSHOP, TASTE, and Fusion stores across Hong Kong."},
+    {"id": "fairprice-voucher", "title": "Supermarkets HK$30 Cash Voucher", "provider": "Supermarkets", "cost": 350, "image": "🎟️", "category": "Voucher", "description": "Valid at participating supermarkets across Hong Kong."},
     {"id": "mtr-ride", "title": "MTR Single Journey Ticket", "provider": "MTR Corporation", "cost": 200, "image": "🚇", "category": "Transport", "description": "One free adult single journey on any MTR urban line."},
-    {"id": "starbucks-treat", "title": "Starbucks HK$25 eGift", "provider": "Starbucks HK", "cost": 280, "image": "☕", "category": "Voucher", "description": "Redeemable for any handcrafted beverage at Starbucks Hong Kong."},
+    {"id": "starbucks-treat", "title": "coffee shop HK$25 eGift", "provider": "coffee shop", "cost": 280, "image": "☕", "category": "Voucher", "description": "Redeemable for a drink at participating coffee shops in Hong Kong."},
     {"id": "ocean-cleanup", "title": "Sponsor Ocean Cleanup (1kg)", "provider": "Ocean Recovery Alliance", "cost": 150, "image": "🌊", "category": "Environment", "description": "Fund the removal of 1kg of marine plastic from HK coastal waters."},
     {"id": "reusable-kit", "title": "Reusable Eco Starter Kit", "provider": "Green Store HK", "cost": 400, "image": "🎒", "category": "Product", "description": "Bamboo cutlery set, beeswax wrap, and organic cotton tote bag."},
 ]
@@ -49,4 +49,3 @@ def get_grade(score):
     if score >= 40:
         return {"grade": "Poor (D)", "advice": "Avoid if Possible", "color": "#b45309"}
     return {"grade": "Very Poor (E)", "advice": "Strongly Discouraged", "color": "#dc2626"}
-

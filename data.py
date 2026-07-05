@@ -1,13 +1,17 @@
 """Re-Life data — news cache and user records."""
 from __future__ import annotations
 
+import base64
+import binascii
 from datetime import datetime, timezone
+import re
 import time
+import uuid
 
 import httpx
 
 from auth import get_user_by_id, get_user_by_name
-from config import SERPAPI_KEY
+from config import SERPAPI_KEY, SUPABASE_STORAGE_BUCKET, SUPABASE_URL
 from scoring import CRITERIA_LABELS, HK_DISPOSAL, REWARDS_CATALOG, SCHEMA_WEIGHTS, calc_weighted, get_grade
 from storage import (
     normalize_supabase_storage_url,
@@ -16,6 +20,8 @@ from storage import (
     supabase_insert,
     supabase_select,
     supabase_select_one,
+    supabase_storage_signed_url,
+    supabase_storage_upload,
     supabase_update,
 )
 
@@ -34,6 +40,7 @@ _memory_news_cache: dict[str, dict] = {}
 _memory_records_by_id: dict[int, dict] = {}
 _memory_record_seq = 1
 NEWS_CACHE_KEY = "hk_green_news"
+_DATA_URL_RE = re.compile(r"^data:(?P<mime>[-\w.+/]+);base64,(?P<data>.+)$", re.DOTALL)
 
 
 def _parse_iso(value) -> float:
@@ -100,6 +107,57 @@ def _memory_store_record(row: dict) -> dict:
     row.setdefault("created_at", datetime.now(timezone.utc).isoformat())
     _memory_records_by_id[int(row["id"])] = row
     return row
+
+
+def _image_extension_for_mime(mime: str) -> str:
+    return {
+        "image/jpeg": ".jpg",
+        "image/jpg": ".jpg",
+        "image/png": ".png",
+        "image/webp": ".webp",
+        "image/gif": ".gif",
+    }.get((mime or "").lower(), ".jpg")
+
+
+def _image_data_url(contents: bytes, mime: str) -> str:
+    b64 = base64.b64encode(contents).decode()
+    return f"data:{mime or 'image/jpeg'};base64,{b64}"
+
+
+async def persist_record_image(contents: bytes, filename: str, content_type: str | None = None) -> str:
+    mime = (content_type or "").split(";", 1)[0].lower() or "image/jpeg"
+    if not (supabase_enabled() and SUPABASE_STORAGE_BUCKET and SUPABASE_URL):
+        return _image_data_url(contents, mime)
+
+    ext = _image_extension_for_mime(mime)
+    path = f"scan-records/{uuid.uuid4()}{ext}"
+    await supabase_storage_upload(
+        SUPABASE_STORAGE_BUCKET,
+        path,
+        contents,
+        mime,
+    )
+    bucket = SUPABASE_STORAGE_BUCKET.strip("/")
+    return supabase_storage_signed_url(bucket, path)
+
+
+async def _persist_record_image_url(image_url: str | None) -> str:
+    if not image_url or not isinstance(image_url, str):
+        return ""
+    match = _DATA_URL_RE.match(image_url.strip())
+    if not match:
+        return image_url
+    if not (supabase_enabled() and SUPABASE_STORAGE_BUCKET and SUPABASE_URL):
+        return image_url
+
+    mime = match.group("mime").lower()
+    try:
+        contents = base64.b64decode(match.group("data"), validate=True)
+    except (binascii.Error, ValueError):
+        return image_url
+
+    ext = _image_extension_for_mime(mime)
+    return await persist_record_image(contents, f"record{ext}", mime)
 
 
 async def _resolve_user_id(user_id=None, display_name=None, user_key=None) -> dict | None:
@@ -180,12 +238,13 @@ async def add_item(item: dict) -> dict:
     if not owner:
         raise ValueError("Login required to save records")
     owner_id = owner["id"]
+    image_url = await _persist_record_image_url(item.get("image_url") or item.get("photoUrl") or "")
     record = {
         "user_id": owner_id,
         "mode": item.get("mode") or item.get("status") or "dispose",
         "name": item.get("name") or "Scanned Item",
         "description": item.get("description") or "",
-        "image_url": item.get("image_url") or item.get("photoUrl") or "",
+        "image_url": image_url,
         "dealt_with_method": item.get("disposal_guide") or item.get("dealtWithMethod") or "",
         "eco_rate": int(item.get("eco_rate") or 3),
         "recycle_rate": int(item.get("recycle_rate") or 4),

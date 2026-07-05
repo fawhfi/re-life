@@ -6,6 +6,7 @@ from config import (
     NVIDIA_API_KEY, NVIDIA_MODEL, OPENAI_API_KEY, OPENAI_MODEL,
     GEMINI_API_KEY, GEMINI_MODEL, DEEPSEEK_API_KEY, CLAUDE_API_KEY, CLAUDE_MODEL,
     DEFAULT_AI_MODEL, AVAILABLE_MODELS, SUPABASE_STORAGE_BUCKET, SUPABASE_URL,
+    CUSTOM_API_KEY, CUSTOM_BASE_URL, CUSTOM_METHOD, CUSTOM_MODEL
 )
 from nlp.infer import predict_image
 from scoring import HK_DISPOSAL
@@ -201,10 +202,28 @@ def _extract_json(text):
             except: pass
     return None
 
+def _openai_chat_url(base_url: str) -> str:
+    base = (base_url or "").strip().rstrip("/")
+    if not base:
+        raise ValueError("OpenAI-compatible base URL is required")
+    if base.endswith("/chat/completions"):
+        return base
+    return f"{base}/chat/completions"
+
+def _anthropic_messages_url(base_url: str) -> str:
+    base = (base_url or "").strip().rstrip("/")
+    if not base:
+        raise ValueError("Anthropic-compatible base URL is required")
+    if base.endswith("/messages"):
+        return base
+    if base.endswith("/v1"):
+        return f"{base}/messages"
+    return f"{base}/v1/messages"
+
 async def _call_openai_compat(api_key: str, base_url: str, model_id: str, prompt: str, b64: str, mime: str) -> str:
     async with httpx.AsyncClient(timeout=180) as client:
         r = await client.post(
-            f"{base_url}/chat/completions",
+            _openai_chat_url(base_url),
             headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
             json={
                 "model": model_id,
@@ -228,19 +247,39 @@ async def _call_gemini(prompt: str, b64: str, mime: str) -> str:
         r.raise_for_status()
     return r.json()["candidates"][0]["content"]["parts"][0]["text"]
 
-async def _call_claude(prompt: str, b64: str, mime: str) -> str:
-    async with httpx.AsyncClient(timeout=60) as client:
+async def _call_anthropic_compat(api_key: str, base_url: str, model_id: str, prompt: str, b64: str, mime: str) -> str:
+    async with httpx.AsyncClient(timeout=180) as client:
         r = await client.post(
-            "https://api.anthropic.com/v1/messages",
-            headers={"x-api-key": CLAUDE_API_KEY, "anthropic-version": "2023-06-01", "Content-Type": "application/json"},
+            _anthropic_messages_url(base_url),
+            headers={
+                "x-api-key": api_key,
+                "anthropic-version": "2023-06-01",
+                "Content-Type": "application/json",
+            },
             json={
-                "model": CLAUDE_MODEL, "max_tokens": 4096,
+                "model": model_id,
+                "max_tokens": 8192,
                 "system": "You are an environmental packaging evaluator. Respond with ONLY a single JSON object.",
-                "messages": [{"role": "user", "content": [{"type": "image", "source": {"type": "base64", "media_type": mime, "data": b64}}, {"type": "text", "text": prompt}]}],
+                "messages": [{
+                    "role": "user",
+                    "content": [
+                        {"type": "image", "source": {"type": "base64", "media_type": mime, "data": b64}},
+                        {"type": "text", "text": prompt},
+                    ],
+                }],
             },
         )
         r.raise_for_status()
-    return r.json()["content"][0]["text"]
+    blocks = r.json().get("content", [])
+    text_blocks = [
+        block.get("text", "")
+        for block in blocks
+        if isinstance(block, dict) and block.get("text")
+    ]
+    return "".join(text_blocks)
+
+async def _call_claude(prompt: str, b64: str, mime: str) -> str:
+    return await _call_anthropic_compat(CLAUDE_API_KEY, "https://api.anthropic.com/v1", CLAUDE_MODEL, prompt, b64, mime)
 
 async def _call_nvidia_stream(api_key: str, model_id: str, prompt: str, b64: str, mime: str) -> str:
     """Call NVIDIA API with streaming to avoid truncated responses."""
@@ -281,6 +320,19 @@ async def _call_nvidia_stream(api_key: str, model_id: str, prompt: str, b64: str
                         continue
             return full_text
 
+async def _call_custom_endpoint(prompt: str, b64: str, mime: str) -> str:
+    api_key = (CUSTOM_API_KEY or "").strip()
+    base_url = (CUSTOM_BASE_URL or "").strip()
+    model_id = (CUSTOM_MODEL or "").strip()
+    method = (CUSTOM_METHOD or "openai").strip().lower()
+    if not api_key or not base_url or not model_id:
+        raise Exception("Custom endpoint requires CUSTOM_API, CUSTOM_BASE_URL, and CUSTOM_ENDPOINT_MODEL")
+    if method in {"openai", "openai-compatible", "chat-completions"}:
+        return await _call_openai_compat(api_key, base_url, model_id, prompt, b64, mime)
+    if method in {"anthropic", "claude"}:
+        return await _call_anthropic_compat(api_key, base_url, model_id, prompt, b64, mime)
+    raise Exception(f"Unsupported custom endpoint method '{CUSTOM_METHOD}'")
+
 async def ai_analyze(image_bytes: bytes, sid: str) -> dict:
     """Route to the correct AI provider based on DEFAULT_AI_MODEL."""
     compressed, mime = _compress_image(image_bytes)
@@ -297,6 +349,8 @@ async def ai_analyze(image_bytes: bytes, sid: str) -> dict:
         content = await _call_gemini(_AI_PROMPT, b64, mime)
     elif model == "claude" and CLAUDE_API_KEY:
         content = await _call_claude(_AI_PROMPT, b64, mime)
+    elif model == "custom":
+        content = await _call_custom_endpoint(_AI_PROMPT, b64, mime)
     else:
         raise Exception(f"Model '{model}' not available")
 

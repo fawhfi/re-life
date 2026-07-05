@@ -6,6 +6,7 @@ import base64
 import json
 import os
 from pathlib import Path
+from urllib.parse import urlsplit, urlunsplit
 
 import httpx
 from dotenv import load_dotenv
@@ -26,6 +27,9 @@ def openai_chat_url(base_url: str) -> str:
     base = base_url.strip().rstrip("/")
     if base.endswith("/chat/completions"):
         return base
+    parsed = urlsplit(base)
+    if not parsed.path or parsed.path == "/":
+        return f"{base}/v1/chat/completions"
     return f"{base}/chat/completions"
 
 
@@ -36,6 +40,26 @@ def anthropic_messages_url(base_url: str) -> str:
     if base.endswith("/v1"):
         return f"{base}/messages"
     return f"{base}/v1/messages"
+
+
+def candidate_base_urls(base_url: str) -> list[str]:
+    parsed = urlsplit(base_url.strip().rstrip("/"))
+    path = parsed.path.rstrip("/")
+    for suffix in ("/chat/completions", "/messages"):
+        if path.endswith(suffix):
+            path = path[: -len(suffix)].rstrip("/")
+            break
+    root = urlunsplit((parsed.scheme, parsed.netloc, "", "", "")).rstrip("/")
+    base = urlunsplit((parsed.scheme, parsed.netloc, path, "", "")).rstrip("/")
+    candidates = []
+    if path.endswith("/v1") or path.endswith("/api/v1"):
+        seed_candidates = (base, f"{root}/v1", f"{root}/api/v1")
+    else:
+        seed_candidates = (f"{base}/v1", f"{base}/api/v1", f"{root}/v1", f"{root}/api/v1")
+    for candidate in seed_candidates:
+        if candidate not in candidates:
+            candidates.append(candidate)
+    return candidates
 
 
 def preview(value: str, limit: int = 1200) -> str:
@@ -52,6 +76,16 @@ def print_debug(**fields) -> None:
             continue
         parts.append(f"{key}={preview(str(value), 500)}")
     print("[Custom Endpoint Debug] " + " ".join(parts))
+
+
+def looks_like_html_response(response: httpx.Response) -> bool:
+    content_type = (response.headers.get("content-type", "") or "").lower()
+    body_start = (response.text or "").lstrip().lower()
+    return (
+        "text/html" in content_type
+        or body_start.startswith("<!doctype html")
+        or body_start.startswith("<html")
+    )
 
 
 def load_image(path: str | None) -> tuple[bytes, str]:
@@ -150,6 +184,37 @@ def inspect_anthropic_response(data: object) -> int:
     return 0
 
 
+def probe_candidate_urls(
+    client: httpx.Client,
+    *,
+    base_url: str,
+    method: str,
+    headers: dict,
+    payload: dict,
+) -> None:
+    print_debug(probe="start", candidate_count=len(candidate_base_urls(base_url)))
+    for candidate in candidate_base_urls(base_url):
+        url = openai_chat_url(candidate) if method == "openai" else anthropic_messages_url(candidate)
+        try:
+            response = client.post(url, headers=headers, json=payload)
+        except Exception as exc:
+            print_debug(
+                probe_url=url,
+                error="request failed",
+                error_type=exc.__class__.__name__,
+                message=str(exc),
+            )
+            continue
+        print_debug(
+            probe_url=url,
+            status_code=response.status_code,
+            content_type=response.headers.get("content-type", ""),
+            body_len=len(response.text or ""),
+            html_response=str(looks_like_html_response(response)).lower(),
+            body_preview=preview(response.text or "", 300),
+        )
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Debug Re-Life custom AI endpoint config and response shape.")
     parser.add_argument("--env-file", default=".env", help="Path to env file. Defaults to .env")
@@ -160,6 +225,7 @@ def main() -> int:
     parser.add_argument("--method", choices=["openai", "anthropic"], default=None)
     parser.add_argument("--model", default=None)
     parser.add_argument("--timeout", type=float, default=60.0)
+    parser.add_argument("--probe-paths", action="store_true", help="If the endpoint returns HTML, try common API base paths.")
     args = parser.parse_args()
 
     load_dotenv(args.env_file)
@@ -219,6 +285,23 @@ def main() -> int:
 
     if response.status_code >= 400:
         return 1
+
+    if looks_like_html_response(response):
+        print_debug(
+            html_response="true",
+            hint="CUSTOM_BASE_URL likely points to a web frontend",
+            try_base_urls=",".join(candidate_base_urls(base_url)[:2]),
+        )
+        if args.probe_paths:
+            with httpx.Client(timeout=args.timeout) as client:
+                probe_candidate_urls(
+                    client,
+                    base_url=base_url,
+                    method=method,
+                    headers=headers,
+                    payload=payload,
+                )
+        return 2
 
     try:
         data = response.json()

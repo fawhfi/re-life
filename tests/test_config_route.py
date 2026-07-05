@@ -66,6 +66,8 @@ class ConfigRouteTests(unittest.TestCase):
         self.assertIn("CUSTOM_ENDPOINT_METHOD", source)
         self.assertIn("body_preview", source)
         self.assertIn('api_key="SET"', source)
+        self.assertIn("--probe-paths", source)
+        self.assertIn("candidate_base_urls", source)
         self.assertNotIn("print(api_key", source)
 
     def test_main_no_html_injection_helper(self):

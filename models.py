@@ -2,6 +2,7 @@
 import io, base64, random, httpx, json
 from PIL import Image
 from pathlib import Path
+from urllib.parse import urlsplit, urlunsplit
 from config import (
     NVIDIA_API_KEY, NVIDIA_MODEL, OPENAI_API_KEY, OPENAI_MODEL,
     GEMINI_API_KEY, GEMINI_MODEL, DEEPSEEK_API_KEY, CLAUDE_API_KEY, CLAUDE_MODEL,
@@ -208,6 +209,9 @@ def _openai_chat_url(base_url: str) -> str:
         raise ValueError("OpenAI-compatible base URL is required")
     if base.endswith("/chat/completions"):
         return base
+    parsed = urlsplit(base)
+    if not parsed.path or parsed.path == "/":
+        return f"{base}/v1/chat/completions"
     return f"{base}/chat/completions"
 
 def _anthropic_messages_url(base_url: str) -> str:
@@ -220,67 +224,52 @@ def _anthropic_messages_url(base_url: str) -> str:
         return f"{base}/messages"
     return f"{base}/v1/messages"
 
-def _debug_value(value, limit: int = 500) -> str:
-    text = str(value).replace("\r", "\\r").replace("\n", "\\n")
-    if len(text) > limit:
-        return text[:limit] + "...<truncated>"
-    return text
+def _looks_like_html_response(response: httpx.Response) -> bool:
+    content_type = (response.headers.get("content-type", "") or "").lower()
+    body_start = (response.text or "").lstrip().lower()
+    return (
+        "text/html" in content_type
+        or body_start.startswith("<!doctype html")
+        or body_start.startswith("<html")
+    )
 
-def _ai_debug(event: str, **fields) -> None:
-    parts = [f"event={event}"]
-    for key, value in fields.items():
-        if value is None:
-            continue
-        parts.append(f"{key}={_debug_value(value)}")
-    print("[AI Debug] " + " ".join(parts))
-
-def _response_debug_fields(response: httpx.Response) -> dict:
-    body = response.text or ""
-    return {
-        "status_code": response.status_code,
-        "content_type": response.headers.get("content-type", ""),
-        "body_len": len(body),
-        "body_preview": body,
-    }
+def _candidate_api_base_urls(request_url: str) -> list[str]:
+    parsed = urlsplit(str(request_url))
+    path = parsed.path.rstrip("/")
+    for suffix in ("/chat/completions", "/messages"):
+        if path.endswith(suffix):
+            path = path[: -len(suffix)].rstrip("/")
+            break
+    root = urlunsplit((parsed.scheme, parsed.netloc, "", "", "")).rstrip("/")
+    base = urlunsplit((parsed.scheme, parsed.netloc, path, "", "")).rstrip("/")
+    candidates = []
+    if path.endswith("/v1") or path.endswith("/api/v1"):
+        seed_candidates = (base, f"{root}/v1", f"{root}/api/v1")
+    else:
+        seed_candidates = (f"{base}/v1", f"{base}/api/v1", f"{root}/v1", f"{root}/api/v1")
+    for candidate in seed_candidates:
+        if candidate not in candidates:
+            candidates.append(candidate)
+    return candidates
 
 def _raise_for_ai_status(response: httpx.Response, provider: str) -> None:
-    _ai_debug("response", provider=provider, **_response_debug_fields(response))
-    try:
-        response.raise_for_status()
-    except httpx.HTTPStatusError as exc:
-        _ai_debug(
-            "error",
-            provider=provider,
-            error_type=exc.__class__.__name__,
-            message=str(exc),
-        )
-        raise
+    response.raise_for_status()
 
 def _parse_ai_json(response: httpx.Response, provider: str) -> dict:
+    if _looks_like_html_response(response):
+        candidates = _candidate_api_base_urls(str(response.request.url))
+        raise Exception(
+            f"{provider} endpoint returned HTML instead of JSON. "
+            f"CUSTOM_BASE_URL likely points to a web frontend; try {', '.join(candidates[:2])}"
+        )
     try:
         return response.json()
     except ValueError as exc:
-        _ai_debug(
-            "error",
-            provider=provider,
-            error_type=exc.__class__.__name__,
-            message=str(exc),
-        )
         raise Exception(f"{provider} endpoint returned non-JSON response: {exc}") from exc
 
 async def _call_openai_compat(api_key: str, base_url: str, model_id: str, prompt: str, b64: str, mime: str) -> str:
     provider = "openai-compatible"
     url = _openai_chat_url(base_url)
-    _ai_debug(
-        "request",
-        provider=provider,
-        method="POST",
-        url=url,
-        model=model_id,
-        prompt_len=len(prompt),
-        image_mime=mime,
-        image_b64_len=len(b64),
-    )
     async with httpx.AsyncClient(timeout=180) as client:
         r = await client.post(
             url,
@@ -299,13 +288,6 @@ async def _call_openai_compat(api_key: str, base_url: str, model_id: str, prompt
     try:
         return data["choices"][0]["message"]["content"]
     except (KeyError, IndexError, TypeError) as exc:
-        _ai_debug(
-            "error",
-            provider=provider,
-            error_type=exc.__class__.__name__,
-            message="missing choices[0].message.content",
-            response_keys=",".join(data.keys()) if isinstance(data, dict) else type(data).__name__,
-        )
         raise Exception("openai-compatible endpoint returned JSON without choices[0].message.content") from exc
 
 async def _call_gemini(prompt: str, b64: str, mime: str) -> str:
@@ -321,16 +303,6 @@ async def _call_gemini(prompt: str, b64: str, mime: str) -> str:
 async def _call_anthropic_compat(api_key: str, base_url: str, model_id: str, prompt: str, b64: str, mime: str) -> str:
     provider = "anthropic-compatible"
     url = _anthropic_messages_url(base_url)
-    _ai_debug(
-        "request",
-        provider=provider,
-        method="POST",
-        url=url,
-        model=model_id,
-        prompt_len=len(prompt),
-        image_mime=mime,
-        image_b64_len=len(b64),
-    )
     async with httpx.AsyncClient(timeout=180) as client:
         r = await client.post(
             url,
@@ -362,13 +334,6 @@ async def _call_anthropic_compat(api_key: str, base_url: str, model_id: str, pro
     ]
     text = "".join(text_blocks)
     if not text:
-        _ai_debug(
-            "error",
-            provider=provider,
-            error_type="ValueError",
-            message="missing content text blocks",
-            response_keys=",".join(data.keys()) if isinstance(data, dict) else type(data).__name__,
-        )
         raise Exception("anthropic-compatible endpoint returned JSON without content text")
     return text
 

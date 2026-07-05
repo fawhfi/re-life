@@ -336,7 +336,17 @@ class CnnScanTests(unittest.TestCase):
         )
         self.assertEqual(result["name"], "Claude Bottle")
 
-    def test_openai_compatible_failure_prints_safe_http_debug_details(self):
+    def test_openai_compatible_root_base_url_uses_v1_chat_completions(self):
+        self.assertEqual(
+            models._openai_chat_url("https://ai.furry.edu.gr"),
+            "https://ai.furry.edu.gr/v1/chat/completions",
+        )
+        self.assertEqual(
+            models._openai_chat_url("https://ai.furry.edu.gr/v1"),
+            "https://ai.furry.edu.gr/v1/chat/completions",
+        )
+
+    def test_openai_compatible_failure_raises_without_debug_prints(self):
         stream = io.StringIO()
 
         with patch("models.httpx.AsyncClient", self._failing_async_client(401)), \
@@ -352,17 +362,11 @@ class CnnScanTests(unittest.TestCase):
             ))
 
         output = stream.getvalue()
-        self.assertIn("[AI Debug]", output)
-        self.assertIn("event=request", output)
-        self.assertIn("provider=openai-compatible", output)
-        self.assertIn("url=https://llm.example.com/v1/chat/completions", output)
-        self.assertIn("model=vision-model", output)
-        self.assertIn("status_code=401", output)
-        self.assertIn("bad key", output)
+        self.assertEqual(output, "")
         self.assertNotIn("secret-api-key", output)
         self.assertNotIn("base64-image-payload", output)
 
-    def test_openai_compatible_200_non_json_prints_body_preview(self):
+    def test_openai_compatible_200_non_json_raises_without_debug_prints(self):
         stream = io.StringIO()
 
         with patch("models.httpx.AsyncClient", self._failing_async_client(
@@ -382,17 +386,36 @@ class CnnScanTests(unittest.TestCase):
             ))
 
         output = stream.getvalue()
-        self.assertIn("[AI Debug]", output)
-        self.assertIn("provider=openai-compatible", output)
-        self.assertIn("url=https://ai.furry.edu.gr/chat/completions", output)
-        self.assertIn("status_code=200", output)
-        self.assertIn("content_type=text/plain", output)
-        self.assertIn("body_len=28", output)
-        self.assertIn("not-json response from proxy", output)
+        self.assertEqual(output, "")
         self.assertNotIn("secret-api-key", output)
         self.assertNotIn("base64-image-payload", output)
 
-    def test_anthropic_compatible_failure_prints_safe_http_debug_details(self):
+    def test_openai_compatible_html_response_reports_frontend_url_hint(self):
+        stream = io.StringIO()
+        html = '<!doctype html><html><head><title>PawsAI - AI API Gateway</title></head></html>'
+
+        with patch("models.httpx.AsyncClient", self._failing_async_client(
+                200,
+                text=html,
+                content_type="text/html; charset=utf-8",
+             )), \
+             contextlib.redirect_stdout(stream), \
+             self.assertRaisesRegex(Exception, "returned HTML"):
+            asyncio.run(models._call_openai_compat(
+                "secret-api-key",
+                "https://ai.furry.edu.gr",
+                "vision-model",
+                "prompt",
+                "base64-image-payload",
+                "image/png",
+            ))
+
+        output = stream.getvalue()
+        self.assertEqual(output, "")
+        self.assertNotIn("secret-api-key", output)
+        self.assertNotIn("base64-image-payload", output)
+
+    def test_anthropic_compatible_failure_raises_without_debug_prints(self):
         stream = io.StringIO()
 
         with patch("models.httpx.AsyncClient", self._failing_async_client(502, {"error": "upstream overloaded"})), \
@@ -408,11 +431,6 @@ class CnnScanTests(unittest.TestCase):
             ))
 
         output = stream.getvalue()
-        self.assertIn("[AI Debug]", output)
-        self.assertIn("provider=anthropic-compatible", output)
-        self.assertIn("url=https://anthropic-proxy.example.com/v1/messages", output)
-        self.assertIn("model=claude-proxy-model", output)
-        self.assertIn("status_code=502", output)
-        self.assertIn("upstream overloaded", output)
+        self.assertEqual(output, "")
         self.assertNotIn("secret-api-key", output)
         self.assertNotIn("base64-image-payload", output)

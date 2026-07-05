@@ -126,6 +126,7 @@ const state = {
     activeTab: 'home',
     scanMode: 'dispose',
     selectedFile: null,
+    selectedFileDataUrl: '',
     currentTipIndex: 0,
     tips: [],
     lang: 'en',
@@ -711,7 +712,8 @@ function processFile(file) {
     state.selectedFile = file;
     const reader = new FileReader();
     reader.onload = () => {
-        showPreview(reader.result);
+        state.selectedFileDataUrl = reader.result;
+        showPreview(state.selectedFileDataUrl);
         doScan(); // auto-scan after file selection
     };
     reader.readAsDataURL(file);
@@ -740,6 +742,7 @@ function showPreview(dataUrl) {
 
 function clearPreview() {
     state.selectedFile = null;
+    state.selectedFileDataUrl = '';
     const zone = document.getElementById('upload-zone');
     const preview = document.getElementById('upload-preview');
     const icon = zone.querySelector('.upload-zone-icon');
@@ -796,6 +799,11 @@ async function doScan() {
         const data = await res.json();
 
         data.mode = data.mode || state.scanMode;
+        if (state.selectedFileDataUrl) {
+            data.image_url = state.selectedFileDataUrl;
+            data.photoUrl = state.selectedFileDataUrl;
+            data.image_cached_locally = true;
+        }
 
         // Enrich if backend didn't fully score
         if (data.overall_score === undefined) {
@@ -917,11 +925,13 @@ function showScanResult(item) {
         alt.classList.add('hidden');
     }
 
-    // Prove button — only in purchase mode
+    // Swap proof button — only in purchase mode when there is a swap path.
     if (proveBtn) {
-        if (isPurchase && item.alternative) {
+        if (isPurchase && (item.alternative || item.swap_pending)) {
             proveBtn.classList.remove('hidden');
-            proveBtn.textContent = '📸 Prove You Swapped → Earn +50 Pts';
+            proveBtn.textContent = item.alternative
+                ? '♻️ Swap & Prove You Swapped → Earn +50 Pts'
+                : '📸 Prove Your Swap → Earn +50 Pts';
             proveBtn.style.background = '';
             proveBtn.disabled = false;
         } else {
@@ -995,12 +1005,13 @@ function showScanResult(item) {
     // Disposal guide
     const dispInfo = item.disposal_info;
     if (dispInfo || item.disposal_guide) {
+        const reuseTip = item.reuse_tip || item.reuse || getReuseTip(item);
+        item.reuse_tip = reuseTip;
         guide.classList.remove('hidden');
-        if (dispInfo) {
-            document.getElementById('disp-material').textContent = dispInfo.type || '';
-            document.getElementById('disp-method').textContent = dispInfo.method || '';
-            document.getElementById('disp-location').textContent = dispInfo.location || '';
-        }
+        document.getElementById('disp-material').textContent = dispInfo?.type || '';
+        document.getElementById('disp-method').textContent = dispInfo?.method || '';
+        document.getElementById('disp-location').textContent = dispInfo?.location || '';
+        document.getElementById('disp-reuse').textContent = reuseTip;
         document.getElementById('disp-guide').textContent = item.disposal_guide || '';
         document.getElementById('disp-prec').textContent = item.precaution || '';
     } else {
@@ -1059,6 +1070,23 @@ function addScanToRecord() {
         .catch(err => console.error('Failed to save item:', err));
 }
 
+function getReuseTip(item = {}) {
+    const category = String(item.category || item.material || item.name || '').toLowerCase();
+    if (category.includes('food') || category.includes('organic')) {
+        return 'Share, compost, or repurpose before disposal when safe.';
+    }
+    if (category.includes('glass') || category.includes('bottle') || category.includes('jar')) {
+        return 'Clean and reuse as a container before recycling.';
+    }
+    if (category.includes('paper') || category.includes('cardboard')) {
+        return 'Reuse for notes, wrapping, or storage before recycling.';
+    }
+    if (category.includes('elect') || category.includes('device') || category.includes('ewaste')) {
+        return 'Repair, donate, or trade in if the item still works.';
+    }
+    return 'Repair, donate, refill, or repurpose before recycling or disposal.';
+}
+
 function swapAlternative() {
     if (!state.lastScanResult || !state.lastScanResult.alternative) return;
     const alt = state.lastScanResult.alternative;
@@ -1066,9 +1094,18 @@ function swapAlternative() {
     state.lastScanResult.eco_rate = alt.eco_rate;
     state.lastScanResult.recycle_rate = alt.recycle_rate;
     state.lastScanResult.alternative = null;
+    state.lastScanResult.swap_pending = true;
     state.lastScanResult.description = 'Swapped to eco-friendly alternative.';
     showScanResult(state.lastScanResult);
     playBeep('beep');
+}
+
+function completeSwapFlow() {
+    if (!state.lastScanResult) return;
+    if (state.lastScanResult.alternative) {
+        swapAlternative();
+    }
+    triggerSwapProof();
 }
 
 function triggerSwapProof() {
@@ -1085,7 +1122,11 @@ async function handleSwapProof(e) {
     if (!addBtn || !addBtn.disabled) {
         const btn = document.getElementById('lbl-prove-swap');
         if (btn) btn.textContent = '⚠️ Add to Record first';
-        setTimeout(() => { if (btn) btn.textContent = '📸 Prove You Swapped → Earn +50 Pts'; }, 2000);
+        setTimeout(() => {
+            if (btn) btn.textContent = state.lastScanResult?.alternative
+                ? '♻️ Swap & Prove You Swapped → Earn +50 Pts'
+                : '📸 Prove Your Swap → Earn +50 Pts';
+        }, 2000);
         return;
     }
 
@@ -1772,6 +1813,7 @@ function updateAllLabels() {
         'lbl-disp-material': 'material',
         'lbl-disp-method': 'method',
         'lbl-disp-location': 'location',
+        'lbl-disp-reuse': 'reuse',
         'lbl-fact-title': 'didYouKnow',
         'lbl-weather-temperature': 'weather.detail.temperature',
         'lbl-weather-location': 'weather.detail.location',
@@ -1796,7 +1838,6 @@ function updateAllLabels() {
         'nav-lbl-record': 'navRecord',
         'nav-lbl-rewards': 'navRewards',
         'nav-lbl-more': 'navMore',
-        'lbl-swap': 'swapMe',
     };
 
     Object.entries(map).forEach(([id, key]) => {

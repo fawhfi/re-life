@@ -68,6 +68,14 @@ class RecordScopeTests(unittest.TestCase):
         self.assertIn("upsertRecordCache(record)", source)
         self.assertIn("removeRecordCache(recordId)", source)
 
+    def test_record_detail_matches_numeric_or_string_ids(self):
+        source = Path("static/js/app-records.js").read_text(encoding="utf-8")
+
+        self.assertIn(
+            "state.records.find(rec => String(rec.id) === String(id))",
+            source,
+        )
+
     def test_get_items_refuses_unauthenticated_reads(self):
         source = Path("static/supabase.js").read_text(encoding="utf-8")
 

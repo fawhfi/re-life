@@ -45,8 +45,19 @@ SUPABASE_JWKS_URL = os.getenv("SUPABASE_JWKS_URL", "")
 SUPABASE_DB_URL = os.getenv("SUPABASE_DB_URL", "")
 
 # ── Vercel KV / Upstash Redis ───────────────────────────────────────────────
-UPSTASH_REDIS_REST_URL = os.getenv("UPSTASH_REDIS_REST_URL", os.getenv("VERCEL_KV_REST_API_URL", ""))
-UPSTASH_REDIS_REST_TOKEN = os.getenv("UPSTASH_REDIS_REST_TOKEN", os.getenv("VERCEL_KV_REST_API_TOKEN", ""))
+UPSTASH_REDIS_REST_URL = (
+    os.getenv("UPSTASH_REDIS_REST_URL")
+    or os.getenv("KV_REST_API_URL")
+    or os.getenv("VERCEL_KV_REST_API_URL")
+    or ""
+)
+UPSTASH_REDIS_REST_TOKEN = (
+    os.getenv("UPSTASH_REDIS_REST_TOKEN")
+    or os.getenv("KV_REST_API_TOKEN")
+    or os.getenv("VERCEL_KV_REST_API_TOKEN")
+    or ""
+)
+REDIS_URL = os.getenv("REDIS_URL", os.getenv("KV_URL", ""))
 
 # ── Email ───────────────────────────────────────────────────────────────────
 RESEND_API_KEY = os.getenv("RESEND_API_KEY", "")

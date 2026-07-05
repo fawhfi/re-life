@@ -112,37 +112,7 @@
             <div class="rating-item"><span class="rating-label">Eco-Rate:</span><div class="star-rating" id="alt-eco-stars"></div></div>
             <div class="rating-item"><span class="rating-label">Recycle Rate:</span><div class="star-rating" id="alt-recycle-stars"></div></div>
           </div>
-          <button class="btn btn--outline btn--small btn--full mt-2" id="lbl-swap" onclick="swapAlternative()">SWAP ME</button>
         </div>
-
-          <!-- Weighted Score -->
-          <div class="weighted-section" id="weighted-section">
-            <div class="weighted-header">
-              <span class="weighted-title" id="ws-title">Weighted Criteria</span>
-            </div>
-            <div class="overall-score-display">
-              <div class="score-ring-wrap">
-                <svg class="score-ring" viewBox="0 0 120 120" width="120" height="120">
-                  <circle class="score-ring-bg" cx="60" cy="60" r="52" fill="none" stroke-width="8"/>
-                  <circle class="score-ring-fill" id="score-ring-fill" cx="60" cy="60" r="52" fill="none" stroke-width="8" stroke-dasharray="326.73" stroke-dashoffset="326.73" stroke-linecap="round"/>
-                </svg>
-                <div class="score-ring-value"><span class="overall-value" id="ov-score">74</span><span class="overall-max">/100</span></div>
-              </div>
-              <div class="score-ring-meta">
-                <div class="grade-row">
-                  <span class="rating-label" id="lbl-grade">Grade</span>
-                  <span class="grade-tag" id="grade-tag" style="background:#047857">Good (B)</span>
-                  <span class="text-muted text-sm font-bold" id="grade-advice">Acceptable</span>
-                </div>
-                <div class="overall-bar-wrap">
-                  <div class="overall-bar">
-                    <div class="overall-bar-fill" id="ov-bar-fill" style="width:74%;background:#047857"></div>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div class="weighted-detail" id="weighted-detail"></div>
-          </div>
 
         <!-- Disposal Guide -->
         <div id="disposal-guide" class="disposal-guide hidden">
@@ -150,12 +120,42 @@
           <div class="disposal-guide-row"><span class="disposal-guide-label" id="lbl-disp-material">Material:</span><span id="disp-material"></span></div>
           <div class="disposal-guide-row"><span class="disposal-guide-label" id="lbl-disp-method">Method:</span><span id="disp-method"></span></div>
           <div class="disposal-guide-row"><span class="disposal-guide-label" id="lbl-disp-location">Location:</span><span id="disp-location"></span></div>
+          <div class="disposal-guide-row"><span class="disposal-guide-label" id="lbl-disp-reuse">Reuse:</span><span id="disp-reuse"></span></div>
           <div class="disposal-guide-row mt-2" id="disp-guide"></div>
           <div class="disposal-guide-precaution" id="disp-prec"></div>
         </div>
 
-        <!-- Prove swap -->
-        <button class="btn btn--primary btn--full mt-3" id="lbl-prove-swap" onclick="triggerSwapProof()">📸 Prove You Swapped → Earn +50 Pts</button>
+        <!-- Weighted Score -->
+        <div class="weighted-section" id="weighted-section">
+          <div class="weighted-header">
+            <span class="weighted-title" id="ws-title">Weighted Criteria</span>
+          </div>
+          <div class="overall-score-display">
+            <div class="score-ring-wrap">
+              <svg class="score-ring" viewBox="0 0 120 120" width="120" height="120">
+                <circle class="score-ring-bg" cx="60" cy="60" r="52" fill="none" stroke-width="8"/>
+                <circle class="score-ring-fill" id="score-ring-fill" cx="60" cy="60" r="52" fill="none" stroke-width="8" stroke-dasharray="326.73" stroke-dashoffset="326.73" stroke-linecap="round"/>
+              </svg>
+              <div class="score-ring-value"><span class="overall-value" id="ov-score">74</span><span class="overall-max">/100</span></div>
+            </div>
+            <div class="score-ring-meta">
+              <div class="grade-row">
+                <span class="rating-label" id="lbl-grade">Grade</span>
+                <span class="grade-tag" id="grade-tag" style="background:#047857">Good (B)</span>
+                <span class="text-muted text-sm font-bold" id="grade-advice">Acceptable</span>
+              </div>
+              <div class="overall-bar-wrap">
+                <div class="overall-bar">
+                  <div class="overall-bar-fill" id="ov-bar-fill" style="width:74%;background:#047857"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="weighted-detail" id="weighted-detail"></div>
+        </div>
+
+        <!-- Swap proof -->
+        <button class="btn btn--primary btn--full mt-3" id="lbl-prove-swap" onclick="completeSwapFlow()">♻️ Swap & Prove You Swapped → Earn +50 Pts</button>
         <input type="file" id="swap-proof-input" accept="image/*" capture="environment" onchange="handleSwapProof(event)" class="hidden">
 
         <div class="result-card-actions">

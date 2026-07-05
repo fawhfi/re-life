@@ -15,6 +15,7 @@ from argon2 import PasswordHasher
 from argon2.exceptions import VerificationError, VerifyMismatchError
 
 from config import (
+    REDIS_URL,
     RESEND_API_KEY,
     RESEND_FROM,
     UPSTASH_REDIS_REST_TOKEN,
@@ -40,6 +41,7 @@ _memory_user_seq = 1
 RESEND_API_URL = "https://api.resend.com/emails"
 RESEND_USER_AGENT = "Re-Life/1.0"
 KV_USER_AGENT = "Re-Life/1.0"
+_redis_client = None
 
 
 def _utc_now() -> datetime:
@@ -277,6 +279,28 @@ async def _kv_command(*parts):
         raise
 
 
+async def _redis_rate_count(key: str, window_sec: int) -> int:
+    global _redis_client
+    if not REDIS_URL:
+        return 0
+    try:
+        from redis.asyncio import Redis
+    except ImportError as e:
+        raise RuntimeError("Install redis package to use REDIS_URL rate limiting") from e
+
+    if _redis_client is None:
+        _redis_client = Redis.from_url(
+            REDIS_URL,
+            decode_responses=True,
+            socket_connect_timeout=5,
+            socket_timeout=5,
+        )
+    count = int(await _redis_client.incr(key))
+    if count == 1:
+        await _redis_client.expire(key, window_sec)
+    return count
+
+
 # ── Rate Limiter ────────────────────────────────────────────────────────────
 
 async def check_rate_limit(request, max_requests: int = 5, window_sec: int = 60):
@@ -304,6 +328,17 @@ async def check_rate_limit(request, max_requests: int = 5, window_sec: int = 60)
             raise
         except Exception as e:
             print(f"[RateLimit] KV fallback triggered: {e}")
+
+    if REDIS_URL:
+        try:
+            count = await _redis_rate_count(safe_key, window_sec)
+            if count > max_requests:
+                raise HTTPException(status_code=429, detail="Too many requests — slow down")
+            return
+        except HTTPException:
+            raise
+        except Exception as e:
+            print(f"[RateLimit] Redis fallback triggered: {e}")
 
     now = time.time()
     cutoff = now - window_sec

@@ -20,7 +20,7 @@
   "overallScore": "Overall Score", "grade": "Grade", "advice": "Advice",
   "criteria": "Weighted Criteria", "showDetails": "Show Details", "hideDetails": "Hide Details",
   "disposalGuide": "Disposal Guide", "material": "Material", "method": "Method",
-  "location": "Location", "precaution": "Precaution",
+  "location": "Location", "reuse": "Reuse", "precaution": "Precaution",
   "weather": {
     "header": {
       "defaultTitle": "Hong Kong weather",

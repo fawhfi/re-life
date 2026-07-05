@@ -49,6 +49,7 @@
   "material": "物料",
   "method": "處理方法",
   "location": "回收地點",
+  "reuse": "重用",
   "precaution": "注意事項",
   "weather": {
     "header": {

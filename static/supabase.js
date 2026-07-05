@@ -35,10 +35,46 @@ async function requestJson(path, { method = "GET", body = undefined, params = nu
         }
     }
     if (!response.ok) {
-        const message = (data && (data.error || data.detail || data.message)) || `HTTP_${response.status}`;
-        throw new Error(message);
+        const error = new Error(formatErrorMessage(data, response));
+        error.status = response.status;
+        error.payload = data;
+        throw error;
     }
     return data;
+}
+
+function stringifyErrorValue(value) {
+    if (value === undefined || value === null || value === "") return "";
+    if (typeof value === "string") return value;
+    if (typeof value === "number" || typeof value === "boolean") return String(value);
+    if (Array.isArray(value)) {
+        return value.map(stringifyErrorValue).filter(Boolean).join("; ");
+    }
+    if (typeof value === "object") {
+        const parts = [];
+        for (const key of ["message", "error", "detail", "details", "hint", "code"]) {
+            if (value[key] !== undefined) {
+                const text = stringifyErrorValue(value[key]);
+                if (text) parts.push(`${key}: ${text}`);
+            }
+        }
+        try {
+            const json = JSON.stringify(value);
+            if (json && json !== "{}" && !parts.includes(json)) parts.push(json);
+        } catch {
+            const fallback = String(value);
+            if (fallback !== "[object Object]") parts.push(fallback);
+        }
+        return [...new Set(parts)].join(" | ");
+    }
+    return String(value);
+}
+
+function formatErrorMessage(data, response) {
+    const candidate = data && (data.error ?? data.detail ?? data.message ?? data.raw);
+    const detail = stringifyErrorValue(candidate) || stringifyErrorValue(data);
+    const prefix = `HTTP_${response.status}`;
+    return detail ? `${prefix}: ${detail}` : prefix;
 }
 
 function safeArray(value) {

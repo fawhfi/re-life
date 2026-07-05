@@ -263,6 +263,16 @@ class CnnScanTests(unittest.TestCase):
     def test_training_defaults_use_pretrained_backbone(self):
         self.assertTrue(signature(build_model).parameters["pretrained"].default)
 
+    def test_ai_prompt_requests_grounded_actionable_scan_details(self):
+        source = Path("models.py").read_text(encoding="utf-8")
+
+        self.assertIn("do not invent a brand", source.lower())
+        self.assertIn("Hong Kong recycling or disposal route", source)
+        self.assertIn("material-specific", source)
+        self.assertIn('"reuseTip"', source)
+        self.assertIn('"reuse_tip": j.get("reuseTip", "")', source)
+        self.assertIn("integer 0-100", source)
+
     def test_scan_ui_no_longer_allows_score_dragging(self):
         app = Path("static/app.js").read_text(encoding="utf-8")
         template = Path("templates/index.html").read_text(encoding="utf-8")

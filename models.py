@@ -145,7 +145,16 @@ async def upload_image(contents: bytes, filename: str) -> str:
     return _data_url(contents, filename)
 
 # ── AI Providers ────────────────────────────────────────────────────────────
-_AI_PROMPT = """Look at this image carefully. Identify the product shown, its packaging material, and rate its environmental impact for Hong Kong.
+_AI_PROMPT = """Look at this image carefully as a Hong Kong recycling assistant. Identify the visible item, its likely packaging material, and practical next steps.
+
+Rules:
+- Ground every answer in visible evidence; if the brand is not readable, use an empty brand string and do not invent a brand.
+- Name the item plainly, then describe both the product and packaging in one concise sentence.
+- Choose the most likely material from the allowed material list; do not use vague values like "mixed" unless the item is genuinely unclear.
+- Give a Hong Kong recycling or disposal route with a concrete action and likely collection channel.
+- Make disposalGuide, precaution, and reuseTip material-specific and actionable, not generic advice like "dispose properly".
+- weightedScores values must be integer 0-100 numbers, calibrated to the selected schema criteria.
+- If uncertain, keep confidence conservative in scores and explain the uncertainty in precaution.
 
 Respond with ONLY a JSON object (no markdown, no explanation):
 
@@ -156,11 +165,12 @@ Respond with ONLY a JSON object (no markdown, no explanation):
   "standardType": "food" or "general",
   "description": "One sentence about product and packaging",
   "material": "plastic" or "pp_plastic" or "paper" or "metal" or "glass" or "compostable" or "wood",
-  "disposalGuide": "HK disposal instruction",
-  "precaution": "Safety note",
+  "disposalGuide": "Hong Kong recycling or disposal route",
+  "reuseTip": "Creative material-specific reuse idea before disposal",
+  "precaution": "Safety note or uncertainty note",
   "ecoRate": 1-5,
   "recycleRate": 1-5,
-  "weightedScores": {"a":0-100,"b":0-100,"c":0-100,"d":0-100,"e":0-100},
+  "weightedScores": {"a": 70, "b": 70, "c": 70, "d": 70, "e": 70},
   "alternative": {"name": "A more eco-friendly alternative", "ecoRate": 5, "recycleRate": 5}
 }"""
 
@@ -434,6 +444,7 @@ async def ai_analyze(image_bytes: bytes, sid: str) -> dict:
         "description": j.get("description", ""), "eco_rate": j.get("ecoRate", 3), "recycle_rate": j.get("recycleRate", 4),
         "standard_type": j.get("standardType", "food"), "material": j.get("material", "plastic"),
         "disposal_guide": j.get("disposalGuide", ""), "precaution": j.get("precaution", ""),
+        "reuse_tip": j.get("reuseTip", ""),
         "weighted_scores": j.get("weightedScores", {"a": 50, "b": 50, "c": 50, "d": 50, "e": 50}),
         "alternative": alternative,
     }

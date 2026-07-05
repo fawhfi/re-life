@@ -1045,7 +1045,6 @@ function addScanToRecord() {
         addBtn.disabled = true;
         addBtn.style.opacity = '0.6';
     }
-    playBeep('success');
 
     // Save to backend storage
     FB.addItem(record)
@@ -1066,8 +1065,19 @@ function addScanToRecord() {
             } else {
                 invalidateRecordsCache();
             }
+            playBeep('success');
         })
-        .catch(err => console.error('Failed to save item:', err));
+        .catch(err => {
+            const message = err?.message || String(err || 'Unknown error');
+            console.error('Failed to save item:', message, err);
+            if (addBtn) {
+                addBtn.textContent = tr('addToRecord');
+                addBtn.disabled = false;
+                addBtn.style.opacity = '';
+            }
+            playBeep('error');
+            showToast(`Failed to save record: ${message}`, 'error', 5000);
+        });
 }
 
 function getReuseTip(item = {}) {

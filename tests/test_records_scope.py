@@ -87,6 +87,22 @@ class RecordScopeTests(unittest.TestCase):
         self.assertIn("user_key: userKey || \"\"", source)
         self.assertIn("async getItems(userId = null, displayName = null, userKey = null)", source)
 
+    def test_request_json_formats_nested_backend_errors(self):
+        source = Path("static/supabase.js").read_text(encoding="utf-8")
+
+        self.assertIn("function formatErrorMessage", source)
+        self.assertIn("JSON.stringify", source)
+        self.assertIn("response.status", source)
+        self.assertNotIn("Error(message)", source)
+
+    def test_add_record_failure_restores_button_and_notifies_user(self):
+        source = Path("static/app.js").read_text(encoding="utf-8")
+
+        self.assertIn(".catch(err => {", source)
+        self.assertIn("addBtn.textContent = tr('addToRecord');", source)
+        self.assertIn("addBtn.disabled = false;", source)
+        self.assertIn("showToast(`Failed to save record:", source)
+
 
 class RecordInsertTests(unittest.IsolatedAsyncioTestCase):
     async def test_add_item_omits_fields_missing_from_scan_records_schema(self):

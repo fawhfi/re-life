@@ -148,6 +148,10 @@ const state = {
     weatherLoadPromise: null,
     weatherRequestId: 0,
     weatherDetailsOpen: false,
+    nearbyRecyclingPoints: [],
+    nearbyRecyclingStatus: 'idle',
+    nearbyRecyclingSourceUrl: '',
+    nearbyRecyclingRequestId: 0,
     recordsDirty: true,
     recordsLoadedFor: '',
     recordsLoadPromise: null,
@@ -743,6 +747,9 @@ function showPreview(dataUrl) {
 function clearPreview() {
     state.selectedFile = null;
     state.selectedFileDataUrl = '';
+    if (typeof resetNearbyRecyclingUI === 'function') {
+        resetNearbyRecyclingUI();
+    }
     const zone = document.getElementById('upload-zone');
     const preview = document.getElementById('upload-preview');
     const icon = zone.querySelector('.upload-zone-icon');
@@ -821,6 +828,9 @@ async function doScan() {
         playBeep('success');
     } catch (err) {
         console.error('Scan error:', err);
+        if (typeof resetNearbyRecyclingUI === 'function') {
+            resetNearbyRecyclingUI();
+        }
         const msg = (err.message || String(err));
         document.getElementById('scan-result').classList.remove('hidden');
         const imgContainer = document.getElementById('result-img');
@@ -874,6 +884,9 @@ function showScanResult(item) {
     const weightedDetail = document.getElementById('weighted-detail');
     const guide = document.getElementById('disposal-guide');
     const proveBtn = document.getElementById('lbl-prove-swap');
+    if (typeof resetNearbyRecyclingUI === 'function') {
+        resetNearbyRecyclingUI();
+    }
 
     // Basic info
     document.getElementById('result-name').textContent = item.name || item.waste_label || item.category || '';
@@ -1019,6 +1032,9 @@ function showScanResult(item) {
     }
 
     state.lastScanResult = item;
+    if (guide && !guide.classList.contains('hidden') && typeof loadNearbyRecyclingPointsForScan === 'function') {
+        loadNearbyRecyclingPointsForScan(item);
+    }
 }
 
 function addScanToRecord() {
@@ -1179,6 +1195,9 @@ function resetScan() {
     clearPreview();
     document.getElementById('weighted-detail').classList.remove('is-open');
     state.lastScanResult = null;
+    if (typeof resetNearbyRecyclingUI === 'function') {
+        resetNearbyRecyclingUI();
+    }
 }
 
 
@@ -1618,6 +1637,9 @@ function resetSessionState() {
     state.claimedCoupons = [];
     invalidateRecordsCache({ clear: true });
     state.lastScanResult = null;
+    if (typeof resetNearbyRecyclingUI === 'function') {
+        resetNearbyRecyclingUI();
+    }
     clearSessionState();
     updateHeaderUI();
 }
@@ -1825,6 +1847,7 @@ function updateAllLabels() {
         'lbl-disp-method': 'method',
         'lbl-disp-location': 'location',
         'lbl-disp-reuse': 'reuse',
+        'lbl-nearby-recycling-title': 'recycling.nearbyTitle',
         'lbl-fact-title': 'didYouKnow',
         'lbl-weather-temperature': 'weather.detail.temperature',
         'lbl-weather-location': 'weather.detail.location',

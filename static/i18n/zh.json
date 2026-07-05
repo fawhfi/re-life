@@ -51,6 +51,21 @@
   "location": "回收地點",
   "reuse": "重用",
   "precaution": "注意事項",
+  "recycling": {
+    "nearbyTitle": "附近回收點",
+    "ready": "使用你的定位尋找附近回收選擇。",
+    "locating": "正在取得你的定位...",
+    "loading": "正在尋找附近回收點...",
+    "loaded": "最近的回收點",
+    "locationUnavailable": "未能取得定位，可改用官方回收地圖。",
+    "unavailable": "回收地圖暫時未能使用，可試用官方地圖。",
+    "empty": "附近未找到回收點，可試用官方地圖。",
+    "refresh": "重新尋找附近回收點",
+    "navigate": "導航",
+    "details": "詳情",
+    "openMap": "開啟回收地圖",
+    "unnamed": "回收點"
+  },
   "weather": {
     "header": {
       "defaultTitle": "香港天氣",

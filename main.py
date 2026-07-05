@@ -27,6 +27,7 @@ from auth import (
 from config import ALLOWED_IMAGE_TYPES, MAX_UPLOAD_BYTES, SUPABASE_STORAGE_BUCKET, get_public_config
 from data import add_item, clear_all_items, delete_item, get_items, get_news_cached, persist_record_image
 from models import ai_analyze, local_scan_response
+from recycling_points import find_nearby_recycling_points
 from scan_service import analyze_scan_image, enrich_scan_result, normalize_scan_payload, parse_bool
 from scoring import CRITERIA_LABELS, REWARDS_CATALOG, SCHEMA_WEIGHTS
 from storage import supabase_storage_download, verify_supabase_storage_signature
@@ -338,6 +339,22 @@ async def schemas(request: Request):
 async def rewards(request: Request):
     await check_rate_limit(request, 60, 60)
     return REWARDS_CATALOG
+
+
+@app.get("/api/recycling/nearby")
+async def nearby_recycling_points(request: Request, lat: float, lon: float, material: str | None = None,
+                                  limit: int = 5, distance_km: int = 3):
+    await check_rate_limit(request, 30, 60)
+    if not (22.0 <= lat <= 22.7 and 113.7 <= lon <= 114.5):
+        return JSONResponse({"error": "Valid Hong Kong coordinates required"}, 400)
+
+    safe_limit = min(max(int(limit or 5), 1), 8)
+    safe_distance = min(max(int(distance_km or 3), 1), 10)
+    try:
+        return await find_nearby_recycling_points(lat, lon, material=material, limit=safe_limit, distance_km=safe_distance)
+    except Exception:
+        return JSONResponse({"error": "Recycling map unavailable"}, 502)
+
 
 @app.post("/api/rewards/redeem")
 async def redeem(request: Request, data: dict):

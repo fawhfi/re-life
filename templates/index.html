@@ -122,6 +122,17 @@
           <div class="disposal-guide-row"><span class="disposal-guide-label" id="lbl-disp-location">Location:</span><span id="disp-location"></span></div>
           <div class="disposal-guide-row"><span class="disposal-guide-label" id="lbl-disp-reuse">Reuse:</span><span id="disp-reuse"></span></div>
           <div class="disposal-guide-row mt-2" id="disp-guide"></div>
+          <div id="nearby-recycling" class="nearby-recycling hidden" aria-live="polite">
+            <div class="nearby-recycling-header">
+              <div>
+                <div class="nearby-recycling-title" id="lbl-nearby-recycling-title">Nearby Recycling Points</div>
+                <div class="nearby-recycling-subtitle" id="nearby-recycling-status">Use your location to find nearby options.</div>
+              </div>
+              <button type="button" class="nearby-recycling-refresh" id="nearby-recycling-refresh" onclick="refreshNearbyRecyclingPoints()">↻</button>
+            </div>
+            <div id="nearby-recycling-list" class="nearby-recycling-list"></div>
+            <a id="nearby-recycling-source" class="nearby-recycling-source hidden" href="https://www.wastereduction.gov.hk/zh-hk/recycling-map" target="_blank" rel="noopener">Open recycling map</a>
+          </div>
           <div class="disposal-guide-precaution" id="disp-prec"></div>
         </div>
 
@@ -331,6 +342,7 @@
 <script src="/static/js/utils.js"></script>
 <script src="/static/app.js"></script>
 <script src="/static/js/app-weather.js"></script>
+<script src="/static/js/app-recycling.js"></script>
 <script src="/static/js/app-records.js"></script>
 </body>
 </html>

@@ -21,6 +21,21 @@
   "criteria": "Weighted Criteria", "showDetails": "Show Details", "hideDetails": "Hide Details",
   "disposalGuide": "Disposal Guide", "material": "Material", "method": "Method",
   "location": "Location", "reuse": "Reuse", "precaution": "Precaution",
+  "recycling": {
+    "nearbyTitle": "Nearby Recycling Points",
+    "ready": "Use your location to find nearby options.",
+    "locating": "Getting your location...",
+    "loading": "Finding nearby recycling points...",
+    "loaded": "Nearest recycling points",
+    "locationUnavailable": "Location unavailable. Open the official map instead.",
+    "unavailable": "Recycling map is unavailable. Try the official map.",
+    "empty": "No nearby points found. Try the official map.",
+    "refresh": "Refresh nearby recycling points",
+    "navigate": "Navigate",
+    "details": "Details",
+    "openMap": "Open recycling map",
+    "unnamed": "Recycling point"
+  },
   "weather": {
     "header": {
       "defaultTitle": "Hong Kong weather",

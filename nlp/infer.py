@@ -66,11 +66,7 @@ def _resolve_model_path(model_path: str | Path) -> Path:
 
     fallbacks = [
         ARTIFACTS_DIR / "model_fp16.onnx",
-        ARTIFACTS_DIR / "model_fp32.onnx",
-        ARTIFACTS_DIR / "transformer.onnx",
         Path(__file__).resolve().parents[2] / "nlp" / "artifacts" / "model_fp16.onnx",
-        Path(__file__).resolve().parents[2] / "nlp" / "artifacts" / "model_fp32.onnx",
-        Path(__file__).resolve().parents[2] / "nlp" / "artifacts" / "transformer.onnx",
     ]
     for fallback in fallbacks:
         if fallback.exists():

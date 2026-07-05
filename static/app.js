@@ -1048,15 +1048,16 @@ function addScanToRecord() {
 
     // Save to backend storage
     FB.addItem(record)
-        .then(({ id }) => {
+        .then(({ id, image_url }) => {
+            const savedImageUrl = image_url || record.image_url || record.photoUrl || '';
             if (id !== null && id !== undefined) {
                 upsertRecordCache({
                     ...record,
                     id,
                     mode: record.mode || record.status || 'dispose',
                     status: record.mode || record.status || 'dispose',
-                    image_url: record.image_url || record.photoUrl || '',
-                    photoUrl: record.photoUrl || record.image_url || '',
+                    image_url: savedImageUrl,
+                    photoUrl: savedImageUrl,
                     disposal_guide: record.disposal_guide || record.dealtWithMethod || '',
                     dealtWithMethod: record.dealtWithMethod || record.disposal_guide || '',
                     userId: state.userId || null,

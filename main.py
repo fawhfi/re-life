@@ -25,7 +25,7 @@ from auth import (
     verify_reset_code,
 )
 from config import ALLOWED_IMAGE_TYPES, MAX_UPLOAD_BYTES, SUPABASE_STORAGE_BUCKET, get_public_config
-from data import add_item, clear_all_items, delete_item, get_items, get_news_cached
+from data import add_item, clear_all_items, delete_item, get_items, get_news_cached, persist_record_image
 from models import ai_analyze, local_scan_response
 from scan_service import analyze_scan_image, enrich_scan_result, normalize_scan_payload, parse_bool
 from scoring import CRITERIA_LABELS, REWARDS_CATALOG, SCHEMA_WEIGHTS
@@ -193,6 +193,32 @@ async def update_user(request: Request, identifier: str, data: dict):
 async def list_records(request: Request, user_id: str | None = None, display_name: str | None = None, user_key: str | None = None):
     await check_rate_limit(request, 60, 60)
     return await get_items(user_id, display_name, user_key)
+
+
+@app.post("/api/records/image")
+async def upload_record_image(request: Request, file: UploadFile = File(...),
+                              user_id: str | None = Form(None), display_name: str | None = Form(None),
+                              user_key: str | None = Form(None)):
+    await check_rate_limit(request, 30, 60)
+    owner = await get_user_by_id(user_id) if user_id else None
+    if not owner and user_key and user_key != user_id:
+        owner = await get_user_by_id(user_key)
+    if not owner and display_name:
+        owner = await get_user_by_name(display_name)
+    if not owner:
+        return JSONResponse({"error": "Login required to save records"}, 401)
+    if file.content_type and file.content_type not in ALLOWED_IMAGE_TYPES:
+        return JSONResponse({"error": "Only JPEG, PNG, WebP allowed"}, 400)
+
+    contents = await file.read()
+    if len(contents) > MAX_UPLOAD_BYTES:
+        return JSONResponse({"error": f"File too large (max {MAX_UPLOAD_BYTES // (1024*1024)} MB)"}, 413)
+
+    try:
+        image_url = await persist_record_image(contents, file.filename or "scan-record.jpg", file.content_type or "image/jpeg")
+    except Exception:
+        return JSONResponse({"error": "Image upload failed"}, 502)
+    return JSONResponse({"image_url": image_url})
 
 
 @app.post("/api/records")

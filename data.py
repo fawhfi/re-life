@@ -119,6 +119,28 @@ def _image_extension_for_mime(mime: str) -> str:
     }.get((mime or "").lower(), ".jpg")
 
 
+def _image_data_url(contents: bytes, mime: str) -> str:
+    b64 = base64.b64encode(contents).decode()
+    return f"data:{mime or 'image/jpeg'};base64,{b64}"
+
+
+async def persist_record_image(contents: bytes, filename: str, content_type: str | None = None) -> str:
+    mime = (content_type or "").split(";", 1)[0].lower() or "image/jpeg"
+    if not (supabase_enabled() and SUPABASE_STORAGE_BUCKET and SUPABASE_URL):
+        return _image_data_url(contents, mime)
+
+    ext = _image_extension_for_mime(mime)
+    path = f"scan-records/{uuid.uuid4()}{ext}"
+    await supabase_storage_upload(
+        SUPABASE_STORAGE_BUCKET,
+        path,
+        contents,
+        mime,
+    )
+    bucket = SUPABASE_STORAGE_BUCKET.strip("/")
+    return supabase_storage_signed_url(bucket, path)
+
+
 async def _persist_record_image_url(image_url: str | None) -> str:
     if not image_url or not isinstance(image_url, str):
         return ""
@@ -135,15 +157,7 @@ async def _persist_record_image_url(image_url: str | None) -> str:
         return image_url
 
     ext = _image_extension_for_mime(mime)
-    path = f"scan-records/{uuid.uuid4()}{ext}"
-    await supabase_storage_upload(
-        SUPABASE_STORAGE_BUCKET,
-        path,
-        contents,
-        mime,
-    )
-    bucket = SUPABASE_STORAGE_BUCKET.strip("/")
-    return supabase_storage_signed_url(bucket, path)
+    return await persist_record_image(contents, f"record{ext}", mime)
 
 
 async def _resolve_user_id(user_id=None, display_name=None, user_key=None) -> dict | None:

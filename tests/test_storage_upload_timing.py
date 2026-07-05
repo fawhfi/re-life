@@ -74,3 +74,35 @@ class FrontendImageCacheTests(unittest.TestCase):
             source.index("data.image_url = state.selectedFileDataUrl;"),
             source.index("showScanResult(data);"),
         )
+
+    def test_add_item_uploads_local_data_url_before_record_json_request(self):
+        source = Path("static/supabase.js").read_text(encoding="utf-8")
+
+        self.assertIn("async function uploadRecordImageIfNeeded", source)
+        self.assertIn('requestFormJson("/api/records/image"', source)
+        self.assertIn("const payload = buildRecordPayload(item || {});", source)
+        self.assertLess(
+            source.index("await uploadRecordImageIfNeeded(payload);"),
+            source.index('requestJson("/api/records"'),
+        )
+        self.assertIn("body: payload", source)
+        self.assertNotIn("body: item || {}", source)
+
+
+class RecordImageUploadEndpointTests(unittest.TestCase):
+    def test_record_image_upload_endpoint_returns_storage_url(self):
+        from fastapi.testclient import TestClient
+        from main import app
+
+        with patch("main.check_rate_limit", new=AsyncMock(return_value=None)), \
+             patch("main.get_user_by_id", new=AsyncMock(return_value={"id": 42})), \
+             patch("main.persist_record_image", new=AsyncMock(return_value="/api/storage/scan-images/scan-records/abc.png?exp=1&sig=x")) as persist_mock:
+            response = TestClient(app).post(
+                "/api/records/image",
+                data={"user_id": "42"},
+                files={"file": ("scan.png", b"image-bytes", "image/png")},
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["image_url"], "/api/storage/scan-images/scan-records/abc.png?exp=1&sig=x")
+        persist_mock.assert_awaited_once_with(b"image-bytes", "scan.png", "image/png")

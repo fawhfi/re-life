@@ -59,6 +59,15 @@ class ConfigRouteTests(unittest.TestCase):
         finally:
             importlib.reload(config)
 
+    def test_custom_endpoint_debug_script_is_available(self):
+        source = Path("scripts/debug_custom_endpoint.py").read_text(encoding="utf-8")
+
+        self.assertIn("CUSTOM_BASE_URL", source)
+        self.assertIn("CUSTOM_ENDPOINT_METHOD", source)
+        self.assertIn("body_preview", source)
+        self.assertIn('api_key="SET"', source)
+        self.assertNotIn("print(api_key", source)
+
     def test_main_no_html_injection_helper(self):
         source = Path("main.py").read_text(encoding="utf-8")
         self.assertNotIn("_inject_firebase_config", source)

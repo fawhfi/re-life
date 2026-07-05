@@ -220,11 +220,70 @@ def _anthropic_messages_url(base_url: str) -> str:
         return f"{base}/messages"
     return f"{base}/v1/messages"
 
+def _debug_value(value, limit: int = 500) -> str:
+    text = str(value).replace("\r", "\\r").replace("\n", "\\n")
+    if len(text) > limit:
+        return text[:limit] + "...<truncated>"
+    return text
+
+def _ai_debug(event: str, **fields) -> None:
+    parts = [f"event={event}"]
+    for key, value in fields.items():
+        if value is None:
+            continue
+        parts.append(f"{key}={_debug_value(value)}")
+    print("[AI Debug] " + " ".join(parts))
+
+def _response_debug_fields(response: httpx.Response) -> dict:
+    body = response.text or ""
+    return {
+        "status_code": response.status_code,
+        "content_type": response.headers.get("content-type", ""),
+        "body_len": len(body),
+        "body_preview": body,
+    }
+
+def _raise_for_ai_status(response: httpx.Response, provider: str) -> None:
+    _ai_debug("response", provider=provider, **_response_debug_fields(response))
+    try:
+        response.raise_for_status()
+    except httpx.HTTPStatusError as exc:
+        _ai_debug(
+            "error",
+            provider=provider,
+            error_type=exc.__class__.__name__,
+            message=str(exc),
+        )
+        raise
+
+def _parse_ai_json(response: httpx.Response, provider: str) -> dict:
+    try:
+        return response.json()
+    except ValueError as exc:
+        _ai_debug(
+            "error",
+            provider=provider,
+            error_type=exc.__class__.__name__,
+            message=str(exc),
+        )
+        raise Exception(f"{provider} endpoint returned non-JSON response: {exc}") from exc
+
 async def _call_openai_compat(api_key: str, base_url: str, model_id: str, prompt: str, b64: str, mime: str) -> str:
-    print("started")
+    provider = "openai-compatible"
+    url = _openai_chat_url(base_url)
+    _ai_debug(
+        "request",
+        provider=provider,
+        method="POST",
+        url=url,
+        model=model_id,
+        prompt_len=len(prompt),
+        image_mime=mime,
+        image_b64_len=len(b64),
+    )
     async with httpx.AsyncClient(timeout=180) as client:
         r = await client.post(
-            _openai_chat_url(base_url),
+            url,
             headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
             json={
                 "model": model_id,
@@ -235,10 +294,19 @@ async def _call_openai_compat(api_key: str, base_url: str, model_id: str, prompt
                 "max_tokens": 8192, "temperature": 0.6, "stream": False,
             },
         )
-        r.raise_for_status()
-
-        print(r)
-    return r.json()["choices"][0]["message"]["content"]
+        _raise_for_ai_status(r, provider)
+    data = _parse_ai_json(r, provider)
+    try:
+        return data["choices"][0]["message"]["content"]
+    except (KeyError, IndexError, TypeError) as exc:
+        _ai_debug(
+            "error",
+            provider=provider,
+            error_type=exc.__class__.__name__,
+            message="missing choices[0].message.content",
+            response_keys=",".join(data.keys()) if isinstance(data, dict) else type(data).__name__,
+        )
+        raise Exception("openai-compatible endpoint returned JSON without choices[0].message.content") from exc
 
 async def _call_gemini(prompt: str, b64: str, mime: str) -> str:
     async with httpx.AsyncClient(timeout=60) as client:
@@ -251,9 +319,21 @@ async def _call_gemini(prompt: str, b64: str, mime: str) -> str:
     return r.json()["candidates"][0]["content"]["parts"][0]["text"]
 
 async def _call_anthropic_compat(api_key: str, base_url: str, model_id: str, prompt: str, b64: str, mime: str) -> str:
+    provider = "anthropic-compatible"
+    url = _anthropic_messages_url(base_url)
+    _ai_debug(
+        "request",
+        provider=provider,
+        method="POST",
+        url=url,
+        model=model_id,
+        prompt_len=len(prompt),
+        image_mime=mime,
+        image_b64_len=len(b64),
+    )
     async with httpx.AsyncClient(timeout=180) as client:
         r = await client.post(
-            _anthropic_messages_url(base_url),
+            url,
             headers={
                 "x-api-key": api_key,
                 "anthropic-version": "2023-06-01",
@@ -272,14 +352,25 @@ async def _call_anthropic_compat(api_key: str, base_url: str, model_id: str, pro
                 }],
             },
         )
-        r.raise_for_status()
-    blocks = r.json().get("content", [])
+        _raise_for_ai_status(r, provider)
+    data = _parse_ai_json(r, provider)
+    blocks = data.get("content", []) if isinstance(data, dict) else []
     text_blocks = [
         block.get("text", "")
         for block in blocks
         if isinstance(block, dict) and block.get("text")
     ]
-    return "".join(text_blocks)
+    text = "".join(text_blocks)
+    if not text:
+        _ai_debug(
+            "error",
+            provider=provider,
+            error_type="ValueError",
+            message="missing content text blocks",
+            response_keys=",".join(data.keys()) if isinstance(data, dict) else type(data).__name__,
+        )
+        raise Exception("anthropic-compatible endpoint returned JSON without content text")
+    return text
 
 async def _call_claude(prompt: str, b64: str, mime: str) -> str:
     return await _call_anthropic_compat(CLAUDE_API_KEY, "https://api.anthropic.com/v1", CLAUDE_MODEL, prompt, b64, mime)

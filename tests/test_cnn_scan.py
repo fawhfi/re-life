@@ -1,13 +1,17 @@
 from pathlib import Path
 from inspect import signature
 import asyncio
+import contextlib
+import io
 import json
 import unittest
 from unittest.mock import ANY, AsyncMock, patch
 
 from fastapi.testclient import TestClient
+import httpx
 
 from models import ai_analyze, classifier_response, upload_image
+import models
 from main import app
 from nlp import build_tokenizer
 from nlp.infer import DEFAULT_MODEL_PATH
@@ -35,6 +39,36 @@ class CnnScanTests(unittest.TestCase):
             "weightedScores": {"a": 80, "b": 82, "c": 78, "d": 76, "e": 90},
             "alternative": {"name": "Refill Bottle", "ecoRate": 5, "recycleRate": 5},
         })
+
+    def _failing_async_client(self, status_code=401, body=None, text=None, content_type="application/json"):
+        response_body = body or {"error": {"message": "bad key"}}
+
+        class FailingAsyncClient:
+            def __init__(self, *args, **kwargs):
+                pass
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, exc_type, exc, tb):
+                return False
+
+            async def post(self, url, headers=None, json=None):
+                if text is not None:
+                    return httpx.Response(
+                        status_code,
+                        text=text,
+                        request=httpx.Request("POST", url),
+                        headers={"content-type": content_type},
+                    )
+                return httpx.Response(
+                    status_code,
+                    json=response_body,
+                    request=httpx.Request("POST", url),
+                    headers={"content-type": "application/json"},
+                )
+
+        return FailingAsyncClient
 
     def test_classifier_response_uses_waste_type_label(self):
         result = classifier_response("paper", 0.91, "dispose")
@@ -301,3 +335,84 @@ class CnnScanTests(unittest.TestCase):
             "image/png",
         )
         self.assertEqual(result["name"], "Claude Bottle")
+
+    def test_openai_compatible_failure_prints_safe_http_debug_details(self):
+        stream = io.StringIO()
+
+        with patch("models.httpx.AsyncClient", self._failing_async_client(401)), \
+             contextlib.redirect_stdout(stream), \
+             self.assertRaises(httpx.HTTPStatusError):
+            asyncio.run(models._call_openai_compat(
+                "secret-api-key",
+                "https://llm.example.com/v1",
+                "vision-model",
+                "prompt",
+                "base64-image-payload",
+                "image/png",
+            ))
+
+        output = stream.getvalue()
+        self.assertIn("[AI Debug]", output)
+        self.assertIn("event=request", output)
+        self.assertIn("provider=openai-compatible", output)
+        self.assertIn("url=https://llm.example.com/v1/chat/completions", output)
+        self.assertIn("model=vision-model", output)
+        self.assertIn("status_code=401", output)
+        self.assertIn("bad key", output)
+        self.assertNotIn("secret-api-key", output)
+        self.assertNotIn("base64-image-payload", output)
+
+    def test_openai_compatible_200_non_json_prints_body_preview(self):
+        stream = io.StringIO()
+
+        with patch("models.httpx.AsyncClient", self._failing_async_client(
+                200,
+                text="not-json response from proxy",
+                content_type="text/plain",
+             )), \
+             contextlib.redirect_stdout(stream), \
+             self.assertRaisesRegex(Exception, "non-JSON"):
+            asyncio.run(models._call_openai_compat(
+                "secret-api-key",
+                "https://ai.furry.edu.gr",
+                "vision-model",
+                "prompt",
+                "base64-image-payload",
+                "image/png",
+            ))
+
+        output = stream.getvalue()
+        self.assertIn("[AI Debug]", output)
+        self.assertIn("provider=openai-compatible", output)
+        self.assertIn("url=https://ai.furry.edu.gr/chat/completions", output)
+        self.assertIn("status_code=200", output)
+        self.assertIn("content_type=text/plain", output)
+        self.assertIn("body_len=28", output)
+        self.assertIn("not-json response from proxy", output)
+        self.assertNotIn("secret-api-key", output)
+        self.assertNotIn("base64-image-payload", output)
+
+    def test_anthropic_compatible_failure_prints_safe_http_debug_details(self):
+        stream = io.StringIO()
+
+        with patch("models.httpx.AsyncClient", self._failing_async_client(502, {"error": "upstream overloaded"})), \
+             contextlib.redirect_stdout(stream), \
+             self.assertRaises(httpx.HTTPStatusError):
+            asyncio.run(models._call_anthropic_compat(
+                "secret-api-key",
+                "https://anthropic-proxy.example.com/v1",
+                "claude-proxy-model",
+                "prompt",
+                "base64-image-payload",
+                "image/png",
+            ))
+
+        output = stream.getvalue()
+        self.assertIn("[AI Debug]", output)
+        self.assertIn("provider=anthropic-compatible", output)
+        self.assertIn("url=https://anthropic-proxy.example.com/v1/messages", output)
+        self.assertIn("model=claude-proxy-model", output)
+        self.assertIn("status_code=502", output)
+        self.assertIn("upstream overloaded", output)
+        self.assertNotIn("secret-api-key", output)
+        self.assertNotIn("base64-image-payload", output)

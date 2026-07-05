@@ -593,7 +593,8 @@ function navigateTo(name) {
         return;
     }
 
-    const distance = PERF.lowEnd ? 12 : 24;
+    const isNarrowScreen = window.matchMedia('(max-width: 760px)').matches;
+    const distance = isNarrowScreen ? 14 : (PERF.lowEnd ? 12 : 24);
     const duration = 0.32;
     const nextChildren = nextTab.querySelectorAll(':scope > *');
     nextTab.scrollTop = 0;
@@ -630,15 +631,14 @@ function navigateTo(name) {
 
     // Children stagger - apply on all screens, smaller stagger on mobile
     if (!PERF.lowEnd && nextChildren.length) {
-        const isMobile = window.innerWidth <= 760;
         _tabTween.fromTo(nextChildren, {
             opacity: 0,
-            y: isMobile ? 6 : 10,
+            y: isNarrowScreen ? 6 : 10,
         }, {
             opacity: 1,
             y: 0,
-            duration: isMobile ? 0.2 : 0.28,
-            stagger: isMobile ? 0.02 : 0.035,
+            duration: isNarrowScreen ? 0.2 : 0.28,
+            stagger: isNarrowScreen ? 0.02 : 0.035,
             ease: "power2.out",
         }, currentTab ? 0.14 : 0.08);
     }
@@ -1073,18 +1073,18 @@ function addScanToRecord() {
 function getReuseTip(item = {}) {
     const category = String(item.category || item.material || item.name || '').toLowerCase();
     if (category.includes('food') || category.includes('organic')) {
-        return 'Share, compost, or repurpose before disposal when safe.';
+        return "If it is still safe, turn leftovers into tomorrow's soup base, lunch-box remix, or share-it-now snack; otherwise compost it.";
     }
     if (category.includes('glass') || category.includes('bottle') || category.includes('jar')) {
-        return 'Clean and reuse as a container before recycling.';
+        return 'Give it a second career: spice jar, cutting-root vase, desk coin catcher, then recycle it clean.';
     }
     if (category.includes('paper') || category.includes('cardboard')) {
-        return 'Reuse for notes, wrapping, or storage before recycling.';
+        return 'Fold it into drawer dividers, gift tags, seed-starting trays, or a messy-desk scratch pad before recycling.';
     }
     if (category.includes('elect') || category.includes('device') || category.includes('ewaste')) {
-        return 'Repair, donate, or trade in if the item still works.';
+        return 'Try one rescue lap: repair cafe, school maker box, parts donor, or certified e-waste handoff.';
     }
-    return 'Repair, donate, refill, or repurpose before recycling or disposal.';
+    return 'Run a 24-hour second-life challenge: refill it, loan it, turn it into storage, then choose recycling/disposal.';
 }
 
 function swapAlternative() {

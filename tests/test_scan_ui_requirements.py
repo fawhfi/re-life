@@ -21,6 +21,23 @@ class ScanUiRequirementsTests(unittest.TestCase):
         self.assertIn('id="disp-reuse"', template)
         self.assertIn("reuse_tip", source)
 
+    def test_reuse_guide_uses_specific_creative_prompts(self):
+        source = Path("static/app.js").read_text(encoding="utf-8")
+
+        self.assertIn("tomorrow's soup base, lunch-box remix", source)
+        self.assertIn("spice jar, cutting-root vase, desk coin catcher", source)
+        self.assertIn("drawer dividers, gift tags, seed-starting trays", source)
+        self.assertIn("repair cafe, school maker box, parts donor", source)
+        self.assertIn("24-hour second-life challenge", source)
+        self.assertNotIn(
+            "Share, compost, or repurpose before disposal when safe.",
+            source,
+        )
+        self.assertNotIn(
+            "Repair, donate, refill, or repurpose before recycling or disposal.",
+            source,
+        )
+
     def test_rewards_use_generic_provider_names(self):
         rewards_text = "\n".join(
             " ".join(

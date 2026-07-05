@@ -221,6 +221,7 @@ def _anthropic_messages_url(base_url: str) -> str:
     return f"{base}/v1/messages"
 
 async def _call_openai_compat(api_key: str, base_url: str, model_id: str, prompt: str, b64: str, mime: str) -> str:
+    print("started")
     async with httpx.AsyncClient(timeout=180) as client:
         r = await client.post(
             _openai_chat_url(base_url),
@@ -235,6 +236,8 @@ async def _call_openai_compat(api_key: str, base_url: str, model_id: str, prompt
             },
         )
         r.raise_for_status()
+
+        print(r)
     return r.json()["choices"][0]["message"]["content"]
 
 async def _call_gemini(prompt: str, b64: str, mime: str) -> str:

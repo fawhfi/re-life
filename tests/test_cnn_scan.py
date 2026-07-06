@@ -376,11 +376,15 @@ class CnnScanTests(unittest.TestCase):
         self.assertIn("nav.classList.add('nav-btn--pop')", app)
         self.assertIn("setTimeout(() => nav.classList.remove('nav-btn--pop')", app)
         self.assertIn(".nav-btn.is-active .nav-btn-icon", style)
-        self.assertIn("scale(1.28)", style)
+        self.assertIn("scale(1.12)", style)
         self.assertIn("navSelectedPop", style)
-        self.assertIn("nav-indicator::after", style)
+        self.assertIn("inset 0 0 0 1px rgba(61,106,75,0.08)", style)
         self.assertIn("html.perf-lite .nav-btn--pop .nav-btn-icon", style)
-        self.assertIn("[data-theme=\"midnight\"] .nav-indicator::after", theme)
+        self.assertIn("[data-theme=\"midnight\"] .nav-indicator", theme)
+        self.assertNotIn("scale(1.28)", style)
+        self.assertNotIn("scale(1.38)", style)
+        self.assertNotIn("nav-indicator::after", style)
+        self.assertNotIn("drop-shadow", style)
 
     def test_ai_analyze_adds_chinese_instruction_for_zh_language(self):
         with patch("models.DEFAULT_AI_MODEL", "custom"), \

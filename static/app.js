@@ -581,7 +581,7 @@ function navigateTo(name) {
         if (MOTION_ENABLED && !PERF.lowEnd) {
             void nav.offsetWidth;
             nav.classList.add('nav-btn--pop');
-            setTimeout(() => nav.classList.remove('nav-btn--pop'), 520);
+            setTimeout(() => nav.classList.remove('nav-btn--pop'), 340);
         }
         if (window._snapNavIndicator) window._snapNavIndicator();
     }

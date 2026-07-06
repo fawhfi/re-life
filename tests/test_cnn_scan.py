@@ -14,7 +14,7 @@ from models import ai_analyze, classifier_response, upload_image
 import models
 from main import app
 from nlp import build_tokenizer
-from nlp.infer import DEFAULT_MODEL_PATH
+from nlp.infer import DEFAULT_MODEL_PATH, predict_image
 from nlp.model import build_model
 from storage import normalize_supabase_storage_url, supabase_storage_signed_url
 
@@ -114,6 +114,63 @@ class CnnScanTests(unittest.TestCase):
         self.assertTrue((artifacts / "tokenizer.json").exists())
         self.assertTrue((artifacts / "metadata.json").exists())
 
+    def test_local_nlp_predict_image_uses_prompted_text(self):
+        sample_dir = Path(__file__).resolve().parents[2] / "cnn_classifier" / "src" / "data" / "test" / "plastic"
+        sample = next(
+            path for path in sorted(sample_dir.iterdir())
+            if path.suffix.lower() in {".jpg", ".jpeg", ".png"}
+        )
+
+        result = predict_image(sample, prompt="Return JSON with disposal and reuse_tip.")
+
+        self.assertEqual(result["runtime_source"], "onnxruntime")
+        self.assertEqual(result["artifact"], "model_fp16.onnx")
+        self.assertTrue(result["text"].startswith("{"))
+        self.assertIn('"waste_type"', result["text"])
+        self.assertIn('"reuse_tip"', result["text"])
+
+    def test_scan_endpoint_passes_prompt_to_local_transformer(self):
+        local_result = {
+            "name": "Plastic",
+            "brand": "",
+            "category": "plastic",
+            "waste_type": "plastic",
+            "waste_label": "Plastic",
+            "classifier_source": "nlp",
+            "model_source": "transformer",
+            "runtime_source": "onnxruntime",
+            "artifact": "model_fp16.onnx",
+            "text": '{"waste_type":"plastic","disposal":"rinse recycle plastic","reuse_tip":"refill or planter"}',
+            "tokens": ["{", "waste_type", "plastic", "reuse_tip"],
+            "confidence": 0.99,
+            "standard_type": "general",
+            "description": "",
+            "material": "plastic",
+            "eco_rate": 2,
+            "recycle_rate": 3,
+            "weighted_scores": {"a": 80, "b": 80, "c": 80, "d": 80, "e": 80},
+            "disposal_guide": "Rinse and recycle.",
+            "precaution": "",
+            "alternative": None,
+        }
+
+        with patch("main.local_scan_response", return_value=local_result) as local_mock:
+            response = self.client.post(
+                "/api/scan/ai",
+                files={"file": ("sample.jpg", b"fake image bytes", "image/jpeg")},
+                data={
+                    "mode": "dispose",
+                    "item_type": "food",
+                    "item_state": "new",
+                    "debug": "true",
+                    "prompt": "Return JSON with disposal and reuse_tip.",
+                },
+            )
+
+        self.assertEqual(response.status_code, 200)
+        local_mock.assert_called_once()
+        self.assertEqual(local_mock.call_args.args[2], "Return JSON with disposal and reuse_tip.")
+
     def test_scan_endpoint_tries_remote_llm_before_local_fallback(self):
         sample_dir = Path(__file__).resolve().parents[2] / "cnn_classifier" / "src" / "data" / "test" / "paper"
         sample = next(
@@ -186,6 +243,39 @@ class CnnScanTests(unittest.TestCase):
         self.assertEqual(result["waste_label"], "Plastic")
         self.assertIn("plastic", result["text"].lower())
         self.assertEqual(result["alternative"]["name"], "Refill Bottle")
+
+    def test_scan_endpoint_passes_language_to_remote_llm(self):
+        remote_result = {
+            "name": "膠樽",
+            "brand": "",
+            "category": "beverage",
+            "description": "遠端模型以中文回覆。",
+            "material": "plastic",
+            "eco_rate": 2,
+            "recycle_rate": 3,
+            "standard_type": "general",
+            "weighted_scores": {"a": 81, "b": 77, "c": 73, "d": 69, "e": 85},
+            "alternative": None,
+            "waste_type": "plastic",
+            "waste_label": "Plastic",
+            "text": "遠端模型以中文回覆。",
+            "classifier_source": "openai",
+            "model_source": "gpt-4o-mini",
+            "runtime_source": "remote",
+            "artifact": "gpt-4o-mini",
+            "confidence": 0.91,
+        }
+
+        with patch("main.ai_analyze", new=AsyncMock(return_value=remote_result)) as remote_mock:
+            response = self.client.post(
+                "/api/scan/ai",
+                files={"file": ("sample.jpg", b"fake image bytes", "image/jpeg")},
+                data={"mode": "dispose", "item_type": "food", "item_state": "new", "debug": "false", "lang": "zh"},
+            )
+
+        self.assertEqual(response.status_code, 200)
+        remote_mock.assert_awaited_once()
+        self.assertEqual(remote_mock.await_args.args[2], "zh")
 
     def test_scan_endpoint_debug_mode_forces_local_transformer(self):
         sample_dir = Path(__file__).resolve().parents[2] / "cnn_classifier" / "src" / "data" / "test" / "paper"
@@ -272,6 +362,27 @@ class CnnScanTests(unittest.TestCase):
         self.assertIn('"reuseTip"', source)
         self.assertIn('"reuse_tip": j.get("reuseTip", "")', source)
         self.assertIn("integer 0-100", source)
+
+    def test_scan_request_sends_selected_language(self):
+        source = Path("static/app.js").read_text(encoding="utf-8")
+
+        self.assertIn("fd.append('lang', state.lang);", source)
+
+    def test_ai_analyze_adds_chinese_instruction_for_zh_language(self):
+        with patch("models.DEFAULT_AI_MODEL", "custom"), \
+             patch("models.CUSTOM_METHOD", "openai"), \
+             patch("models.CUSTOM_API_KEY", "custom-key"), \
+             patch("models.CUSTOM_BASE_URL", "https://llm.example.com/v1"), \
+             patch("models.CUSTOM_MODEL", "vision-model"), \
+             patch("models._compress_image", return_value=(b"compressed", "image/png")), \
+             patch("models._call_openai_compat", new=AsyncMock(return_value=self._remote_json())) as custom_mock:
+            asyncio.run(ai_analyze(b"image-bytes", "sid-custom", language="zh"))
+
+        prompt = custom_mock.await_args.args[3]
+        self.assertIn("Traditional Chinese", prompt)
+        self.assertIn("Keep JSON property names", prompt)
+        self.assertIn("human-readable JSON string values", prompt)
+
 
     def test_scan_ui_no_longer_allows_score_dragging(self):
         app = Path("static/app.js").read_text(encoding="utf-8")

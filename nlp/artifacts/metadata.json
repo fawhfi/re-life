@@ -9,21 +9,29 @@
   ],
   "num_classes": 6,
   "img_size": 224,
-  "best_epoch": 27,
+  "checkpoint": "model_fp16.onnx",
+  "quantized_checkpoint": null,
+  "source_checkpoint": "student.pt",
+  "epoch": 11,
   "train_metrics": {
-    "loss": 0.05699551750676356,
-    "class_loss": 0.024519482490945422,
-    "caption_loss": 0.10825344585422156,
-    "class_acc": 0.988965744400527,
-    "token_acc": 0.9372880244468634
+    "loss": 0.13073189371875552,
+    "class_loss": 0.12179512248572642,
+    "caption_loss": 0.029789236513577608,
+    "class_acc": 0.9379966239861666,
+    "token_acc": 0.9867010813195198
   },
   "val_metrics": {
-    "loss": 0.2903994144323091,
-    "class_loss": 0.2539126325619115,
-    "caption_loss": 0.12162260166904687,
-    "class_acc": 0.9499381953028431,
-    "token_acc": 0.975166874840512
+    "loss": 0.31714309566874144,
+    "class_loss": 0.30005457603457436,
+    "caption_loss": 0.05696173199058365,
+    "class_acc": 0.8984342810053564,
+    "token_acc": 0.9922733723529575
   },
-  "test_metrics": null,
-  "checkpoint": "student.pt"
+  "test_metrics": {
+    "loss": 0.3109881329035906,
+    "class_loss": 0.28771604372788284,
+    "caption_loss": 0.07757362600743127,
+    "class_acc": 0.9084745762711864,
+    "token_acc": 0.9532431494970517
+  }
 }

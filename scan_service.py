@@ -11,7 +11,7 @@ from models import CNN_LABELS, ai_analyze, local_scan_response
 from scoring import CRITERIA_LABELS, HK_DISPOSAL, calc_weighted, get_grade
 
 
-RemoteAnalyzer = Callable[[bytes, str], Awaitable[dict]]
+RemoteAnalyzer = Callable[[bytes, str, str], Awaitable[dict]]
 LocalAnalyzer = Callable[[bytes, str, str | None], dict]
 
 
@@ -48,6 +48,7 @@ async def analyze_scan_image(
     *,
     force_local: bool = False,
     prompt: str | None = None,
+    language: str = "en",
     remote_analyzer: RemoteAnalyzer = ai_analyze,
     local_analyzer: LocalAnalyzer = local_scan_response,
 ) -> dict:
@@ -56,7 +57,7 @@ async def analyze_scan_image(
         return local_analyzer(contents, mode, prompt)
 
     try:
-        return await remote_analyzer(contents, schema_id)
+        return await remote_analyzer(contents, schema_id, language)
     except Exception as remote_error:
         print(f"[Classifier] Remote AI error: {str(remote_error)[:200]}")
         try:

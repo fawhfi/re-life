@@ -800,6 +800,7 @@ async function doScan() {
         fd.append('mode', state.scanMode);
         fd.append('item_type', state.itemType);
         fd.append('item_state', state.itemState);
+        fd.append('lang', state.lang);
         if (state.debugMode) fd.append('debug', 'true');
 
         const res = await fetch('/api/scan/ai', { method: 'POST', body: fd });

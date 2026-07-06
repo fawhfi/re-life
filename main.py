@@ -298,7 +298,7 @@ async def reset_password(request: Request, data: dict):
 @app.post("/api/scan/ai")
 async def scan_item_ai(request: Request, file: UploadFile = File(...), mode: str = Form("dispose"),
                        item_type: str = Form("food"), item_state: str = Form("new"), debug: str = Form("false"),
-                       prompt: str = Form("")):
+                       prompt: str = Form(""), lang: str = Form("en")):
     await check_rate_limit(request, 15, 60)
     if file.content_type and file.content_type not in ALLOWED_IMAGE_TYPES:
         return JSONResponse({"error": "Only JPEG, PNG, WebP allowed"}, 400)
@@ -313,6 +313,7 @@ async def scan_item_ai(request: Request, file: UploadFile = File(...), mode: str
             mode,
             force_local=parse_bool(debug),
             prompt=prompt.strip() or None,
+            language=lang.strip() or "en",
             remote_analyzer=ai_analyze,
             local_analyzer=local_scan_response,
         )

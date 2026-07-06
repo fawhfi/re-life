@@ -244,6 +244,39 @@ class CnnScanTests(unittest.TestCase):
         self.assertIn("plastic", result["text"].lower())
         self.assertEqual(result["alternative"]["name"], "Refill Bottle")
 
+    def test_scan_endpoint_passes_language_to_remote_llm(self):
+        remote_result = {
+            "name": "膠樽",
+            "brand": "",
+            "category": "beverage",
+            "description": "遠端模型以中文回覆。",
+            "material": "plastic",
+            "eco_rate": 2,
+            "recycle_rate": 3,
+            "standard_type": "general",
+            "weighted_scores": {"a": 81, "b": 77, "c": 73, "d": 69, "e": 85},
+            "alternative": None,
+            "waste_type": "plastic",
+            "waste_label": "Plastic",
+            "text": "遠端模型以中文回覆。",
+            "classifier_source": "openai",
+            "model_source": "gpt-4o-mini",
+            "runtime_source": "remote",
+            "artifact": "gpt-4o-mini",
+            "confidence": 0.91,
+        }
+
+        with patch("main.ai_analyze", new=AsyncMock(return_value=remote_result)) as remote_mock:
+            response = self.client.post(
+                "/api/scan/ai",
+                files={"file": ("sample.jpg", b"fake image bytes", "image/jpeg")},
+                data={"mode": "dispose", "item_type": "food", "item_state": "new", "debug": "false", "lang": "zh"},
+            )
+
+        self.assertEqual(response.status_code, 200)
+        remote_mock.assert_awaited_once()
+        self.assertEqual(remote_mock.await_args.args[2], "zh")
+
     def test_scan_endpoint_debug_mode_forces_local_transformer(self):
         sample_dir = Path(__file__).resolve().parents[2] / "cnn_classifier" / "src" / "data" / "test" / "paper"
         sample = next(
@@ -329,6 +362,27 @@ class CnnScanTests(unittest.TestCase):
         self.assertIn('"reuseTip"', source)
         self.assertIn('"reuse_tip": j.get("reuseTip", "")', source)
         self.assertIn("integer 0-100", source)
+
+    def test_scan_request_sends_selected_language(self):
+        source = Path("static/app.js").read_text(encoding="utf-8")
+
+        self.assertIn("fd.append('lang', state.lang);", source)
+
+    def test_ai_analyze_adds_chinese_instruction_for_zh_language(self):
+        with patch("models.DEFAULT_AI_MODEL", "custom"), \
+             patch("models.CUSTOM_METHOD", "openai"), \
+             patch("models.CUSTOM_API_KEY", "custom-key"), \
+             patch("models.CUSTOM_BASE_URL", "https://llm.example.com/v1"), \
+             patch("models.CUSTOM_MODEL", "vision-model"), \
+             patch("models._compress_image", return_value=(b"compressed", "image/png")), \
+             patch("models._call_openai_compat", new=AsyncMock(return_value=self._remote_json())) as custom_mock:
+            asyncio.run(ai_analyze(b"image-bytes", "sid-custom", language="zh"))
+
+        prompt = custom_mock.await_args.args[3]
+        self.assertIn("Traditional Chinese", prompt)
+        self.assertIn("Keep JSON property names", prompt)
+        self.assertIn("human-readable JSON string values", prompt)
+
 
     def test_scan_ui_no_longer_allows_score_dragging(self):
         app = Path("static/app.js").read_text(encoding="utf-8")

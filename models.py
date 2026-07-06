@@ -181,6 +181,26 @@ Respond with ONLY a JSON object (no markdown, no explanation):
   "alternative": {"name": "A more eco-friendly alternative", "ecoRate": 5, "recycleRate": 5}
 }"""
 
+
+def _normalize_language(language: str | None) -> str:
+    value = (language or "").strip().lower()
+    if value.startswith("zh") or value in {"cn", "hk", "zh-hk", "zh_hk", "traditional_chinese"}:
+        return "zh"
+    return "en"
+
+
+def _prompt_for_language(prompt: str, language: str | None) -> str:
+    if _normalize_language(language) != "zh":
+        return prompt
+    return (
+        prompt
+        + "\n\nLanguage rule:\n"
+        + "- User interface language is Traditional Chinese (zh-HK).\n"
+        + "- Return all human-readable JSON string values in Traditional Chinese.\n"
+        + "- Keep JSON property names exactly as specified, for example name, description, disposalGuide, reuseTip.\n"
+        + "- Keep enum-like values such as material and standardType in the allowed English values.\n"
+    )
+
 def _compress_image(image_bytes: bytes) -> tuple[bytes, str]:
     try:
         img = Image.open(io.BytesIO(image_bytes))
@@ -409,24 +429,25 @@ async def _call_custom_endpoint(prompt: str, b64: str, mime: str) -> str:
         return await _call_anthropic_compat(api_key, base_url, model_id, prompt, b64, mime)
     raise Exception(f"Unsupported custom endpoint method '{CUSTOM_METHOD}'")
 
-async def ai_analyze(image_bytes: bytes, sid: str) -> dict:
+async def ai_analyze(image_bytes: bytes, sid: str, language: str = "en") -> dict:
     """Route to the correct AI provider based on DEFAULT_AI_MODEL."""
     compressed, mime = _compress_image(image_bytes)
     b64 = base64.b64encode(compressed).decode()
     model = DEFAULT_AI_MODEL
+    prompt = _prompt_for_language(_AI_PROMPT, language)
 
     if model == "nvidia" and NVIDIA_API_KEY:
-        content = await _call_nvidia_stream(NVIDIA_API_KEY, NVIDIA_MODEL, _AI_PROMPT, b64, mime)
+        content = await _call_nvidia_stream(NVIDIA_API_KEY, NVIDIA_MODEL, prompt, b64, mime)
     elif model == "openai" and OPENAI_API_KEY:
-        content = await _call_openai_compat(OPENAI_API_KEY, "https://api.openai.com/v1", OPENAI_MODEL, _AI_PROMPT, b64, mime)
+        content = await _call_openai_compat(OPENAI_API_KEY, "https://api.openai.com/v1", OPENAI_MODEL, prompt, b64, mime)
     elif model == "deepseek" and DEEPSEEK_API_KEY:
-        content = await _call_openai_compat(DEEPSEEK_API_KEY, "https://api.deepseek.com/v1", "deepseek-chat", _AI_PROMPT, b64, mime)
+        content = await _call_openai_compat(DEEPSEEK_API_KEY, "https://api.deepseek.com/v1", "deepseek-chat", prompt, b64, mime)
     elif model == "gemini" and GEMINI_API_KEY:
-        content = await _call_gemini(_AI_PROMPT, b64, mime)
+        content = await _call_gemini(prompt, b64, mime)
     elif model == "claude" and CLAUDE_API_KEY:
-        content = await _call_claude(_AI_PROMPT, b64, mime)
+        content = await _call_claude(prompt, b64, mime)
     elif model == "custom":
-        content = await _call_custom_endpoint(_AI_PROMPT, b64, mime)
+        content = await _call_custom_endpoint(prompt, b64, mime)
     else:
         raise Exception(f"Model '{model}' not available")
 

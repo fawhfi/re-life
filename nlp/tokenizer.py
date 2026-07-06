@@ -6,9 +6,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable, Sequence
 
-TOKEN_PATTERN = re.compile(r"[a-z0-9]+(?:'[a-z0-9]+)?|[.!?,;:]")
+TOKEN_PATTERN = re.compile(r"[a-z0-9_]+(?:'[a-z0-9_]+)?|[\u4e00-\u9fff]|[{}\".!?,;:，。！？、：；]")
 
-SPECIAL_TOKENS = ["<pad>", "<bos>", "<eos>", "<unk>"]
+SPECIAL_TOKENS = ["<pad>", "<bos>", "<eos>", "<unk>", "<sep>"]
 
 
 def tokenize(text: str) -> list[str]:
@@ -17,7 +17,16 @@ def tokenize(text: str) -> list[str]:
 
 def detokenize(tokens: Sequence[str]) -> str:
     text = " ".join(tokens)
+    if any(marker in text for marker in ('{', '}', '"')):
+        text = re.sub(r"\{\s+", "{", text)
+        text = re.sub(r"\s+\}", "}", text)
+        text = re.sub(r"\s*,\s*", ",", text)
+        text = re.sub(r"\s*:\s*", ":", text)
+        text = re.sub(r'"\s+', '"', text)
+        text = re.sub(r'\s+"', '"', text)
     text = re.sub(r"\s+([.!?,;:])", r"\1", text)
+    text = re.sub(r"\s+([，。！？、：；])", r"\1", text)
+    text = re.sub(r"(?<=[\u4e00-\u9fff])\s+(?=[\u4e00-\u9fff])", "", text)
     text = re.sub(r"\s+'", "'", text)
     text = text.strip()
     if text:
@@ -37,6 +46,7 @@ class CaptionTokenizer:
         self.bos_id = self.token_to_id["<bos>"]
         self.eos_id = self.token_to_id["<eos>"]
         self.unk_id = self.token_to_id["<unk>"]
+        self.sep_id = self.token_to_id.get("<sep>", self.eos_id)
 
     @property
     def vocab_size(self) -> int:
@@ -70,6 +80,21 @@ class CaptionTokenizer:
             return [self.bos_id, *ids, self.eos_id]
         return ids
 
+    def encode_prompt(self, prompt: str, add_bos: bool = True) -> list[int]:
+        ids = [self.token_to_id.get(token, self.unk_id) for token in tokenize(prompt)]
+        if add_bos:
+            return [self.bos_id, *ids, self.sep_id]
+        return [*ids, self.sep_id]
+
+    def split_answer_ids(self, ids: Sequence[int]) -> list[int]:
+        values = [int(idx) for idx in ids]
+        if self.sep_id in values:
+            values = values[values.index(self.sep_id) + 1 :]
+        return values
+
+    def decode_answer(self, ids: Sequence[int]) -> str:
+        return detokenize(self.decode_ids(self.split_answer_ids(ids)))
+
     def decode_ids(self, ids: Sequence[int], skip_special_tokens: bool = True) -> list[str]:
         tokens: list[str] = []
         for idx in ids:
@@ -98,6 +123,11 @@ class CaptionTokenizer:
 
 
 def build_tokenizer() -> CaptionTokenizer:
+    from .knowledge import build_instruction_catalog
     from .labels import build_caption_catalog
 
-    return CaptionTokenizer.build(build_caption_catalog())
+    texts = build_caption_catalog()
+    for example in build_instruction_catalog():
+        texts.append(example.prompt)
+        texts.append(example.response)
+    return CaptionTokenizer.build(texts)

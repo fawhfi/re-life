@@ -14,7 +14,7 @@ from models import ai_analyze, classifier_response, upload_image
 import models
 from main import app
 from nlp import build_tokenizer
-from nlp.infer import DEFAULT_MODEL_PATH
+from nlp.infer import DEFAULT_MODEL_PATH, predict_image
 from nlp.model import build_model
 from storage import normalize_supabase_storage_url, supabase_storage_signed_url
 
@@ -113,6 +113,63 @@ class CnnScanTests(unittest.TestCase):
         self.assertTrue((artifacts / "model_fp16.onnx").exists())
         self.assertTrue((artifacts / "tokenizer.json").exists())
         self.assertTrue((artifacts / "metadata.json").exists())
+
+    def test_local_nlp_predict_image_uses_prompted_text(self):
+        sample_dir = Path(__file__).resolve().parents[2] / "cnn_classifier" / "src" / "data" / "test" / "plastic"
+        sample = next(
+            path for path in sorted(sample_dir.iterdir())
+            if path.suffix.lower() in {".jpg", ".jpeg", ".png"}
+        )
+
+        result = predict_image(sample, prompt="Return JSON with disposal and reuse_tip.")
+
+        self.assertEqual(result["runtime_source"], "onnxruntime")
+        self.assertEqual(result["artifact"], "model_fp16.onnx")
+        self.assertTrue(result["text"].startswith("{"))
+        self.assertIn('"waste_type"', result["text"])
+        self.assertIn('"reuse_tip"', result["text"])
+
+    def test_scan_endpoint_passes_prompt_to_local_transformer(self):
+        local_result = {
+            "name": "Plastic",
+            "brand": "",
+            "category": "plastic",
+            "waste_type": "plastic",
+            "waste_label": "Plastic",
+            "classifier_source": "nlp",
+            "model_source": "transformer",
+            "runtime_source": "onnxruntime",
+            "artifact": "model_fp16.onnx",
+            "text": '{"waste_type":"plastic","disposal":"rinse recycle plastic","reuse_tip":"refill or planter"}',
+            "tokens": ["{", "waste_type", "plastic", "reuse_tip"],
+            "confidence": 0.99,
+            "standard_type": "general",
+            "description": "",
+            "material": "plastic",
+            "eco_rate": 2,
+            "recycle_rate": 3,
+            "weighted_scores": {"a": 80, "b": 80, "c": 80, "d": 80, "e": 80},
+            "disposal_guide": "Rinse and recycle.",
+            "precaution": "",
+            "alternative": None,
+        }
+
+        with patch("main.local_scan_response", return_value=local_result) as local_mock:
+            response = self.client.post(
+                "/api/scan/ai",
+                files={"file": ("sample.jpg", b"fake image bytes", "image/jpeg")},
+                data={
+                    "mode": "dispose",
+                    "item_type": "food",
+                    "item_state": "new",
+                    "debug": "true",
+                    "prompt": "Return JSON with disposal and reuse_tip.",
+                },
+            )
+
+        self.assertEqual(response.status_code, 200)
+        local_mock.assert_called_once()
+        self.assertEqual(local_mock.call_args.args[2], "Return JSON with disposal and reuse_tip.")
 
     def test_scan_endpoint_tries_remote_llm_before_local_fallback(self):
         sample_dir = Path(__file__).resolve().parents[2] / "cnn_classifier" / "src" / "data" / "test" / "paper"

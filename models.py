@@ -101,8 +101,15 @@ def classifier_response(category: str, confidence: float, mode: str) -> dict:
         confidence=confidence,
     )
 
-def local_scan_response(image_bytes: bytes, mode: str) -> dict:
-    prediction = predict_image(image_bytes)
+def _local_prompt_for_mode(mode: str) -> str | None:
+    if mode == "purchase":
+        return "Give a short reuse tip."
+    return None
+
+
+def local_scan_response(image_bytes: bytes, mode: str, prompt: str | None = None) -> dict:
+    effective_prompt = (prompt or "").strip() or _local_prompt_for_mode(mode)
+    prediction = predict_image(image_bytes, prompt=effective_prompt)
     category = prediction["waste_type"]
     label = prediction.get("waste_label") or CNN_LABELS.get(category, category.replace("_", " ").title())
     return _build_waste_response(

@@ -10,6 +10,7 @@ import onnxruntime as ort
 from PIL import Image
 
 from .constants import IMG_SIZE, MEAN, STD
+from .knowledge import grounded_response_for, response_satisfies_prompt
 from .labels import TOKEN_ALIASES, WASTE_TOKENS, default_caption_for
 from .tokenizer import CaptionTokenizer, build_tokenizer
 
@@ -101,6 +102,7 @@ def _softmax(logits: np.ndarray) -> np.ndarray:
 def predict_image(
     image_path: str | Path | bytes | bytearray,
     model_path: str | Path = DEFAULT_MODEL_PATH,
+    prompt: str | None = None,
 ):
     model_file = _resolve_model_path(model_path)
     session, input_name, output_name = _load_session(str(model_file.resolve()))
@@ -112,8 +114,12 @@ def predict_image(
     token = WASTE_TOKENS[index]
 
     tokenizer = _get_tokenizer()
-    caption = default_caption_for(token)
+    prompt_text = (prompt or "").strip()
+    caption = grounded_response_for(token, prompt_text) if prompt_text else default_caption_for(token)
     caption_ids = tokenizer.encode(caption)
+    text = caption if prompt_text else tokenizer.decode(caption_ids)
+    if prompt_text and not response_satisfies_prompt(text, prompt_text):
+        text = grounded_response_for(token, prompt_text)
 
     return {
         "classifier_source": "nlp",
@@ -122,7 +128,7 @@ def predict_image(
         "artifact": model_file.name,
         "waste_type": token,
         "waste_label": TOKEN_ALIASES[token],
-        "text": tokenizer.decode(caption_ids),
+        "text": text,
         "tokens": tokenizer.decode_ids(caption_ids),
         "confidence": float(probabilities[index]),
     }

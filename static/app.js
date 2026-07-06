@@ -342,10 +342,15 @@ function initNavDrag() {
         return Math.max(min, Math.min(max, value));
     }
 
+    function getNavInset() {
+        const value = parseFloat(getComputedStyle(navbar).getPropertyValue('--nav-indicator-inset'));
+        return Number.isFinite(value) ? value : 5;
+    }
+
     function getIndicatorBox(btn, navRect = navbar.getBoundingClientRect()) {
         const rect = btn.getBoundingClientRect();
-        const edge = 5;
-        const baseLeft = 5;
+        const edge = getNavInset();
+        const baseLeft = edge;
         const width = clamp(rect.width - 8, 52, Math.max(52, navRect.width - edge * 2));
         const maxX = Math.max(edge, navRect.width - width - edge);
         const x = clamp(rect.left - navRect.left + (rect.width - width) / 2, edge, maxX) - baseLeft;
@@ -424,7 +429,7 @@ function initNavDrag() {
                 if (leftBtn.el === btnArray[btnArray.length - 1] && clientX > leftBtn.rect.right - leftBtn.rect.width * 0.4) {
                     const t = Math.min(1, (clientX - (leftBtn.rect.right - leftBtn.rect.width * 0.4)) / 50);
                     width = leftBtn.width * (1 - t * 0.18);
-                    x = nr.width - width - 10;
+                    x = nr.width - width - getNavInset() * 2;
                 }
                 setIndicator(x, width, 0.1, "power2.out");
             }

@@ -379,11 +379,8 @@ function initNavDrag() {
         const box = getIndicatorBox(btn);
         setIndicator(box.x, box.width, isDragging ? 0.12 : 0.28, isDragging ? "power2.out" : "power3.out");
 
-        if (!isDragging && MOTION_ENABLED && !PERF.lowEnd) {
-            const icon = btn.querySelector('.nav-btn-icon');
-            if (icon) {
-                gsap.fromTo(icon, { scale: 0.92 }, { scale: 1, duration: 0.24, ease: "power2.out", overwrite: "auto" });
-            }
+        if (!isDragging) {
+            btn.classList.remove('nav-btn--drag-preview');
         }
     }
 
@@ -578,7 +575,16 @@ function navigateTo(name) {
     state.activeTab = name;
     document.querySelectorAll('.nav-btn').forEach(el => el.classList.remove('is-active'));
     const nav = document.getElementById(`nav-${name}`);
-    if (nav) { nav.classList.add('is-active'); if (window._snapNavIndicator) window._snapNavIndicator(); }
+    if (nav) {
+        nav.classList.add('is-active');
+        nav.classList.remove('nav-btn--pop');
+        if (MOTION_ENABLED && !PERF.lowEnd) {
+            void nav.offsetWidth;
+            nav.classList.add('nav-btn--pop');
+            setTimeout(() => nav.classList.remove('nav-btn--pop'), 520);
+        }
+        if (window._snapNavIndicator) window._snapNavIndicator();
+    }
 
     document.querySelectorAll('.tab').forEach(tab => {
         if (tab !== currentTab && tab !== nextTab) {

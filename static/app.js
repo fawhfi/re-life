@@ -354,7 +354,7 @@ function initNavDrag() {
     }
 
     function buildNavBaseMesh(width, height) {
-        const arch = getCssPx('--nav-arch', 13);
+        const arch = getCssPx('--nav-arch', 8);
         const shellHeight = getCssPx('--nav-shell-height', Math.max(44, height - arch));
         const inset = 1;
         const startX = inset;
@@ -377,12 +377,14 @@ function initNavDrag() {
         for (let a = Math.PI / 2; a <= 3 * Math.PI / 2; a += 0.04) {
             points.push({ x: (startX + radius) + radius * Math.cos(a), y: centerY + radius * Math.sin(a) });
         }
-        return { points, centerY };
+        return { points, centerY, width, height };
     }
 
     function generateNavShellPath(mesh, centerX, centerY, bulge, indicatorWidth) {
-        const influenceRadius = Math.max(56, getCssPx('--nav-indicator-hold-height', 44) * 1.15);
+        const influenceRadius = Math.max(44, getCssPx('--nav-indicator-hold-height', 40) * 1.08);
         const halfSegmentLength = Math.max(10, Math.min(indicatorWidth / 2 - 22, indicatorWidth * 0.22));
+        const xLimit = mesh.width - 0.5;
+        const yLimit = mesh.height - 0.5;
         let path = "";
 
         mesh.points.forEach((p, index) => {
@@ -394,8 +396,8 @@ function initNavDrag() {
             if (dist < influenceRadius) {
                 push = bulge * Math.pow(Math.cos((dist / influenceRadius) * (Math.PI / 2)), 2);
             }
-            const finalX = p.x + (dist > 0 ? (dx / dist) * push : 0);
-            const finalY = p.y + (dist > 0 ? (dy / dist) * push : 0);
+            const finalX = clamp(p.x + (dist > 0 ? (dx / dist) * push : 0), 0.5, xLimit);
+            const finalY = clamp(p.y + (dist > 0 ? (dy / dist) * push : 0), 0.5, yLimit);
             path += `${index === 0 ? 'M' : 'L'} ${finalX.toFixed(2)} ${finalY.toFixed(2)}`;
         });
 
@@ -596,7 +598,7 @@ function initNavDrag() {
         isDragging = true;
         pendingTab = state.activeTab;
         navbar.classList.add('nav-is-holding');
-        liquidShell.setBulge(13);
+        liquidShell.setBulge(getCssPx('--nav-bulge-active', 8));
         navbar.setPointerCapture(e.pointerId);
         getBestTab(e.clientX);
     });

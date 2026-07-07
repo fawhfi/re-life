@@ -394,7 +394,16 @@ class CnnScanTests(unittest.TestCase):
         self.assertIn("--nav-indicator-hold-width: 90px", style)
         self.assertIn("--nav-indicator-hold-height: 48px", style)
         self.assertIn("--nav-shell-safe-inset: 2px", style)
+        self.assertIn("--nav-shell-x-bleed: 6px", style)
         self.assertIn("--nav-indicator-radius: calc(var(--nav-shell-radius) - var(--nav-indicator-inset))", style)
+        self.assertRegex(
+            style,
+            r"nav\.nav, \.app-nav \{[\s\S]*backdrop-filter: blur\(20px\) brightness\(1\.15\) saturate\(150%\);",
+        )
+        self.assertRegex(
+            style,
+            r"nav\.nav, \.app-nav \{[\s\S]*box-shadow:\s*0 4px 24px rgba\(0,0,0,0\.10\),\s*inset 0 1px 3px rgba\(255,255,255,0\.3\);",
+        )
         self.assertIn("clip-path: url(#nav-shell-clip)", style)
         self.assertIn(".nav-shell-svg", style)
         self.assertIn(".nav-indicator::after", style)
@@ -403,6 +412,10 @@ class CnnScanTests(unittest.TestCase):
         self.assertIn("function getIndicatorWidth", app)
         self.assertIn("function getIndicatorYOffset", app)
         self.assertIn("function getNavShellSafeInset", app)
+        self.assertIn("function getNavShellXBleed", app)
+        self.assertIn("function smoothstep", app)
+        self.assertIn("function applyEdgeCompression", app)
+        self.assertIn("const startX = -horizontalBleed;", app)
         self.assertIn("const width = getIndicatorWidth(isHolding);", app)
         self.assertIn("const x = clamp(center - width / 2, edge, maxX) - edge;", app)
         self.assertIn("mesh.centerY - getIndicatorYOffset()", app)
@@ -415,6 +428,8 @@ class CnnScanTests(unittest.TestCase):
         self.assertIn("navbar.classList.add('nav-is-holding');", app)
         self.assertIn("navbar.classList.remove('nav-is-holding', 'nav-is-dragging');", app)
         self.assertIn("[data-theme=\"midnight\"] .nav-indicator", theme)
+        self.assertNotIn("inset 0 -2px 10px", theme)
+        self.assertNotIn("x = 0;", app)
         self.assertNotIn("scale(1.28)", style)
         self.assertNotIn("scale(1.38)", style)
         self.assertNotIn("drop-shadow", style)

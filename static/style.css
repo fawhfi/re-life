@@ -2501,6 +2501,7 @@ nav.nav, .app-nav {
     --nav-indicator-hold-width: 90px;
     --nav-indicator-hold-height: 48px;
     --nav-shell-safe-inset: 2px;
+    --nav-shell-x-bleed: 6px;
     --nav-indicator-radius: calc(var(--nav-shell-radius) - var(--nav-indicator-inset));
     position: fixed;
     bottom: max(20px, env(safe-area-inset-bottom, 20px));
@@ -2513,16 +2514,13 @@ nav.nav, .app-nav {
     justify-content: space-around;
     align-items: center;
     gap: 0;
-    background: transparent;
-    backdrop-filter: blur(5px) saturate(155%);
-    -webkit-backdrop-filter: blur(5px) saturate(155%);
+    background: rgba(255,255,255,0.10);
+    backdrop-filter: blur(20px) brightness(1.15) saturate(150%);
+    -webkit-backdrop-filter: blur(20px) brightness(1.15) saturate(150%);
     border: 0;
     border-radius: 0;
     clip-path: url(#nav-shell-clip);
-    box-shadow:
-        0 8px 24px rgba(30,55,37,0.08),
-        inset 0 1px 0 rgba(255,255,255,0.22),
-        0 0 0 0.5px rgba(255,255,255,0.10);
+    box-shadow: 0 4px 24px rgba(0,0,0,0.10), inset 0 1px 3px rgba(255,255,255,0.3);
     padding: calc(var(--nav-arch) + var(--nav-indicator-inset)) 6px var(--nav-indicator-inset);
     z-index: 100;
     overflow: visible;
@@ -2553,8 +2551,8 @@ nav.nav, .app-nav {
 }
 
 .nav-shell-path {
-    fill: rgba(255,255,255,0.22);
-    stroke: rgba(61,106,75,0.16);
+    fill: rgba(255,255,255,0.06);
+    stroke: rgba(255,255,255,0.30);
     stroke-width: 1.5;
     vector-effect: non-scaling-stroke;
 }

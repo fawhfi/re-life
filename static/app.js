@@ -372,12 +372,21 @@ function initNavDrag() {
         return getCssPx('--nav-shell-safe-inset', 2);
     }
 
+    function getNavShellXBleed() {
+        return getCssPx('--nav-shell-x-bleed', 6);
+    }
+
+    function smoothstep(value) {
+        const t = clamp(value, 0, 1);
+        return t * t * (3 - 2 * t);
+    }
+
     function buildNavBaseMesh(width, height) {
         const arch = getCssPx('--nav-arch', 8);
         const shellHeight = getCssPx('--nav-shell-height', Math.max(44, height - arch));
-        const inset = getNavShellSafeInset();
-        const startX = inset;
-        const endX = Math.max(startX + 2, width - inset);
+        const horizontalBleed = getNavShellXBleed();
+        const startX = -horizontalBleed;
+        const endX = Math.max(startX + 2, width + horizontalBleed);
         const centerY = arch + shellHeight / 2;
         const radius = Math.min(getCssPx('--nav-shell-radius', 24), shellHeight / 2);
         const topY = centerY - radius;
@@ -403,7 +412,9 @@ function initNavDrag() {
         const influenceRadius = Math.max(44, getCssPx('--nav-indicator-hold-height', 48));
         const halfSegmentLength = Math.max(10, Math.min(indicatorWidth / 2 - 22, indicatorWidth * 0.22));
         const safeInset = getNavShellSafeInset();
-        const xLimit = mesh.width - safeInset;
+        const horizontalBleed = getNavShellXBleed();
+        const xMin = -horizontalBleed;
+        const xLimit = mesh.width + horizontalBleed;
         const yLimit = mesh.height - safeInset;
         let path = "";
 
@@ -416,7 +427,7 @@ function initNavDrag() {
             if (dist < influenceRadius) {
                 push = bulge * Math.pow(Math.cos((dist / influenceRadius) * (Math.PI / 2)), 2);
             }
-            const finalX = clamp(p.x + (dist > 0 ? (dx / dist) * push : 0), safeInset, xLimit);
+            const finalX = clamp(p.x + (dist > 0 ? (dx / dist) * push : 0), xMin, xLimit);
             const finalY = clamp(p.y + (dist > 0 ? (dy / dist) * push : 0), safeInset, yLimit);
             path += `${index === 0 ? 'M' : 'L'} ${finalX.toFixed(2)} ${finalY.toFixed(2)}`;
         });
@@ -526,6 +537,24 @@ function initNavDrag() {
         }
     }
 
+    function applyEdgeCompression(box, navRect, clientX, side) {
+        const edge = getNavInset();
+        const threshold = side === 'left'
+            ? box.rect.left + box.rect.width * 0.4
+            : box.rect.right - box.rect.width * 0.4;
+        const distance = side === 'left' ? threshold - clientX : clientX - threshold;
+        const t = smoothstep(distance / 72);
+        if (t <= 0) return { x: box.x, width: box.width };
+
+        const minWidth = Math.max(getIndicatorWidth(false), box.width * 0.82);
+        const width = box.width + (minWidth - box.width) * t;
+        const targetX = side === 'left'
+            ? 0
+            : Math.max(0, navRect.width - width - edge * 2);
+        const x = box.x + (targetX - box.x) * t;
+        return { x, width };
+    }
+
     function getTabName(btn) {
         if (!btn) return null;
         return btn.dataset.tab || null;
@@ -571,20 +600,16 @@ function initNavDrag() {
                 setIndicator(x, width, 0.08, "power1.out");
             } else if (rightBtn) {
                 let x = rightBtn.x, width = rightBtn.width;
-                if (rightBtn.el === btnArray[0] && clientX < rightBtn.rect.left + rightBtn.rect.width * 0.4) {
-                    const t = Math.min(1, (rightBtn.rect.left + rightBtn.rect.width * 0.4 - clientX) / 50);
-                    width = rightBtn.width * (1 - t * 0.18);
-                    x = 0;
+                if (rightBtn.el === btnArray[0]) {
+                    ({ x, width } = applyEdgeCompression(rightBtn, nr, clientX, 'left'));
                 }
-                setIndicator(x, width, 0.1, "power2.out");
+                setIndicator(x, width, 0.14, "power3.out");
             } else if (leftBtn) {
                 let x = leftBtn.x, width = leftBtn.width;
-                if (leftBtn.el === btnArray[btnArray.length - 1] && clientX > leftBtn.rect.right - leftBtn.rect.width * 0.4) {
-                    const t = Math.min(1, (clientX - (leftBtn.rect.right - leftBtn.rect.width * 0.4)) / 50);
-                    width = leftBtn.width * (1 - t * 0.18);
-                    x = nr.width - width - getNavInset() * 2;
+                if (leftBtn.el === btnArray[btnArray.length - 1]) {
+                    ({ x, width } = applyEdgeCompression(leftBtn, nr, clientX, 'right'));
                 }
-                setIndicator(x, width, 0.1, "power2.out");
+                setIndicator(x, width, 0.14, "power3.out");
             }
         }
 

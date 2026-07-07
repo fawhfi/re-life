@@ -356,7 +356,7 @@ function initNavDrag() {
     function getIndicatorWidth(isHolding = false) {
         return getCssPx(
             isHolding ? '--nav-indicator-hold-width' : '--nav-indicator-window-width',
-            isHolding ? 68 : 48
+            isHolding ? 90 : 80
         );
     }
 
@@ -368,14 +368,18 @@ function initNavDrag() {
         return getCssPx('--nav-indicator-y-offset', 3);
     }
 
+    function getNavShellSafeInset() {
+        return getCssPx('--nav-shell-safe-inset', 2);
+    }
+
     function buildNavBaseMesh(width, height) {
         const arch = getCssPx('--nav-arch', 8);
         const shellHeight = getCssPx('--nav-shell-height', Math.max(44, height - arch));
-        const inset = 1;
+        const inset = getNavShellSafeInset();
         const startX = inset;
         const endX = Math.max(startX + 2, width - inset);
         const centerY = arch + shellHeight / 2;
-        const radius = Math.min(getCssPx('--nav-shell-radius', 28), shellHeight / 2);
+        const radius = Math.min(getCssPx('--nav-shell-radius', 24), shellHeight / 2);
         const topY = centerY - radius;
         const bottomY = centerY + radius;
         const points = [];
@@ -396,10 +400,11 @@ function initNavDrag() {
     }
 
     function generateNavShellPath(mesh, centerX, centerY, bulge, indicatorWidth) {
-        const influenceRadius = Math.max(44, getCssPx('--nav-indicator-hold-height', 40) * 1.08);
+        const influenceRadius = Math.max(44, getCssPx('--nav-indicator-hold-height', 48));
         const halfSegmentLength = Math.max(10, Math.min(indicatorWidth / 2 - 22, indicatorWidth * 0.22));
-        const xLimit = mesh.width - 0.5;
-        const yLimit = mesh.height - 0.5;
+        const safeInset = getNavShellSafeInset();
+        const xLimit = mesh.width - safeInset;
+        const yLimit = mesh.height - safeInset;
         let path = "";
 
         mesh.points.forEach((p, index) => {
@@ -411,8 +416,8 @@ function initNavDrag() {
             if (dist < influenceRadius) {
                 push = bulge * Math.pow(Math.cos((dist / influenceRadius) * (Math.PI / 2)), 2);
             }
-            const finalX = clamp(p.x + (dist > 0 ? (dx / dist) * push : 0), 0.5, xLimit);
-            const finalY = clamp(p.y + (dist > 0 ? (dy / dist) * push : 0), 0.5, yLimit);
+            const finalX = clamp(p.x + (dist > 0 ? (dx / dist) * push : 0), safeInset, xLimit);
+            const finalY = clamp(p.y + (dist > 0 ? (dy / dist) * push : 0), safeInset, yLimit);
             path += `${index === 0 ? 'M' : 'L'} ${finalX.toFixed(2)} ${finalY.toFixed(2)}`;
         });
 

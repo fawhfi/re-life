@@ -2489,17 +2489,18 @@ html.perf-lite .toast-progress {
 
 /* ── Bottom Nav ────────────────────────────────────────────────────── */
 nav.nav, .app-nav {
-    --nav-shell-radius: 28px;
+    --nav-shell-radius: 24px;
     --nav-indicator-inset: 5px;
     --nav-shell-height: 58px;
     --nav-arch: 8px;
-    --nav-lift: 8px;
+    --nav-lift: 10px;
     --nav-bulge-active: 8px;
     --nav-indicator-y-offset: 3px;
-    --nav-indicator-window-width: 48px;
-    --nav-indicator-window-height: 34px;
-    --nav-indicator-hold-width: 68px;
-    --nav-indicator-hold-height: 40px;
+    --nav-indicator-window-width: 80px;
+    --nav-indicator-window-height: 42px;
+    --nav-indicator-hold-width: 90px;
+    --nav-indicator-hold-height: 48px;
+    --nav-shell-safe-inset: 2px;
     --nav-indicator-radius: calc(var(--nav-shell-radius) - var(--nav-indicator-inset));
     position: fixed;
     bottom: max(20px, env(safe-area-inset-bottom, 20px));

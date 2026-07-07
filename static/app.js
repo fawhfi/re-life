@@ -353,6 +353,21 @@ function initNavDrag() {
         return Number.isFinite(value) ? value : fallback;
     }
 
+    function getIndicatorWidth(isHolding = false) {
+        return getCssPx(
+            isHolding ? '--nav-indicator-hold-width' : '--nav-indicator-window-width',
+            isHolding ? 68 : 48
+        );
+    }
+
+    function isIndicatorHolding() {
+        return isDragging || navbar.classList.contains('nav-is-holding') || navbar.classList.contains('nav-is-dragging');
+    }
+
+    function getIndicatorYOffset() {
+        return getCssPx('--nav-indicator-y-offset', 3);
+    }
+
     function buildNavBaseMesh(width, height) {
         const arch = getCssPx('--nav-arch', 8);
         const shellHeight = getCssPx('--nav-shell-height', Math.max(44, height - arch));
@@ -436,7 +451,7 @@ function initNavDrag() {
 
             const edge = getNavInset();
             const centerX = edge + indicatorX + indicatorWidth / 2;
-            const pathData = generateNavShellPath(mesh, centerX, mesh.centerY, currentShellBulge, indicatorWidth);
+            const pathData = generateNavShellPath(mesh, centerX, mesh.centerY - getIndicatorYOffset(), currentShellBulge, indicatorWidth);
             bgPath.setAttribute('d', pathData);
             clipPath.setAttribute('d', pathData);
 
@@ -481,10 +496,12 @@ function initNavDrag() {
         const rect = btn.getBoundingClientRect();
         const edge = getNavInset();
         const baseLeft = edge;
-        const width = clamp(rect.width - 8, 52, Math.max(52, navRect.width - edge * 2));
+        const isHolding = isIndicatorHolding();
+        const width = getIndicatorWidth(isHolding);
+        const center = rect.left - navRect.left + rect.width / 2;
         const maxX = Math.max(edge, navRect.width - width - edge);
-        const x = clamp(rect.left - navRect.left + (rect.width - width) / 2, edge, maxX) - baseLeft;
-        return { x, width, center: rect.left - navRect.left + rect.width / 2, rect };
+        const x = clamp(center - width / 2, edge, maxX) - edge;
+        return { x, width, center, rect };
     }
 
     function setIndicator(targetX, width, duration, ease) {

@@ -2495,6 +2495,7 @@ nav.nav, .app-nav {
     --nav-arch: 8px;
     --nav-lift: 8px;
     --nav-bulge-active: 8px;
+    --nav-indicator-y-offset: 3px;
     --nav-indicator-window-width: 48px;
     --nav-indicator-window-height: 34px;
     --nav-indicator-hold-width: 68px;
@@ -2560,9 +2561,9 @@ nav.nav, .app-nav {
 /* Sliding nav indicator */
 .nav-indicator {
     position: absolute;
-    top: calc(var(--nav-arch) + var(--nav-indicator-inset));
+    top: calc(var(--nav-arch) + var(--nav-indicator-inset) - var(--nav-indicator-y-offset));
     left: var(--nav-indicator-inset);
-    width: calc((100% - 22px) / 4);
+    width: var(--nav-indicator-window-width);
     height: calc(var(--nav-shell-height) - (var(--nav-indicator-inset) * 2));
     display: flex;
     align-items: center;
@@ -2572,11 +2573,12 @@ nav.nav, .app-nav {
     transform-origin: left center;
     will-change: transform;
     transform: translate3d(0, 0, 0) scaleX(1);
+    transition: width 0.22s var(--spring-wobbly);
 }
 
 .nav-indicator::after {
     content: '';
-    width: var(--nav-indicator-window-width);
+    width: 100%;
     height: var(--nav-indicator-window-height);
     background: rgba(255,255,255,0.18);
     border: 1.5px solid rgba(255,255,255,0.70);
@@ -2594,9 +2596,14 @@ nav.nav, .app-nav {
         box-shadow 0.24s ease;
 }
 
+.nav-is-holding .nav-indicator,
+.nav-is-dragging .nav-indicator {
+    width: var(--nav-indicator-hold-width);
+}
+
 .nav-is-holding .nav-indicator::after,
 .nav-is-dragging .nav-indicator::after {
-    width: var(--nav-indicator-hold-width);
+    width: 100%;
     height: var(--nav-indicator-hold-height);
     background: rgba(255,255,255,0.28);
     border-color: rgba(255,255,255,0.92);

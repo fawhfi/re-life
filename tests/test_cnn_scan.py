@@ -368,6 +368,135 @@ class CnnScanTests(unittest.TestCase):
 
         self.assertIn("fd.append('lang', state.lang);", source)
 
+    def test_navbar_has_polished_selected_motion(self):
+        app = Path("static/app.js").read_text(encoding="utf-8")
+        style = Path("static/style.css").read_text(encoding="utf-8")
+        theme = Path("static/css/theme.css").read_text(encoding="utf-8")
+        template = Path("templates/index.html").read_text(encoding="utf-8")
+
+        self.assertIn("nav.classList.add('nav-btn--pop')", app)
+        self.assertIn("setTimeout(() => nav.classList.remove('nav-btn--pop')", app)
+        self.assertIn(".nav-btn.is-active .nav-btn-icon", style)
+        self.assertIn("scale(1.12)", style)
+        self.assertIn("navSelectedPop", style)
+        self.assertIn('id="nav-shell-clip"', template)
+        self.assertIn('id="nav-shell-clip-path"', template)
+        self.assertIn('class="nav-shell-svg"', template)
+        self.assertIn('id="nav-shell-path"', template)
+        self.assertIn("--nav-shell-radius: 24px", style)
+        self.assertIn("--nav-indicator-inset: 5px", style)
+        self.assertIn("--nav-arch: 8px", style)
+        self.assertIn("--nav-lift: 10px", style)
+        self.assertIn("--nav-bulge-active: 8px", style)
+        self.assertIn("--nav-indicator-y-offset: 0px", style)
+        self.assertIn("--nav-indicator-window-width: 80px", style)
+        self.assertIn("--nav-indicator-window-height: 42px", style)
+        self.assertIn("--nav-indicator-hold-width: 90px", style)
+        self.assertIn("--nav-indicator-hold-height: 48px", style)
+        self.assertIn("--nav-shell-safe-inset: 2px", style)
+        self.assertIn("--nav-shell-x-bleed: 0px", style)
+        self.assertIn("--nav-indicator-bg:", style)
+        self.assertIn("--nav-indicator-bg-active:", style)
+        self.assertIn("--nav-indicator-ring:", style)
+        self.assertIn("--nav-indicator-shadow:", style)
+        self.assertIn("--nav-shell-shadow:", style)
+        self.assertIn("drop-shadow(0 8px 18px rgba(0,0,0,0.20))", style)
+        self.assertIn("fill: transparent;", style)
+        self.assertIn("stroke: transparent;", style)
+        self.assertIn("stroke-width: 0;", style)
+        self.assertIn("width: calc(100% - 36px)", style)
+        self.assertIn("max-width: 392px", style)
+        self.assertIn("--nav-indicator-radius: calc(var(--nav-shell-radius) - var(--nav-indicator-inset))", style)
+        self.assertIn("--nav-indicator-hold-radius: var(--nav-indicator-radius)", style)
+        self.assertRegex(
+            style,
+            r"nav\.nav::before, \.app-nav::before \{[\s\S]*backdrop-filter: blur\(20px\) brightness\(1\.15\) saturate\(150%\);",
+        )
+        self.assertRegex(
+            style,
+            r"nav\.nav, \.app-nav \{[\s\S]*box-shadow:\s*none;",
+        )
+        self.assertRegex(
+            style,
+            r"nav\.nav::before, \.app-nav::before \{[\s\S]*clip-path: url\(#nav-shell-clip\);",
+        )
+        self.assertRegex(
+            style,
+            r"nav\.nav::before, \.app-nav::before \{[\s\S]*filter: var\(--nav-shell-shadow\);",
+        )
+        self.assertNotRegex(style, r"nav\.nav, \.app-nav \{[^}]*box-shadow:\s*0 4px 24px")
+        self.assertNotRegex(style, r"nav\.nav, \.app-nav \{[^}]*clip-path: url\(#nav-shell-clip\);")
+        self.assertIn(".nav-shell-svg", style)
+        self.assertRegex(style, r"\.nav-shell-svg \{[\s\S]*overflow: visible;")
+        self.assertNotRegex(style, r"\.nav-shell-svg \{[^}]*filter: var\(--nav-shell-shadow\);")
+        self.assertIn(".nav-indicator::after", style)
+        self.assertIn("width: 100%;", style)
+        self.assertIn(".nav-is-holding .nav-indicator,", style)
+        self.assertIn("function getIndicatorWidth", app)
+        self.assertIn("function getIndicatorYOffset", app)
+        self.assertIn("function getNavShellSafeInset", app)
+        self.assertIn("function getNavShellXBleed", app)
+        self.assertIn("function smoothstep", app)
+        self.assertIn("function applyEdgeCompression", app)
+        self.assertIn("const startX = -horizontalBleed;", app)
+        self.assertIn("getCssPx('--nav-shell-x-bleed', 0)", app)
+        self.assertIn("const width = getIndicatorWidth(isHolding);", app)
+        self.assertIn("const x = clamp(center - width / 2, edge, maxX) - edge;", app)
+        self.assertIn("mesh.centerY - getIndicatorYOffset()", app)
+        self.assertIn("border-radius: var(--nav-indicator-radius)", style)
+        self.assertIn("border-radius: var(--nav-indicator-hold-radius)", style)
+        self.assertIn("background: var(--nav-indicator-bg);", style)
+        self.assertIn("background: var(--nav-indicator-bg-active);", style)
+        self.assertIn("inset 0 -1px 0 var(--nav-indicator-ring)", style)
+        self.assertIn("0 1px 5px var(--nav-indicator-shadow)", style)
+        self.assertNotIn("0 6px 18px var(--nav-indicator-shadow)", style)
+        self.assertIn("[data-theme=\"forest\"] nav.nav", theme)
+        self.assertIn("--nav-indicator-ring: rgba(45,90,30,0.26);", theme)
+        self.assertIn("[data-theme=\"ocean\"] nav.nav", theme)
+        self.assertIn("--nav-indicator-ring: rgba(26,74,106,0.24);", theme)
+        self.assertIn("[data-theme=\"sunset\"] nav.nav", theme)
+        self.assertIn("--nav-indicator-ring: rgba(138,58,42,0.24);", theme)
+        self.assertIn("function generateNavShellPath", app)
+        self.assertIn("function drawNavShell", app)
+        self.assertIn("const yLimit = mesh.height - safeInset;", app)
+        self.assertIn("liquidShell.setBulge(getCssPx('--nav-bulge-active', 8));", app)
+        self.assertIn("navbar.classList.add('nav-is-holding');", app)
+        self.assertIn("navbar.classList.remove('nav-is-holding', 'nav-is-dragging');", app)
+        self.assertIn("--nav-indicator-radius: calc(var(--nav-indicator-window-height) / 2);", theme)
+        self.assertIn("--nav-indicator-hold-radius: calc(var(--nav-indicator-hold-height) / 2);", theme)
+        self.assertNotIn("--nav-indicator-y-offset: 3px;", theme)
+        self.assertIn("[data-theme=\"midnight\"] .nav-indicator", theme)
+        self.assertRegex(theme, r"\[data-theme=\"dark\"\] nav\.nav,[\s\S]*box-shadow:\s*none;")
+        self.assertRegex(theme, r"\[data-theme=\"dark\"\] nav\.nav,[\s\S]*border:\s*0;")
+        self.assertRegex(style, r"\[data-theme=\"dark\"\] nav\.nav,[\s\S]*border:\s*0;")
+        self.assertNotRegex(
+            style,
+            r"\[data-theme=\"dark\"\] \.app-header,\s*\[data-theme=\"dark\"\] nav\.nav,[\s\S]*border:\s*1px solid rgba\(255, 255, 255, 0\.06\);",
+        )
+        self.assertIn("drop-shadow(0 8px 18px rgba(0,0,0,0.32))", theme)
+        self.assertNotIn("stroke: rgba(255,255,255,0.06)", theme)
+        self.assertNotIn("drop-shadow(0 1px 0", style)
+        self.assertNotIn("drop-shadow(0 1px 0", theme)
+        self.assertNotIn("inset 0 -2px 10px", theme)
+        self.assertNotIn("x = 0;", app)
+        self.assertNotIn("scale(1.28)", style)
+        self.assertNotIn("scale(1.38)", style)
+
+    def test_grade_tags_use_white_text_on_colored_backgrounds(self):
+        style = Path("static/style.css").read_text(encoding="utf-8")
+        theme = Path("static/css/theme.css").read_text(encoding="utf-8")
+
+        self.assertRegex(style, r"\.grade-tag \{[\s\S]*color:\s*#fff;")
+        self.assertRegex(theme, r"\[data-theme=\"dark\"\] \.grade-tag,[\s\S]*\[data-theme=\"midnight\"\] \.grade-tag \{[\s\S]*color:\s*#fff;")
+
+    def test_alternative_product_card_is_prominent(self):
+        style = Path("static/style.css").read_text(encoding="utf-8")
+
+        self.assertRegex(style, r"\.alternative-card \{[\s\S]*padding:\s*18px 16px;")
+        self.assertRegex(style, r"\.alternative-card \{[\s\S]*min-height:\s*104px;")
+        self.assertRegex(style, r"\.alternative-card-name \{[\s\S]*font-size:\s*16px;")
+        self.assertRegex(style, r"\.alternative-card-ratings \{[\s\S]*gap:\s*18px;")
+
     def test_ai_analyze_adds_chinese_instruction_for_zh_language(self):
         with patch("models.DEFAULT_AI_MODEL", "custom"), \
              patch("models.CUSTOM_METHOD", "openai"), \

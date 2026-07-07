@@ -332,6 +332,7 @@ function initNavDrag() {
     let pointerStartY = 0;
     let pendingTab = state.activeTab;
     let suppressNavClickUntil = 0;
+    const liquidShell = createLiquidNavShell(navbar, indicator);
 
     if (indicator) {
         indicator.style.transformOrigin = 'left center';
@@ -342,19 +343,187 @@ function initNavDrag() {
         return Math.max(min, Math.min(max, value));
     }
 
+    function getNavInset() {
+        const value = parseFloat(getComputedStyle(navbar).getPropertyValue('--nav-indicator-inset'));
+        return Number.isFinite(value) ? value : 5;
+    }
+
+    function getCssPx(name, fallback) {
+        const value = parseFloat(getComputedStyle(navbar).getPropertyValue(name));
+        return Number.isFinite(value) ? value : fallback;
+    }
+
+    function getIndicatorWidth(isHolding = false) {
+        return getCssPx(
+            isHolding ? '--nav-indicator-hold-width' : '--nav-indicator-window-width',
+            isHolding ? 90 : 80
+        );
+    }
+
+    function isIndicatorHolding() {
+        return isDragging || navbar.classList.contains('nav-is-holding') || navbar.classList.contains('nav-is-dragging');
+    }
+
+    function getIndicatorYOffset() {
+        return getCssPx('--nav-indicator-y-offset', 3);
+    }
+
+    function getNavShellSafeInset() {
+        return getCssPx('--nav-shell-safe-inset', 2);
+    }
+
+    function getNavShellXBleed() {
+        return getCssPx('--nav-shell-x-bleed', 0);
+    }
+
+    function smoothstep(value) {
+        const t = clamp(value, 0, 1);
+        return t * t * (3 - 2 * t);
+    }
+
+    function buildNavBaseMesh(width, height) {
+        const arch = getCssPx('--nav-arch', 8);
+        const shellHeight = getCssPx('--nav-shell-height', Math.max(44, height - arch));
+        const horizontalBleed = getNavShellXBleed();
+        const startX = -horizontalBleed;
+        const endX = Math.max(startX + 2, width + horizontalBleed);
+        const centerY = arch + shellHeight / 2;
+        const radius = Math.min(getCssPx('--nav-shell-radius', 24), shellHeight / 2);
+        const topY = centerY - radius;
+        const bottomY = centerY + radius;
+        const points = [];
+
+        for (let x = startX + radius; x <= endX - radius; x += 2) {
+            points.push({ x, y: topY });
+        }
+        for (let a = -Math.PI / 2; a <= Math.PI / 2; a += 0.04) {
+            points.push({ x: (endX - radius) + radius * Math.cos(a), y: centerY + radius * Math.sin(a) });
+        }
+        for (let x = endX - radius; x >= startX + radius; x -= 2) {
+            points.push({ x, y: bottomY });
+        }
+        for (let a = Math.PI / 2; a <= 3 * Math.PI / 2; a += 0.04) {
+            points.push({ x: (startX + radius) + radius * Math.cos(a), y: centerY + radius * Math.sin(a) });
+        }
+        return { points, centerY, width, height };
+    }
+
+    function generateNavShellPath(mesh, centerX, centerY, bulge, indicatorWidth) {
+        const influenceRadius = Math.max(44, getCssPx('--nav-indicator-hold-height', 48));
+        const halfSegmentLength = Math.max(10, Math.min(indicatorWidth / 2 - 22, indicatorWidth * 0.22));
+        const safeInset = getNavShellSafeInset();
+        const horizontalBleed = getNavShellXBleed();
+        const xMin = -horizontalBleed;
+        const xLimit = mesh.width + horizontalBleed;
+        const yLimit = mesh.height - safeInset;
+        let path = "";
+
+        mesh.points.forEach((p, index) => {
+            const closestX = clamp(p.x, centerX - halfSegmentLength, centerX + halfSegmentLength);
+            const dx = p.x - closestX;
+            const dy = p.y - centerY;
+            const dist = Math.hypot(dx, dy);
+            let push = 0;
+            if (dist < influenceRadius) {
+                push = bulge * Math.pow(Math.cos((dist / influenceRadius) * (Math.PI / 2)), 2);
+            }
+            const finalX = clamp(p.x + (dist > 0 ? (dx / dist) * push : 0), xMin, xLimit);
+            const finalY = clamp(p.y + (dist > 0 ? (dy / dist) * push : 0), safeInset, yLimit);
+            path += `${index === 0 ? 'M' : 'L'} ${finalX.toFixed(2)} ${finalY.toFixed(2)}`;
+        });
+
+        return `${path} Z`;
+    }
+
+    function createLiquidNavShell(nav, indicatorEl) {
+        const bgPath = document.getElementById('nav-shell-path');
+        const clipPath = document.getElementById('nav-shell-clip-path');
+        if (!bgPath || !clipPath) {
+            return { setIndicator() {}, setBulge() {}, refresh() {}, stop() {} };
+        }
+
+        let mesh = { points: [], centerY: 0 };
+        let navWidth = 0;
+        let navHeight = 0;
+        let indicatorX = 0;
+        let indicatorWidth = 60;
+        let currentShellBulge = 0;
+        let targetShellBulge = 0;
+        let rafId = 0;
+
+        function refresh() {
+            const rect = nav.getBoundingClientRect();
+            navWidth = Math.max(1, rect.width);
+            navHeight = Math.max(1, rect.height);
+            mesh = buildNavBaseMesh(navWidth, navHeight);
+            drawNavShell();
+        }
+
+        function drawNavShell() {
+            currentShellBulge += (targetShellBulge - currentShellBulge) * 0.16;
+            if (Math.abs(targetShellBulge - currentShellBulge) < 0.02) {
+                currentShellBulge = targetShellBulge;
+            }
+
+            const edge = getNavInset();
+            const centerX = edge + indicatorX + indicatorWidth / 2;
+            const pathData = generateNavShellPath(mesh, centerX, mesh.centerY - getIndicatorYOffset(), currentShellBulge, indicatorWidth);
+            bgPath.setAttribute('d', pathData);
+            clipPath.setAttribute('d', pathData);
+
+            if (currentShellBulge !== targetShellBulge) {
+                rafId = requestAnimationFrame(() => drawNavShell());
+            } else {
+                rafId = 0;
+            }
+        }
+
+        function requestDraw() {
+            if (!rafId) {
+                rafId = requestAnimationFrame(() => drawNavShell());
+            }
+        }
+
+        refresh();
+        const observer = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(refresh) : null;
+        if (observer) observer.observe(nav);
+        else window.addEventListener('resize', refresh);
+
+        return {
+            setIndicator(x, width) {
+                indicatorX = Number.isFinite(x) ? x : indicatorX;
+                indicatorWidth = Number.isFinite(width) ? width : indicatorWidth;
+                requestDraw();
+            },
+            setBulge(value) {
+                targetShellBulge = Number.isFinite(value) ? value : 0;
+                requestDraw();
+            },
+            refresh,
+            stop() {
+                if (rafId) cancelAnimationFrame(rafId);
+                if (observer) observer.disconnect();
+                else window.removeEventListener('resize', refresh);
+            },
+        };
+    }
+
     function getIndicatorBox(btn, navRect = navbar.getBoundingClientRect()) {
         const rect = btn.getBoundingClientRect();
-        const edge = 5;
-        const baseLeft = 5;
-        const width = clamp(rect.width - 8, 52, Math.max(52, navRect.width - edge * 2));
+        const edge = getNavInset();
+        const baseLeft = edge;
+        const isHolding = isIndicatorHolding();
+        const width = getIndicatorWidth(isHolding);
+        const center = rect.left - navRect.left + rect.width / 2;
         const maxX = Math.max(edge, navRect.width - width - edge);
-        const x = clamp(rect.left - navRect.left + (rect.width - width) / 2, edge, maxX) - baseLeft;
-        return { x, width, center: rect.left - navRect.left + rect.width / 2, rect };
+        const x = clamp(center - width / 2, edge, maxX) - edge;
+        return { x, width, center, rect };
     }
 
     function setIndicator(targetX, width, duration, ease) {
         if (!indicator) return;
         if (width) indicator.style.width = `${width}px`;
+        liquidShell.setIndicator(targetX, width);
         if (MOTION_ENABLED) {
             gsap.to(indicator, {
                 x: targetX,
@@ -368,6 +537,24 @@ function initNavDrag() {
         }
     }
 
+    function applyEdgeCompression(box, navRect, clientX, side) {
+        const edge = getNavInset();
+        const threshold = side === 'left'
+            ? box.rect.left + box.rect.width * 0.4
+            : box.rect.right - box.rect.width * 0.4;
+        const distance = side === 'left' ? threshold - clientX : clientX - threshold;
+        const t = smoothstep(distance / 72);
+        if (t <= 0) return { x: box.x, width: box.width };
+
+        const minWidth = Math.max(getIndicatorWidth(false), box.width * 0.82);
+        const width = box.width + (minWidth - box.width) * t;
+        const targetX = side === 'left'
+            ? 0
+            : Math.max(0, navRect.width - width - edge * 2);
+        const x = box.x + (targetX - box.x) * t;
+        return { x, width };
+    }
+
     function getTabName(btn) {
         if (!btn) return null;
         return btn.dataset.tab || null;
@@ -379,11 +566,8 @@ function initNavDrag() {
         const box = getIndicatorBox(btn);
         setIndicator(box.x, box.width, isDragging ? 0.12 : 0.28, isDragging ? "power2.out" : "power3.out");
 
-        if (!isDragging && MOTION_ENABLED && !PERF.lowEnd) {
-            const icon = btn.querySelector('.nav-btn-icon');
-            if (icon) {
-                gsap.fromTo(icon, { scale: 0.92 }, { scale: 1, duration: 0.24, ease: "power2.out", overwrite: "auto" });
-            }
+        if (!isDragging) {
+            btn.classList.remove('nav-btn--drag-preview');
         }
     }
 
@@ -416,20 +600,16 @@ function initNavDrag() {
                 setIndicator(x, width, 0.08, "power1.out");
             } else if (rightBtn) {
                 let x = rightBtn.x, width = rightBtn.width;
-                if (rightBtn.el === btnArray[0] && clientX < rightBtn.rect.left + rightBtn.rect.width * 0.4) {
-                    const t = Math.min(1, (rightBtn.rect.left + rightBtn.rect.width * 0.4 - clientX) / 50);
-                    width = rightBtn.width * (1 - t * 0.18);
-                    x = 0;
+                if (rightBtn.el === btnArray[0]) {
+                    ({ x, width } = applyEdgeCompression(rightBtn, nr, clientX, 'left'));
                 }
-                setIndicator(x, width, 0.1, "power2.out");
+                setIndicator(x, width, 0.14, "power3.out");
             } else if (leftBtn) {
                 let x = leftBtn.x, width = leftBtn.width;
-                if (leftBtn.el === btnArray[btnArray.length - 1] && clientX > leftBtn.rect.right - leftBtn.rect.width * 0.4) {
-                    const t = Math.min(1, (clientX - (leftBtn.rect.right - leftBtn.rect.width * 0.4)) / 50);
-                    width = leftBtn.width * (1 - t * 0.18);
-                    x = nr.width - width - 10;
+                if (leftBtn.el === btnArray[btnArray.length - 1]) {
+                    ({ x, width } = applyEdgeCompression(leftBtn, nr, clientX, 'right'));
                 }
-                setIndicator(x, width, 0.1, "power2.out");
+                setIndicator(x, width, 0.14, "power3.out");
             }
         }
 
@@ -464,6 +644,8 @@ function initNavDrag() {
         pointerStartY = e.clientY;
         isDragging = true;
         pendingTab = state.activeTab;
+        navbar.classList.add('nav-is-holding');
+        liquidShell.setBulge(getCssPx('--nav-bulge-active', 8));
         navbar.setPointerCapture(e.pointerId);
         getBestTab(e.clientX);
     });
@@ -486,7 +668,8 @@ function initNavDrag() {
         const hadDrag = navbar.classList.contains('nav-is-dragging');
         isDragging = false;
         activePointerId = null;
-        navbar.classList.remove('nav-is-dragging');
+        navbar.classList.remove('nav-is-holding', 'nav-is-dragging');
+        liquidShell.setBulge(0);
         try { navbar.releasePointerCapture(e.pointerId); } catch {}
         if (indicator) {
             gsap.killTweensOf(indicator);
@@ -578,7 +761,16 @@ function navigateTo(name) {
     state.activeTab = name;
     document.querySelectorAll('.nav-btn').forEach(el => el.classList.remove('is-active'));
     const nav = document.getElementById(`nav-${name}`);
-    if (nav) { nav.classList.add('is-active'); if (window._snapNavIndicator) window._snapNavIndicator(); }
+    if (nav) {
+        nav.classList.add('is-active');
+        nav.classList.remove('nav-btn--pop');
+        if (MOTION_ENABLED && !PERF.lowEnd) {
+            void nav.offsetWidth;
+            nav.classList.add('nav-btn--pop');
+            setTimeout(() => nav.classList.remove('nav-btn--pop'), 340);
+        }
+        if (window._snapNavIndicator) window._snapNavIndicator();
+    }
 
     document.querySelectorAll('.tab').forEach(tab => {
         if (tab !== currentTab && tab !== nextTab) {

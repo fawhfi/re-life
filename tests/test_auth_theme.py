@@ -31,3 +31,15 @@ class AuthThemeTests(unittest.TestCase):
 
         self.assertIn(".auth-theme-select", style)
         self.assertIn(".auth-theme-icon", style)
+
+    def test_user_visible_version_strings_are_v1(self):
+        for template_name in ("login.html", "register.html"):
+            html = Path("templates", template_name).read_text(encoding="utf-8")
+            self.assertIn('class="login-footer-text">v1</span>', html)
+            self.assertNotIn("v4.2.0 HK", html)
+
+        for locale_name in ("en.json", "zh.json"):
+            locale = Path("static", "i18n", locale_name).read_text(encoding="utf-8")
+            self.assertIn('"version": "v1"', locale)
+            self.assertIn('"versionLabel": "v1"', locale)
+            self.assertNotIn("v1.0.0", locale)

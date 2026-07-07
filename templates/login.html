@@ -8,11 +8,9 @@
     (function () {
       try {
         const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
-        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
         const lowEnd = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches)
           || !!(connection && connection.saveData)
-          || (typeof navigator.deviceMemory === 'number' && navigator.deviceMemory > 0 && navigator.deviceMemory <= 4)
-          || (!isIOS && typeof navigator.hardwareConcurrency === 'number' && navigator.hardwareConcurrency > 0 && navigator.hardwareConcurrency <= 4);
+          || (typeof navigator.deviceMemory === 'number' && navigator.deviceMemory > 0 && navigator.deviceMemory <= 4);
         if (lowEnd) document.documentElement.classList.add('perf-lite');
       } catch (_) {}
     })();
@@ -110,7 +108,7 @@
       <span class="login-footer-dot">·</span>
       <button class="login-footer-link" onclick="toggleLoginLang()">🌐 EN</button>
       <span class="login-footer-dot">·</span>
-      <span class="login-footer-text">v4.2.0 HK</span>
+      <span class="login-footer-text">v1</span>
     </div>
   </div>
 

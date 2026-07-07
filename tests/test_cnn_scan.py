@@ -388,7 +388,7 @@ class CnnScanTests(unittest.TestCase):
         self.assertIn("--nav-arch: 8px", style)
         self.assertIn("--nav-lift: 10px", style)
         self.assertIn("--nav-bulge-active: 8px", style)
-        self.assertIn("--nav-indicator-y-offset: 3px", style)
+        self.assertIn("--nav-indicator-y-offset: 0px", style)
         self.assertIn("--nav-indicator-window-width: 80px", style)
         self.assertIn("--nav-indicator-window-height: 42px", style)
         self.assertIn("--nav-indicator-hold-width: 90px", style)
@@ -407,6 +407,7 @@ class CnnScanTests(unittest.TestCase):
         self.assertIn("width: calc(100% - 36px)", style)
         self.assertIn("max-width: 392px", style)
         self.assertIn("--nav-indicator-radius: calc(var(--nav-shell-radius) - var(--nav-indicator-inset))", style)
+        self.assertIn("--nav-indicator-hold-radius: var(--nav-indicator-radius)", style)
         self.assertRegex(
             style,
             r"nav\.nav::before, \.app-nav::before \{[\s\S]*backdrop-filter: blur\(20px\) brightness\(1\.15\) saturate\(150%\);",
@@ -443,12 +444,12 @@ class CnnScanTests(unittest.TestCase):
         self.assertIn("const x = clamp(center - width / 2, edge, maxX) - edge;", app)
         self.assertIn("mesh.centerY - getIndicatorYOffset()", app)
         self.assertIn("border-radius: var(--nav-indicator-radius)", style)
-        self.assertNotIn("border-radius: calc(var(--nav-indicator-window-height) / 2)", style)
-        self.assertNotIn("border-radius: calc(var(--nav-indicator-hold-height) / 2)", style)
+        self.assertIn("border-radius: var(--nav-indicator-hold-radius)", style)
         self.assertIn("background: var(--nav-indicator-bg);", style)
         self.assertIn("background: var(--nav-indicator-bg-active);", style)
         self.assertIn("inset 0 -1px 0 var(--nav-indicator-ring)", style)
-        self.assertIn("0 6px 18px var(--nav-indicator-shadow)", style)
+        self.assertIn("0 1px 5px var(--nav-indicator-shadow)", style)
+        self.assertNotIn("0 6px 18px var(--nav-indicator-shadow)", style)
         self.assertIn("[data-theme=\"forest\"] nav.nav", theme)
         self.assertIn("--nav-indicator-ring: rgba(45,90,30,0.26);", theme)
         self.assertIn("[data-theme=\"ocean\"] nav.nav", theme)
@@ -461,8 +462,17 @@ class CnnScanTests(unittest.TestCase):
         self.assertIn("liquidShell.setBulge(getCssPx('--nav-bulge-active', 8));", app)
         self.assertIn("navbar.classList.add('nav-is-holding');", app)
         self.assertIn("navbar.classList.remove('nav-is-holding', 'nav-is-dragging');", app)
+        self.assertIn("--nav-indicator-y-offset: 3px;", theme)
+        self.assertIn("--nav-indicator-radius: calc(var(--nav-indicator-window-height) / 2);", theme)
+        self.assertIn("--nav-indicator-hold-radius: calc(var(--nav-indicator-hold-height) / 2);", theme)
         self.assertIn("[data-theme=\"midnight\"] .nav-indicator", theme)
         self.assertRegex(theme, r"\[data-theme=\"dark\"\] nav\.nav,[\s\S]*box-shadow:\s*none;")
+        self.assertRegex(theme, r"\[data-theme=\"dark\"\] nav\.nav,[\s\S]*border:\s*0;")
+        self.assertRegex(style, r"\[data-theme=\"dark\"\] nav\.nav,[\s\S]*border:\s*0;")
+        self.assertNotRegex(
+            style,
+            r"\[data-theme=\"dark\"\] \.app-header,\s*\[data-theme=\"dark\"\] nav\.nav,[\s\S]*border:\s*1px solid rgba\(255, 255, 255, 0\.06\);",
+        )
         self.assertIn("drop-shadow(0 8px 18px rgba(0,0,0,0.32))", theme)
         self.assertNotIn("stroke: rgba(255,255,255,0.06)", theme)
         self.assertNotIn("drop-shadow(0 1px 0", style)

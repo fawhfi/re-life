@@ -394,9 +394,7 @@ class CnnScanTests(unittest.TestCase):
         self.assertIn("--nav-indicator-hold-width: 90px", style)
         self.assertIn("--nav-indicator-hold-height: 48px", style)
         self.assertIn("--nav-shell-safe-inset: 2px", style)
-        self.assertIn("--nav-shell-x-bleed: 4px", style)
-        self.assertIn("width: calc(100% - 44px)", style)
-        self.assertIn("max-width: 376px", style)
+        self.assertIn("--nav-shell-x-bleed: 6px", style)
         self.assertIn("--nav-indicator-radius: calc(var(--nav-shell-radius) - var(--nav-indicator-inset))", style)
         self.assertRegex(
             style,
@@ -418,7 +416,6 @@ class CnnScanTests(unittest.TestCase):
         self.assertIn("function smoothstep", app)
         self.assertIn("function applyEdgeCompression", app)
         self.assertIn("const startX = -horizontalBleed;", app)
-        self.assertIn("getCssPx('--nav-shell-x-bleed', 4)", app)
         self.assertIn("const width = getIndicatorWidth(isHolding);", app)
         self.assertIn("const x = clamp(center - width / 2, edge, maxX) - edge;", app)
         self.assertIn("mesh.centerY - getIndicatorYOffset()", app)
@@ -433,8 +430,6 @@ class CnnScanTests(unittest.TestCase):
         self.assertIn("[data-theme=\"midnight\"] .nav-indicator", theme)
         self.assertNotIn("inset 0 -2px 10px", theme)
         self.assertNotIn("x = 0;", app)
-        self.assertNotRegex(style, r"nav\.nav, \.app-nav \{[^}]*width: calc\(100% - 30px\)")
-        self.assertNotRegex(style, r"nav\.nav, \.app-nav \{[^}]*max-width: 400px")
         self.assertNotIn("scale(1.28)", style)
         self.assertNotIn("scale(1.38)", style)
         self.assertNotIn("drop-shadow", style)

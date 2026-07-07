@@ -2501,14 +2501,14 @@ nav.nav, .app-nav {
     --nav-indicator-hold-width: 90px;
     --nav-indicator-hold-height: 48px;
     --nav-shell-safe-inset: 2px;
-    --nav-shell-x-bleed: 4px;
+    --nav-shell-x-bleed: 6px;
     --nav-indicator-radius: calc(var(--nav-shell-radius) - var(--nav-indicator-inset));
     position: fixed;
     bottom: max(20px, env(safe-area-inset-bottom, 20px));
     left: 0; right: 0;
     margin: 0 auto;
-    width: calc(100% - 44px);
-    max-width: 376px;
+    width: calc(100% - 30px);
+    max-width: 400px;
     height: calc(var(--nav-shell-height) + var(--nav-arch));
     display: flex;
     justify-content: space-around;

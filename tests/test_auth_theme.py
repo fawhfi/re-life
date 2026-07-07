@@ -11,6 +11,7 @@ class AuthThemeTests(unittest.TestCase):
             html = Path("templates", template_name).read_text(encoding="utf-8")
 
             self.assertIn('/static/js/auth-theme.js', html)
+            self.assertIn('/static/js/auth-lang.js', html)
             self.assertIn('data-auth-theme-select', html)
             self.assertIn('onchange="applyAuthTheme(this.value)"', html)
             self.assertIn('aria-label="Theme"', html)
@@ -32,13 +33,24 @@ class AuthThemeTests(unittest.TestCase):
         self.assertIn(".auth-theme-select", style)
         self.assertIn(".auth-theme-icon", style)
 
+    def test_auth_pages_support_three_language_switching(self):
+        helper = Path("static/js/auth-lang.js").read_text(encoding="utf-8")
+        app = Path("static/app.js").read_text(encoding="utf-8")
+
+        for lang in ("'en'", "'zh_simplified'", "'zh_traditional'"):
+            self.assertIn(lang, helper)
+            self.assertIn(lang, app)
+        self.assertIn("AUTH_LANG.next", Path("templates/login.html").read_text(encoding="utf-8"))
+        self.assertIn("AUTH_LANG.next", Path("templates/register.html").read_text(encoding="utf-8"))
+        self.assertIn("APP_LANG_ORDER", app)
+
     def test_user_visible_version_strings_are_v1(self):
         for template_name in ("login.html", "register.html"):
             html = Path("templates", template_name).read_text(encoding="utf-8")
             self.assertIn('class="login-footer-text">v1</span>', html)
             self.assertNotIn("v4.2.0 HK", html)
 
-        for locale_name in ("en.json", "zh.json"):
+        for locale_name in ("en.json", "zh_simplified.json", "zh_traditional.json"):
             locale = Path("static", "i18n", locale_name).read_text(encoding="utf-8")
             self.assertIn('"version": "v1"', locale)
             self.assertIn('"versionLabel": "v1"', locale)

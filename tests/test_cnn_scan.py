@@ -270,12 +270,12 @@ class CnnScanTests(unittest.TestCase):
             response = self.client.post(
                 "/api/scan/ai",
                 files={"file": ("sample.jpg", b"fake image bytes", "image/jpeg")},
-                data={"mode": "dispose", "item_type": "food", "item_state": "new", "debug": "false", "lang": "zh"},
+                data={"mode": "dispose", "item_type": "food", "item_state": "new", "debug": "false", "lang": "zh_simplified"},
             )
 
         self.assertEqual(response.status_code, 200)
         remote_mock.assert_awaited_once()
-        self.assertEqual(remote_mock.await_args.args[2], "zh")
+        self.assertEqual(remote_mock.await_args.args[2], "zh_simplified")
 
     def test_scan_endpoint_debug_mode_forces_local_transformer(self):
         sample_dir = Path(__file__).resolve().parents[2] / "cnn_classifier" / "src" / "data" / "test" / "paper"
@@ -497,7 +497,7 @@ class CnnScanTests(unittest.TestCase):
         self.assertRegex(style, r"\.alternative-card-name \{[\s\S]*font-size:\s*16px;")
         self.assertRegex(style, r"\.alternative-card-ratings \{[\s\S]*gap:\s*18px;")
 
-    def test_ai_analyze_adds_chinese_instruction_for_zh_language(self):
+    def test_ai_analyze_adds_simplified_chinese_instruction_for_zh_simplified_language(self):
         with patch("models.DEFAULT_AI_MODEL", "custom"), \
              patch("models.CUSTOM_METHOD", "openai"), \
              patch("models.CUSTOM_API_KEY", "custom-key"), \
@@ -505,10 +505,27 @@ class CnnScanTests(unittest.TestCase):
              patch("models.CUSTOM_MODEL", "vision-model"), \
              patch("models._compress_image", return_value=(b"compressed", "image/png")), \
              patch("models._call_openai_compat", new=AsyncMock(return_value=self._remote_json())) as custom_mock:
-            asyncio.run(ai_analyze(b"image-bytes", "sid-custom", language="zh"))
+            asyncio.run(ai_analyze(b"image-bytes", "sid-custom", language="zh_simplified"))
+
+        prompt = custom_mock.await_args.args[3]
+        self.assertIn("Simplified Chinese", prompt)
+        self.assertIn("zh-CN", prompt)
+        self.assertIn("Keep JSON property names", prompt)
+        self.assertIn("human-readable JSON string values", prompt)
+
+    def test_ai_analyze_adds_traditional_chinese_instruction_for_zh_traditional_language(self):
+        with patch("models.DEFAULT_AI_MODEL", "custom"), \
+             patch("models.CUSTOM_METHOD", "openai"), \
+             patch("models.CUSTOM_API_KEY", "custom-key"), \
+             patch("models.CUSTOM_BASE_URL", "https://llm.example.com/v1"), \
+             patch("models.CUSTOM_MODEL", "vision-model"), \
+             patch("models._compress_image", return_value=(b"compressed", "image/png")), \
+             patch("models._call_openai_compat", new=AsyncMock(return_value=self._remote_json())) as custom_mock:
+            asyncio.run(ai_analyze(b"image-bytes", "sid-custom", language="zh_traditional"))
 
         prompt = custom_mock.await_args.args[3]
         self.assertIn("Traditional Chinese", prompt)
+        self.assertIn("zh-HK", prompt)
         self.assertIn("Keep JSON property names", prompt)
         self.assertIn("human-readable JSON string values", prompt)
 

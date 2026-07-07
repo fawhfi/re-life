@@ -8,6 +8,22 @@ function weatherTr(key, fallback) {
     return value === key ? fallback : value;
 }
 
+function getWeatherLocale() {
+    if (typeof getHtmlLang === 'function') return getHtmlLang(state.lang);
+    if (state.lang === 'zh_traditional') return 'zh-HK';
+    if (state.lang === 'zh' || state.lang === 'zh_simplified') return 'zh-CN';
+    return 'en-HK';
+}
+
+function isWeatherChinese() {
+    if (typeof isChineseLang === 'function') return isChineseLang(state.lang);
+    return state.lang === 'zh' || state.lang === 'zh_simplified' || state.lang === 'zh_traditional';
+}
+
+function weatherChineseFallback(simplified, traditional) {
+    return state.lang === 'zh_traditional' ? traditional : simplified;
+}
+
 async function resolveWeatherCoordinates(forcePrompt = false) {
     if (!navigator.geolocation) {
         return null;
@@ -135,10 +151,10 @@ async function refreshHeaderWeather() {
 }
 
 function formatWeatherUpdatedAt(value) {
-    if (!value) return weatherTr('weather.detail.liveData', state.lang === 'zh' ? '即時資料' : 'Live data');
+    if (!value) return weatherTr('weather.detail.liveData', isWeatherChinese() ? weatherChineseFallback('实时资料', '即時資料') : 'Live data');
     const stamp = new Date(value);
-    if (Number.isNaN(stamp.getTime())) return weatherTr('weather.detail.liveData', state.lang === 'zh' ? '即時資料' : 'Live data');
-    return stamp.toLocaleString(state.lang === 'zh' ? 'zh-HK' : 'en-HK', {
+    if (Number.isNaN(stamp.getTime())) return weatherTr('weather.detail.liveData', isWeatherChinese() ? weatherChineseFallback('实时资料', '即時資料') : 'Live data');
+    return stamp.toLocaleString(getWeatherLocale(), {
         month: 'short',
         day: 'numeric',
         hour: '2-digit',
@@ -168,7 +184,7 @@ function getWeatherDetailModel() {
 }
 
 function getWeatherLanguage() {
-    return state.lang === 'zh' ? 'zh' : 'en';
+    return isWeatherChinese() ? 'zh' : 'en';
 }
 
 function localizeWeatherSummary(summary) {
@@ -220,7 +236,7 @@ function localizeWeatherCallout(model) {
 function getWeatherSubtitle(model) {
     const baseLocation = localizeWeatherLocation(model.location);
     if (model.temperature_place && model.temperature_place !== model.location) {
-        return state.lang === 'zh' ? `${baseLocation} · ${model.temperature_place}` : `${baseLocation} • ${model.temperature_place}`;
+        return isWeatherChinese() ? `${baseLocation} · ${model.temperature_place}` : `${baseLocation} • ${model.temperature_place}`;
     }
     return baseLocation;
 }

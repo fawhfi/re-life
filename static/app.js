@@ -31,6 +31,71 @@ function tr(key) {
     return (typeof I18N !== 'undefined' && I18N.tr) ? I18N.tr(key) : key;
 }
 
+const APP_LANG_EN = 'en';
+const APP_LANG_ZH_SIMPLIFIED = 'zh_simplified';
+const APP_LANG_ZH_TRADITIONAL = 'zh_traditional';
+const APP_LANG_ORDER = [APP_LANG_EN, APP_LANG_ZH_SIMPLIFIED, APP_LANG_ZH_TRADITIONAL];
+
+function normalizeAppLang(lang) {
+    if (typeof I18N !== 'undefined' && typeof I18N.normalizeLang === 'function') {
+        const normalized = I18N.normalizeLang(lang);
+        return APP_LANG_ORDER.includes(normalized) ? normalized : APP_LANG_EN;
+    }
+    const value = String(lang || APP_LANG_EN).trim().toLowerCase();
+    if (value === APP_LANG_EN) return APP_LANG_EN;
+    if (['hk', 'tw', 'zh-hk', 'zh_hk', 'zh-tw', 'zh_tw', 'zh-hant', 'zh_hant', 'traditional_chinese'].includes(value)) {
+        return APP_LANG_ZH_TRADITIONAL;
+    }
+    if (value.startsWith('zh') || ['cn', 'zh-cn', 'zh_cn', 'zh-hans', 'zh_hans', 'simplified_chinese'].includes(value)) {
+        return APP_LANG_ZH_SIMPLIFIED;
+    }
+    return APP_LANG_EN;
+}
+
+function isChineseLang(lang = state.lang) {
+    return normalizeAppLang(lang) !== APP_LANG_EN;
+}
+
+function getHtmlLang(lang = state.lang) {
+    const normalized = normalizeAppLang(lang);
+    if (normalized === APP_LANG_ZH_SIMPLIFIED) return 'zh-CN';
+    if (normalized === APP_LANG_ZH_TRADITIONAL) return 'zh-HK';
+    return 'en';
+}
+
+function getLangIndicator(lang = state.lang) {
+    const normalized = normalizeAppLang(lang);
+    if (normalized === APP_LANG_ZH_SIMPLIFIED) return '简中';
+    if (normalized === APP_LANG_ZH_TRADITIONAL) return '繁中';
+    return 'Eng';
+}
+
+function getAuthLangButtonText(lang = state.lang) {
+    const normalized = normalizeAppLang(lang);
+    if (normalized === APP_LANG_ZH_SIMPLIFIED) return '🌐 简中';
+    if (normalized === APP_LANG_ZH_TRADITIONAL) return '🌐 繁中';
+    return '🌐 EN';
+}
+
+function readStoredAppLang() {
+    return normalizeAppLang(safeStorage.get('RE_LIFE_LANG') || APP_LANG_EN);
+}
+
+function persistAppLang(lang) {
+    const normalized = normalizeAppLang(lang);
+    safeStorage.set('RE_LIFE_LANG', normalized);
+    return normalized;
+}
+
+function nextAppLang(lang = state.lang) {
+    const index = APP_LANG_ORDER.indexOf(normalizeAppLang(lang));
+    return APP_LANG_ORDER[(index + 1) % APP_LANG_ORDER.length];
+}
+
+function applyDocumentLang(lang = state.lang) {
+    document.documentElement.lang = getHtmlLang(lang);
+}
+
 // ═══════════════════════════════════════════════════════════════════════
 // 2b. TOAST NOTIFICATIONS
 // ═══════════════════════════════════════════════════════════════════════
@@ -236,11 +301,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     // Init language from storage
-    state.lang = safeStorage.get('RE_LIFE_LANG') || 'en';
-    document.documentElement.lang = state.lang === 'zh' ? 'zh-HK' : 'en';
+    state.lang = readStoredAppLang();
+    applyDocumentLang(state.lang);
     // Update language indicator immediately
     const langInd = document.getElementById('lang-ind');
-    if (langInd) langInd.textContent = state.lang === 'en' ? 'Eng' : '中文';
+    if (langInd) langInd.textContent = getLangIndicator(state.lang);
     // Load i18n then update labels — avoids showing English briefly
     if (typeof I18N !== 'undefined') {
         I18N.load(state.lang).then(() => {
@@ -1940,10 +2005,10 @@ window.addEventListener('beforeunload', () => {
 // 14b. LOGIN PAGE
 // ═══════════════════════════════════════════════════════════════════════
 
-let loginLang = safeStorage.get('RE_LIFE_LANG') || 'en';
+let loginLang = readStoredAppLang();
 
 function initLoginPage() {
-    loginLang = safeStorage.get('RE_LIFE_LANG') || 'en';
+    loginLang = readStoredAppLang();
     state.lang = loginLang; // sync with main state
     applyLoginLabels();
 }
@@ -1967,12 +2032,11 @@ function applyLoginLabels() {
         if (el) el.textContent = STRINGS[loginLang][key];
     }
     const langBtn = document.getElementById('lang-btn');
-    if (langBtn) langBtn.textContent = loginLang === 'en' ? '🌐 EN' : '🌐 中文';
+    if (langBtn) langBtn.textContent = getAuthLangButtonText(loginLang);
 }
 
 function toggleLoginLang() {
-    loginLang = loginLang === 'en' ? 'zh' : 'en';
-    safeStorage.set('RE_LIFE_LANG', loginLang);
+    loginLang = persistAppLang(nextAppLang(loginLang));
     state.lang = loginLang;
     applyLoginLabels();
 }
@@ -1997,12 +2061,11 @@ function toggleRegister() {
 // ═══════════════════════════════════════════════════════════════════════
 
 async function toggleLang() {
-    state.lang = state.lang === 'en' ? 'zh' : 'en';
-    safeStorage.set('RE_LIFE_LANG', state.lang);
+    state.lang = persistAppLang(nextAppLang(state.lang));
     if (typeof I18N !== 'undefined') await I18N.load(state.lang);
-    document.documentElement.lang = state.lang === 'en' ? 'en' : 'zh-HK';
+    applyDocumentLang(state.lang);
     const langInd = document.getElementById('lang-ind');
-    if (langInd) langInd.textContent = state.lang === 'en' ? 'Eng' : '中文';
+    if (langInd) langInd.textContent = getLangIndicator(state.lang);
     updateAllLabels();
     updateWeatherUI();
     if (state.activeTab === 'record') renderRecords();

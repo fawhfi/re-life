@@ -51,6 +51,29 @@
     --color-emerald-800: #3a2a18; --color-red-400: #e0a8a0; --color-red-500: #c05040;
 }
 
+/* ── Light themes: keep the liquid indicator visible on pale glass ─── */
+[data-theme="forest"] nav.nav,
+[data-theme="forest"] .app-nav {
+    --nav-indicator-ring: rgba(45,90,30,0.26);
+    --nav-indicator-ring-active: rgba(45,90,30,0.34);
+    --nav-indicator-shadow: rgba(45,90,30,0.18);
+    --nav-indicator-shadow-active: rgba(45,90,30,0.24);
+}
+[data-theme="ocean"] nav.nav,
+[data-theme="ocean"] .app-nav {
+    --nav-indicator-ring: rgba(26,74,106,0.24);
+    --nav-indicator-ring-active: rgba(26,74,106,0.32);
+    --nav-indicator-shadow: rgba(26,74,106,0.18);
+    --nav-indicator-shadow-active: rgba(26,74,106,0.24);
+}
+[data-theme="sunset"] nav.nav,
+[data-theme="sunset"] .app-nav {
+    --nav-indicator-ring: rgba(138,58,42,0.24);
+    --nav-indicator-ring-active: rgba(138,58,42,0.32);
+    --nav-indicator-shadow: rgba(138,58,42,0.17);
+    --nav-indicator-shadow-active: rgba(138,58,42,0.23);
+}
+
 /* ── Midnight ───────────────────────────────────────────────────────── */
 [data-theme="midnight"] {
     --color-primary: #6a5acd; --color-primary-hover: #4a3aa0;
@@ -331,8 +354,8 @@ nav.nav:active { cursor: grabbing; }
 }
 [data-theme="dark"] .nav-shell-path,
 [data-theme="midnight"] .nav-shell-path {
-    fill: rgba(24,32,28,0.42);
-    stroke: rgba(255,255,255,0.06);
+    fill: transparent;
+    stroke: transparent;
 }
 [data-theme="dark"] .nav-indicator::after,
 [data-theme="midnight"] .nav-indicator::after {

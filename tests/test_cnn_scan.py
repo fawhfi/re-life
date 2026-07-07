@@ -394,18 +394,30 @@ class CnnScanTests(unittest.TestCase):
         self.assertIn("--nav-indicator-hold-width: 90px", style)
         self.assertIn("--nav-indicator-hold-height: 48px", style)
         self.assertIn("--nav-shell-safe-inset: 2px", style)
-        self.assertIn("--nav-shell-x-bleed: 6px", style)
+        self.assertIn("--nav-shell-x-bleed: 4px", style)
+        self.assertIn("--nav-shell-shadow:", style)
+        self.assertIn("drop-shadow(0 8px 18px rgba(0,0,0,0.20))", style)
+        self.assertIn("stroke: rgba(255,255,255,0.10)", style)
+        self.assertIn("width: calc(100% - 36px)", style)
+        self.assertIn("max-width: 392px", style)
         self.assertIn("--nav-indicator-radius: calc(var(--nav-shell-radius) - var(--nav-indicator-inset))", style)
         self.assertRegex(
             style,
-            r"nav\.nav, \.app-nav \{[\s\S]*backdrop-filter: blur\(20px\) brightness\(1\.15\) saturate\(150%\);",
+            r"nav\.nav::before, \.app-nav::before \{[\s\S]*backdrop-filter: blur\(20px\) brightness\(1\.15\) saturate\(150%\);",
         )
         self.assertRegex(
             style,
-            r"nav\.nav, \.app-nav \{[\s\S]*box-shadow:\s*0 4px 24px rgba\(0,0,0,0\.10\),\s*inset 0 1px 3px rgba\(255,255,255,0\.3\);",
+            r"nav\.nav, \.app-nav \{[\s\S]*box-shadow:\s*none;",
         )
-        self.assertIn("clip-path: url(#nav-shell-clip)", style)
+        self.assertRegex(
+            style,
+            r"nav\.nav::before, \.app-nav::before \{[\s\S]*clip-path: url\(#nav-shell-clip\);",
+        )
+        self.assertNotRegex(style, r"nav\.nav, \.app-nav \{[^}]*box-shadow:\s*0 4px 24px")
+        self.assertNotRegex(style, r"nav\.nav, \.app-nav \{[^}]*clip-path: url\(#nav-shell-clip\);")
         self.assertIn(".nav-shell-svg", style)
+        self.assertRegex(style, r"\.nav-shell-svg \{[\s\S]*overflow: visible;")
+        self.assertRegex(style, r"\.nav-shell-svg \{[\s\S]*filter: var\(--nav-shell-shadow\);")
         self.assertIn(".nav-indicator::after", style)
         self.assertIn("width: 100%;", style)
         self.assertIn(".nav-is-holding .nav-indicator,", style)
@@ -416,6 +428,7 @@ class CnnScanTests(unittest.TestCase):
         self.assertIn("function smoothstep", app)
         self.assertIn("function applyEdgeCompression", app)
         self.assertIn("const startX = -horizontalBleed;", app)
+        self.assertIn("getCssPx('--nav-shell-x-bleed', 4)", app)
         self.assertIn("const width = getIndicatorWidth(isHolding);", app)
         self.assertIn("const x = clamp(center - width / 2, edge, maxX) - edge;", app)
         self.assertIn("mesh.centerY - getIndicatorYOffset()", app)
@@ -428,11 +441,15 @@ class CnnScanTests(unittest.TestCase):
         self.assertIn("navbar.classList.add('nav-is-holding');", app)
         self.assertIn("navbar.classList.remove('nav-is-holding', 'nav-is-dragging');", app)
         self.assertIn("[data-theme=\"midnight\"] .nav-indicator", theme)
+        self.assertRegex(theme, r"\[data-theme=\"dark\"\] nav\.nav,[\s\S]*box-shadow:\s*none;")
+        self.assertIn("drop-shadow(0 8px 18px rgba(0,0,0,0.32))", theme)
+        self.assertIn("stroke: rgba(255,255,255,0.06)", theme)
+        self.assertNotIn("drop-shadow(0 1px 0", style)
+        self.assertNotIn("drop-shadow(0 1px 0", theme)
         self.assertNotIn("inset 0 -2px 10px", theme)
         self.assertNotIn("x = 0;", app)
         self.assertNotIn("scale(1.28)", style)
         self.assertNotIn("scale(1.38)", style)
-        self.assertNotIn("drop-shadow", style)
 
     def test_ai_analyze_adds_chinese_instruction_for_zh_language(self):
         with patch("models.DEFAULT_AI_MODEL", "custom"), \

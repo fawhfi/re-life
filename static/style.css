@@ -2501,26 +2501,25 @@ nav.nav, .app-nav {
     --nav-indicator-hold-width: 90px;
     --nav-indicator-hold-height: 48px;
     --nav-shell-safe-inset: 2px;
-    --nav-shell-x-bleed: 6px;
+    --nav-shell-x-bleed: 4px;
+    --nav-glass-bg: rgba(255,255,255,0.10);
+    --nav-shell-shadow: drop-shadow(0 8px 18px rgba(0,0,0,0.20));
     --nav-indicator-radius: calc(var(--nav-shell-radius) - var(--nav-indicator-inset));
     position: fixed;
     bottom: max(20px, env(safe-area-inset-bottom, 20px));
     left: 0; right: 0;
     margin: 0 auto;
-    width: calc(100% - 30px);
-    max-width: 400px;
+    width: calc(100% - 36px);
+    max-width: 392px;
     height: calc(var(--nav-shell-height) + var(--nav-arch));
     display: flex;
     justify-content: space-around;
     align-items: center;
     gap: 0;
-    background: rgba(255,255,255,0.10);
-    backdrop-filter: blur(20px) brightness(1.15) saturate(150%);
-    -webkit-backdrop-filter: blur(20px) brightness(1.15) saturate(150%);
+    background: transparent;
     border: 0;
     border-radius: 0;
-    clip-path: url(#nav-shell-clip);
-    box-shadow: 0 4px 24px rgba(0,0,0,0.10), inset 0 1px 3px rgba(255,255,255,0.3);
+    box-shadow: none;
     padding: calc(var(--nav-arch) + var(--nav-indicator-inset)) 6px var(--nav-indicator-inset);
     z-index: 100;
     overflow: visible;
@@ -2530,8 +2529,21 @@ nav.nav, .app-nav {
         box-shadow 0.35s cubic-bezier(.22,1,.36,1),
         background 0.35s cubic-bezier(.22,1,.36,1);
 }
+
+nav.nav::before, .app-nav::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    background: var(--nav-glass-bg);
+    backdrop-filter: blur(20px) brightness(1.15) saturate(150%);
+    -webkit-backdrop-filter: blur(20px) brightness(1.15) saturate(150%);
+    clip-path: url(#nav-shell-clip);
+}
+
 @supports not ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
-    nav.nav, .app-nav { background: rgba(255,255,255,0.85); }
+    nav.nav, .app-nav { --nav-glass-bg: rgba(255,255,255,0.85); }
 }
 
 .nav-clip-defs {
@@ -2546,14 +2558,16 @@ nav.nav, .app-nav {
     inset: 0;
     width: 100%;
     height: 100%;
+    overflow: visible;
+    filter: var(--nav-shell-shadow);
     z-index: 0;
     pointer-events: none;
 }
 
 .nav-shell-path {
     fill: rgba(255,255,255,0.06);
-    stroke: rgba(255,255,255,0.30);
-    stroke-width: 1.5;
+    stroke: rgba(255,255,255,0.10);
+    stroke-width: 1;
     vector-effect: non-scaling-stroke;
 }
 
@@ -2616,7 +2630,7 @@ nav.nav, .app-nav {
 [data-theme="dark"] .nav-shell-path,
 [data-theme="midnight"] .nav-shell-path {
     fill: rgba(24,32,28,0.42);
-    stroke: rgba(255,255,255,0.16);
+    stroke: rgba(255,255,255,0.06);
 }
 
 [data-theme="dark"] .nav-indicator::after,

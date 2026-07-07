@@ -880,6 +880,16 @@ body {
     color: var(--color-gray-500);
 }
 
+.grade-tag {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 99px;
+    padding: 2px 7px;
+    color: #fff;
+    font-weight: 800;
+    line-height: 1.2;
+}
+
 .record-card-ratings {
     display: flex;
     gap: 10px;
@@ -930,11 +940,12 @@ body {
 /* ── Alternative Product ───────────────────────────────────────────── */
 .alternative-card {
     background: linear-gradient(135deg, var(--color-emerald-50) 0%, #e8f5e9 100%);
-    border: 1.5px solid var(--color-emerald-200);
-    border-radius: var(--radius-md);
-    padding: 14px;
-    margin-top: 10px;
-    box-shadow: 0 2px 8px rgba(4, 120, 87, 0.08);
+    border: 1.5px solid rgba(4,120,87,0.22);
+    border-radius: 16px;
+    padding: 18px 16px;
+    margin-top: 14px;
+    min-height: 104px;
+    box-shadow: 0 6px 18px rgba(4, 120, 87, 0.10);
     transition: box-shadow 0.2s, transform 0.2s;
     position: relative;
     overflow: hidden;
@@ -943,38 +954,40 @@ body {
 .alternative-card::before {
     content: '🌱';
     position: absolute;
-    right: -4px;
-    top: -4px;
-    font-size: 40px;
-    opacity: 0.08;
+    right: -8px;
+    top: -10px;
+    font-size: 56px;
+    opacity: 0.10;
     line-height: 1;
     pointer-events: none;
 }
 
 .alternative-card:hover {
-    box-shadow: 0 4px 16px rgba(4, 120, 87, 0.15);
+    box-shadow: 0 10px 24px rgba(4, 120, 87, 0.16);
     transform: translateY(-1px);
 }
 
 .alternative-card-label {
-    font-size: 10px;
+    font-size: 11px;
     font-weight: var(--weight-bold);
     text-transform: uppercase;
     color: var(--color-emerald-700);
     letter-spacing: 0.05em;
-    margin-bottom: 4px;
+    margin-bottom: 7px;
 }
 
 .alternative-card-name {
-    font-size: 13px;
+    font-size: 16px;
     font-weight: var(--weight-bold);
     color: var(--color-gray-800);
+    line-height: 1.25;
 }
 
 .alternative-card-ratings {
     display: flex;
-    gap: 14px;
-    margin-top: 4px;
+    gap: 18px;
+    margin-top: 10px;
+    flex-wrap: wrap;
 }
 
 /* ── Weighted Score Breakdown ──────────────────────────────────────── */
@@ -2501,7 +2514,7 @@ nav.nav, .app-nav {
     --nav-indicator-hold-width: 90px;
     --nav-indicator-hold-height: 48px;
     --nav-shell-safe-inset: 2px;
-    --nav-shell-x-bleed: 4px;
+    --nav-shell-x-bleed: 0px;
     --nav-glass-bg: rgba(255,255,255,0.10);
     --nav-shell-shadow: drop-shadow(0 8px 18px rgba(0,0,0,0.20));
     --nav-indicator-bg: rgba(255,255,255,0.50);
@@ -2641,7 +2654,6 @@ nav.nav::before, .app-nav::before {
 [data-theme="dark"] .app-nav,
 [data-theme="midnight"] nav.nav,
 [data-theme="midnight"] .app-nav {
-    --nav-indicator-y-offset: 3px;
     --nav-indicator-radius: calc(var(--nav-indicator-window-height) / 2);
     --nav-indicator-hold-radius: calc(var(--nav-indicator-hold-height) / 2);
     border: 0;
@@ -3636,7 +3648,7 @@ html.perf-lite .skeleton::after {
 }
 
 [data-theme="dark"] .grade-tag {
-    color: #e5e7e5;
+    color: #fff;
 }
 
 /* ── Dark mode: scan mode active buttons ──────────────────────────── */

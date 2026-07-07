@@ -394,7 +394,7 @@ class CnnScanTests(unittest.TestCase):
         self.assertIn("--nav-indicator-hold-width: 90px", style)
         self.assertIn("--nav-indicator-hold-height: 48px", style)
         self.assertIn("--nav-shell-safe-inset: 2px", style)
-        self.assertIn("--nav-shell-x-bleed: 4px", style)
+        self.assertIn("--nav-shell-x-bleed: 0px", style)
         self.assertIn("--nav-indicator-bg:", style)
         self.assertIn("--nav-indicator-bg-active:", style)
         self.assertIn("--nav-indicator-ring:", style)
@@ -439,7 +439,7 @@ class CnnScanTests(unittest.TestCase):
         self.assertIn("function smoothstep", app)
         self.assertIn("function applyEdgeCompression", app)
         self.assertIn("const startX = -horizontalBleed;", app)
-        self.assertIn("getCssPx('--nav-shell-x-bleed', 4)", app)
+        self.assertIn("getCssPx('--nav-shell-x-bleed', 0)", app)
         self.assertIn("const width = getIndicatorWidth(isHolding);", app)
         self.assertIn("const x = clamp(center - width / 2, edge, maxX) - edge;", app)
         self.assertIn("mesh.centerY - getIndicatorYOffset()", app)
@@ -462,9 +462,9 @@ class CnnScanTests(unittest.TestCase):
         self.assertIn("liquidShell.setBulge(getCssPx('--nav-bulge-active', 8));", app)
         self.assertIn("navbar.classList.add('nav-is-holding');", app)
         self.assertIn("navbar.classList.remove('nav-is-holding', 'nav-is-dragging');", app)
-        self.assertIn("--nav-indicator-y-offset: 3px;", theme)
         self.assertIn("--nav-indicator-radius: calc(var(--nav-indicator-window-height) / 2);", theme)
         self.assertIn("--nav-indicator-hold-radius: calc(var(--nav-indicator-hold-height) / 2);", theme)
+        self.assertNotIn("--nav-indicator-y-offset: 3px;", theme)
         self.assertIn("[data-theme=\"midnight\"] .nav-indicator", theme)
         self.assertRegex(theme, r"\[data-theme=\"dark\"\] nav\.nav,[\s\S]*box-shadow:\s*none;")
         self.assertRegex(theme, r"\[data-theme=\"dark\"\] nav\.nav,[\s\S]*border:\s*0;")
@@ -481,6 +481,21 @@ class CnnScanTests(unittest.TestCase):
         self.assertNotIn("x = 0;", app)
         self.assertNotIn("scale(1.28)", style)
         self.assertNotIn("scale(1.38)", style)
+
+    def test_grade_tags_use_white_text_on_colored_backgrounds(self):
+        style = Path("static/style.css").read_text(encoding="utf-8")
+        theme = Path("static/css/theme.css").read_text(encoding="utf-8")
+
+        self.assertRegex(style, r"\.grade-tag \{[\s\S]*color:\s*#fff;")
+        self.assertRegex(theme, r"\[data-theme=\"dark\"\] \.grade-tag,[\s\S]*\[data-theme=\"midnight\"\] \.grade-tag \{[\s\S]*color:\s*#fff;")
+
+    def test_alternative_product_card_is_prominent(self):
+        style = Path("static/style.css").read_text(encoding="utf-8")
+
+        self.assertRegex(style, r"\.alternative-card \{[\s\S]*padding:\s*18px 16px;")
+        self.assertRegex(style, r"\.alternative-card \{[\s\S]*min-height:\s*104px;")
+        self.assertRegex(style, r"\.alternative-card-name \{[\s\S]*font-size:\s*16px;")
+        self.assertRegex(style, r"\.alternative-card-ratings \{[\s\S]*gap:\s*18px;")
 
     def test_ai_analyze_adds_chinese_instruction_for_zh_language(self):
         with patch("models.DEFAULT_AI_MODEL", "custom"), \

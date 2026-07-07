@@ -102,7 +102,6 @@
 [data-theme="midnight"] .app-nav {
     --nav-glass-bg: rgba(20,28,20,0.12);
     --nav-shell-shadow: drop-shadow(0 8px 18px rgba(0,0,0,0.32));
-    --nav-indicator-y-offset: 3px;
     --nav-indicator-radius: calc(var(--nav-indicator-window-height) / 2);
     --nav-indicator-hold-radius: calc(var(--nav-indicator-hold-height) / 2);
     background: transparent;
@@ -240,7 +239,8 @@
 [data-theme="dark"] .rewards-wallet { color: #e5e7e5; }
 [data-theme="dark"] .policy-card { color: #e5e7e5; }
 [data-theme="dark"] .rewards-item-btn--can-buy { color: #e5e7e5; }
-[data-theme="dark"] .grade-tag { color: #e5e7e5; }
+[data-theme="dark"] .grade-tag,
+[data-theme="midnight"] .grade-tag { color: #fff; }
 [data-theme="dark"] .weather-overlay,
 [data-theme="midnight"] .weather-overlay { background: rgba(0, 0, 0, 0.52); }
 [data-theme="dark"] .weather-panel,

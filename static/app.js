@@ -373,7 +373,7 @@ function initNavDrag() {
     }
 
     function getNavShellXBleed() {
-        return getCssPx('--nav-shell-x-bleed', 4);
+        return getCssPx('--nav-shell-x-bleed', 0);
     }
 
     function smoothstep(value) {

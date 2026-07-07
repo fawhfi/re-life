@@ -8,11 +8,9 @@
     (function () {
       try {
         const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
-        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
         const lowEnd = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches)
           || !!(connection && connection.saveData)
-          || (typeof navigator.deviceMemory === 'number' && navigator.deviceMemory > 0 && navigator.deviceMemory <= 4)
-          || (!isIOS && typeof navigator.hardwareConcurrency === 'number' && navigator.hardwareConcurrency > 0 && navigator.hardwareConcurrency <= 4);
+          || (typeof navigator.deviceMemory === 'number' && navigator.deviceMemory > 0 && navigator.deviceMemory <= 4);
         if (lowEnd) document.documentElement.classList.add('perf-lite');
       } catch (_) {}
     })();
@@ -261,6 +259,16 @@
 
   <!-- ═══ NAV ═══ -->
   <nav class="nav" id="main-nav">
+    <svg class="nav-clip-defs" width="0" height="0" aria-hidden="true" focusable="false">
+      <defs>
+        <clipPath id="nav-shell-clip" clipPathUnits="userSpaceOnUse">
+          <path id="nav-shell-clip-path" d=""></path>
+        </clipPath>
+      </defs>
+    </svg>
+    <svg class="nav-shell-svg" viewBox="0 0 400 72" preserveAspectRatio="none" aria-hidden="true" focusable="false">
+      <path class="nav-shell-path" id="nav-shell-path" d=""></path>
+    </svg>
     <div class="nav-indicator" id="nav-indicator"></div>
     <button id="nav-home" class="nav-btn is-active" data-tab="home" onclick="navigateTo('home')"><span class="nav-btn-icon"><img src="/static/assets/Home.png" alt="Home" style="width:100%;height:100%;object-fit:contain"></span><span id="nav-lbl-home">Home</span></button>
     <button id="nav-record" class="nav-btn" data-tab="record" onclick="navigateTo('record')"><span class="nav-btn-icon"><img src="/static/assets/Record.png" alt="Record" style="width:100%;height:100%;object-fit:contain"></span><span id="nav-lbl-record">Record</span></button>

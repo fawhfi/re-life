@@ -2491,6 +2491,13 @@ html.perf-lite .toast-progress {
 nav.nav, .app-nav {
     --nav-shell-radius: 28px;
     --nav-indicator-inset: 5px;
+    --nav-shell-height: 58px;
+    --nav-arch: 13px;
+    --nav-lift: 12px;
+    --nav-indicator-window-width: 44px;
+    --nav-indicator-window-height: 32px;
+    --nav-indicator-hold-width: 76px;
+    --nav-indicator-hold-height: 44px;
     --nav-indicator-radius: calc(var(--nav-shell-radius) - var(--nav-indicator-inset));
     position: fixed;
     bottom: max(20px, env(safe-area-inset-bottom, 20px));
@@ -2498,22 +2505,25 @@ nav.nav, .app-nav {
     margin: 0 auto;
     width: calc(100% - 30px);
     max-width: 400px;
+    height: calc(var(--nav-shell-height) + var(--nav-arch));
     display: flex;
     justify-content: space-around;
     align-items: center;
     gap: 0;
-    background: rgba(255,255,255,0.14);
-    backdrop-filter: blur(22px) saturate(150%);
-    -webkit-backdrop-filter: blur(22px) saturate(150%);
-    border: 1px solid rgba(255,255,255,0.14);
-    border-radius: var(--nav-shell-radius);
+    background: transparent;
+    backdrop-filter: blur(5px) saturate(155%);
+    -webkit-backdrop-filter: blur(5px) saturate(155%);
+    border: 0;
+    border-radius: 0;
+    clip-path: url(#nav-shell-clip);
     box-shadow:
         0 8px 24px rgba(30,55,37,0.08),
         inset 0 1px 0 rgba(255,255,255,0.22),
         0 0 0 0.5px rgba(255,255,255,0.10);
-    padding: var(--nav-indicator-inset) 6px;
+    padding: calc(var(--nav-arch) + var(--nav-indicator-inset)) 6px var(--nav-indicator-inset);
     z-index: 100;
     overflow: visible;
+    isolation: isolate;
     transition:
         transform 0.35s cubic-bezier(.22,1,.36,1),
         box-shadow 0.35s cubic-bezier(.22,1,.36,1),
@@ -2523,46 +2533,97 @@ nav.nav, .app-nav {
     nav.nav, .app-nav { background: rgba(255,255,255,0.85); }
 }
 
+.nav-clip-defs {
+    position: absolute;
+    width: 0;
+    height: 0;
+    overflow: hidden;
+}
+
+.nav-shell-svg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 0;
+    pointer-events: none;
+}
+
+.nav-shell-path {
+    fill: rgba(255,255,255,0.22);
+    stroke: rgba(61,106,75,0.16);
+    stroke-width: 1.5;
+    vector-effect: non-scaling-stroke;
+}
+
 /* Sliding nav indicator */
 .nav-indicator {
     position: absolute;
-    top: var(--nav-indicator-inset);
+    top: calc(var(--nav-arch) + var(--nav-indicator-inset));
     left: var(--nav-indicator-inset);
     width: calc((100% - 22px) / 4);
-    height: calc(100% - (var(--nav-indicator-inset) * 2));
-    background: rgba(61,106,75,0.10);
-    border-radius: var(--nav-indicator-radius);
+    height: calc(var(--nav-shell-height) - (var(--nav-indicator-inset) * 2));
+    display: flex;
+    align-items: center;
+    justify-content: center;
     pointer-events: none;
     z-index: 1;
     transform-origin: left center;
     will-change: transform;
     transform: translate3d(0, 0, 0) scaleX(1);
+}
+
+.nav-indicator::after {
+    content: '';
+    width: var(--nav-indicator-window-width);
+    height: var(--nav-indicator-window-height);
+    background: rgba(255,255,255,0.18);
+    border: 1.5px solid rgba(255,255,255,0.70);
+    border-radius: calc(var(--nav-indicator-window-height) / 2);
     box-shadow:
         inset 0 0 0 1px rgba(61,106,75,0.08),
-        inset 0 1px 0 rgba(255,255,255,0.34);
+        inset 0 1px 0 rgba(255,255,255,0.34),
+        0 2px 6px rgba(30,55,37,0.14);
     transition:
-        top 0.2s var(--ease-out-quint),
-        height 0.2s var(--ease-out-quint),
-        border-radius 0.2s var(--ease-out-quint),
+        width 0.22s var(--spring-wobbly),
+        height 0.22s var(--spring-wobbly),
+        border-radius 0.22s var(--spring-wobbly),
         background 0.24s ease,
+        border-color 0.24s ease,
         box-shadow 0.24s ease;
 }
-.nav-is-dragging .nav-indicator {
-    top: var(--nav-indicator-inset);
-    height: calc(100% - (var(--nav-indicator-inset) * 2));
-    border-radius: var(--nav-indicator-radius);
-    background: rgba(61,106,75,0.13);
+
+.nav-is-holding .nav-indicator::after,
+.nav-is-dragging .nav-indicator::after {
+    width: var(--nav-indicator-hold-width);
+    height: var(--nav-indicator-hold-height);
+    background: rgba(255,255,255,0.28);
+    border-color: rgba(255,255,255,0.92);
+    border-radius: calc(var(--nav-indicator-hold-height) / 2);
     box-shadow:
         inset 0 0 0 1px rgba(61,106,75,0.10),
-        inset 0 1px 0 rgba(255,255,255,0.34);
+        inset 0 1px 0 rgba(255,255,255,0.42),
+        0 6px 22px rgba(30,55,37,0.18);
 }
-[data-theme="dark"] .nav-indicator,
-[data-theme="midnight"] .nav-indicator {
+
+[data-theme="dark"] .nav-shell-path,
+[data-theme="midnight"] .nav-shell-path {
+    fill: rgba(24,32,28,0.42);
+    stroke: rgba(255,255,255,0.16);
+}
+
+[data-theme="dark"] .nav-indicator::after,
+[data-theme="midnight"] .nav-indicator::after {
     background: rgba(255,255,255,0.12);
+    border-color: rgba(255,255,255,0.30);
 }
-[data-theme="dark"] .nav-is-dragging .nav-indicator,
-[data-theme="midnight"] .nav-is-dragging .nav-indicator {
+
+[data-theme="dark"] .nav-is-holding .nav-indicator::after,
+[data-theme="midnight"] .nav-is-holding .nav-indicator::after,
+[data-theme="dark"] .nav-is-dragging .nav-indicator::after,
+[data-theme="midnight"] .nav-is-dragging .nav-indicator::after {
     background: rgba(255,255,255,0.18);
+    border-color: rgba(255,255,255,0.42);
 }
 
 /* Hide floating bars when camera is active */
@@ -3675,8 +3736,6 @@ html.perf-lite .record-card,
 html.perf-lite .rewards-item,
 html.perf-lite .rewards-coupon,
 html.perf-lite .app-header,
-html.perf-lite nav.nav,
-html.perf-lite .app-nav,
 html.perf-lite .modal,
 html.perf-lite .upload-zone {
     backdrop-filter: none;
@@ -3687,8 +3746,7 @@ html.perf-lite .upload-zone {
 html.perf-lite .card,
 html.perf-lite .scan-btn,
 html.perf-lite .tab,
-html.perf-lite .modal,
-html.perf-lite .nav-btn-icon {
+html.perf-lite .modal {
     will-change: auto;
     transform: none;
 }
@@ -3701,9 +3759,6 @@ html.perf-lite .rewards-coupon {
 html.perf-lite .overall-bar-fill,
 html.perf-lite .criterion-bar-fill,
 html.perf-lite .score-ring-fill,
-html.perf-lite .nav-indicator,
-html.perf-lite .nav-btn.is-active .nav-btn-icon,
-html.perf-lite .nav-btn--pop .nav-btn-icon,
 html.perf-lite .anim-entrance {
     animation: none !important;
     transition: none !important;
@@ -3714,13 +3769,8 @@ html.perf-lite .criterion-bar-fill::after {
     display: none;
 }
 
-html.perf-lite .nav-btn.is-active .nav-btn-icon {
-    transform: scale(1.06);
-    filter: none;
-}
-
 html.perf-lite .record-card:hover,
-html.perf-lite .nav-btn:hover {
+html.perf-lite .card:hover {
     box-shadow: inherit;
 }
 

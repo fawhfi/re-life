@@ -1555,7 +1555,7 @@ function normalizeNewsItems(news) {
     if (!Array.isArray(news)) return [];
     return news.map(n => ({
         title: String(n?.title || '').trim(),
-        source: String(n?.source || '').trim() || 'Google News',
+        source: String(n?.source || '').trim() || 'NewsAPI',
         snippet: String(n?.snippet || '').trim(),
         link: String(n?.link || '').trim(),
     })).filter(item => item.title);

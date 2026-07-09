@@ -11,7 +11,7 @@ import uuid
 import httpx
 
 from auth import get_user_by_id, get_user_by_name
-from config import SERPAPI_KEY, SUPABASE_STORAGE_BUCKET, SUPABASE_URL
+from config import NEWS_API_KEY, SUPABASE_STORAGE_BUCKET, SUPABASE_URL
 from scoring import CRITERIA_LABELS, HK_DISPOSAL, REWARDS_CATALOG, SCHEMA_WEIGHTS, calc_weighted, get_grade
 from storage import (
     normalize_supabase_storage_url,
@@ -175,7 +175,7 @@ async def _resolve_user_id(user_id=None, display_name=None, user_key=None) -> di
 
 
 async def get_news_cached(db_get=None, db_put=None) -> list[dict]:
-    """Fetch environmental news via SerpAPI, cached in Supabase or memory."""
+    """Fetch environmental news via NewsAPI, cached in Supabase or memory."""
     if supabase_enabled():
         cache = await supabase_select_one("news_cache", filters={"cache_key": NEWS_CACHE_KEY})
         if cache and cache.get("data"):
@@ -187,7 +187,7 @@ async def get_news_cached(db_get=None, db_put=None) -> list[dict]:
         if cache and cache.get("data") and cache.get("fetched_at", 0) > _hk_today_6am():
             return cache["data"]
 
-    if not SERPAPI_KEY:
+    if not NEWS_API_KEY:
         if supabase_enabled():
             if cache and cache.get("data"):
                 return cache["data"]
@@ -195,21 +195,32 @@ async def get_news_cached(db_get=None, db_put=None) -> list[dict]:
             return cache["data"]
         return _FALLBACK_NEWS
 
-    query = "environmental+protection+climate+recycling+sustainability"
-    url = f"https://serpapi.com/search?engine=google_news&q={query}&hl=en&gl=hk&api_key={SERPAPI_KEY}"
+    query = '(recycling OR sustainability OR climate OR "environmental protection") AND "Hong Kong"'
     try:
         async with httpx.AsyncClient(timeout=15) as client:
-            res = await client.get(url)
+            res = await client.get(
+                "https://newsapi.org/v2/everything",
+                headers={"X-Api-Key": NEWS_API_KEY},
+                params={
+                    "q": query,
+                    "searchIn": "title,description",
+                    "language": "en",
+                    "sortBy": "publishedAt",
+                    "pageSize": 8,
+                },
+            )
             res.raise_for_status()
         data = res.json()
-        results = data.get("news_results", [])
+        if data.get("status") == "error":
+            raise RuntimeError(data.get("message") or "NewsAPI request failed")
+        results = data.get("articles", [])
         items = []
         for r in results[:8]:
             items.append({
                 "title": r.get("title", ""),
-                "source": r.get("source", {}).get("name", "Google News") if isinstance(r.get("source"), dict) else "Google News",
-                "link": r.get("link", ""),
-                "snippet": r.get("snippet", "")[:120] if r.get("snippet") else "",
+                "source": r.get("source", {}).get("name", "NewsAPI") if isinstance(r.get("source"), dict) else "NewsAPI",
+                "link": r.get("url", ""),
+                "snippet": (r.get("description") or r.get("content") or "")[:120],
             })
         if items:
             if supabase_enabled():

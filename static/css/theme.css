@@ -255,6 +255,16 @@
 [data-theme="midnight"] .grade-tag { color: #fff; }
 [data-theme="dark"] .weather-overlay,
 [data-theme="midnight"] .weather-overlay { background: rgba(0, 0, 0, 0.52); }
+[data-theme="dark"] .header-weather.has-weather-warning,
+[data-theme="midnight"] .header-weather.has-weather-warning {
+    background: rgba(180, 83, 9, 0.22);
+    border-color: rgba(251, 191, 36, 0.34);
+}
+[data-theme="dark"] .header-weather.has-typhoon-warning,
+[data-theme="midnight"] .header-weather.has-typhoon-warning {
+    background: rgba(8, 145, 178, 0.18);
+    border-color: rgba(103, 232, 249, 0.28);
+}
 [data-theme="dark"] .weather-panel,
 [data-theme="midnight"] .weather-panel {
     background: rgba(12, 18, 12, 0.96);
@@ -274,16 +284,10 @@
     background: rgba(74, 154, 91, 0.14);
     border-color: rgba(74, 154, 91, 0.18);
 }
-[data-theme="dark"] .weather-panel-stat--meta,
-[data-theme="midnight"] .weather-panel-stat--meta {
-    background: rgba(255, 255, 255, 0.04);
-}
 [data-theme="dark"] .weather-panel-title,
 [data-theme="midnight"] .weather-panel-title,
 [data-theme="dark"] .weather-panel-stat--primary .weather-panel-stat-value,
-[data-theme="midnight"] .weather-panel-stat--primary .weather-panel-stat-value,
-[data-theme="dark"] .weather-panel-stat--meta .weather-panel-stat-value,
-[data-theme="midnight"] .weather-panel-stat--meta .weather-panel-stat-value {
+[data-theme="midnight"] .weather-panel-stat--primary .weather-panel-stat-value {
     color: #f4f8f4;
 }
 [data-theme="dark"] .weather-panel-subtitle,
@@ -295,10 +299,6 @@
 [data-theme="dark"] .weather-panel-stat--primary .weather-panel-stat-value,
 [data-theme="midnight"] .weather-panel-stat--primary .weather-panel-stat-value {
     text-shadow: 0 1px 0 rgba(0, 0, 0, 0.16);
-}
-[data-theme="dark"] .weather-panel-stat--meta .weather-panel-stat-value,
-[data-theme="midnight"] .weather-panel-stat--meta .weather-panel-stat-value {
-    color: rgba(244, 248, 244, 0.88);
 }
 [data-theme="dark"] .weather-panel-callout,
 [data-theme="midnight"] .weather-panel-callout {
@@ -312,6 +312,19 @@
 [data-theme="dark"] .weather-panel-callout-body,
 [data-theme="midnight"] .weather-panel-callout-body {
     color: rgba(244, 248, 244, 0.92);
+}
+[data-theme="dark"] .weather-panel-warning,
+[data-theme="midnight"] .weather-panel-warning {
+    background: linear-gradient(180deg, rgba(180, 83, 9, 0.24), rgba(146, 64, 14, 0.16));
+    border-color: rgba(251, 191, 36, 0.22);
+}
+[data-theme="dark"] .weather-panel-warning-title,
+[data-theme="midnight"] .weather-panel-warning-title {
+    color: #fde68a;
+}
+[data-theme="dark"] .weather-panel-warning-body,
+[data-theme="midnight"] .weather-panel-warning-body {
+    color: rgba(255, 251, 235, 0.92);
 }
 
 /* ── Dark mode: scan mode buttons ─────────────────────────────────── */

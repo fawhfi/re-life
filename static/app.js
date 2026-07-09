@@ -303,9 +303,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Init language from storage
     state.lang = readStoredAppLang();
     applyDocumentLang(state.lang);
-    // Update language indicator immediately
-    const langInd = document.getElementById('lang-ind');
-    if (langInd) langInd.textContent = getLangIndicator(state.lang);
+    syncLanguageControls();
     // Load i18n then update labels — avoids showing English briefly
     if (typeof I18N !== 'undefined') {
         I18N.load(state.lang).then(() => {
@@ -2100,16 +2098,27 @@ function toggleRegister() {
 // 16. LANGUAGE
 // ═══════════════════════════════════════════════════════════════════════
 
-async function toggleLang() {
-    state.lang = persistAppLang(nextAppLang(state.lang));
+function syncLanguageControls() {
+    const normalized = normalizeAppLang(state.lang);
+    const langInd = document.getElementById('lang-ind');
+    if (langInd) langInd.textContent = getLangIndicator(normalized);
+    const langSelect = document.getElementById('lang-select');
+    if (langSelect) langSelect.value = normalized;
+}
+
+async function setLang(lang) {
+    state.lang = persistAppLang(lang);
     if (typeof I18N !== 'undefined') await I18N.load(state.lang);
     applyDocumentLang(state.lang);
-    const langInd = document.getElementById('lang-ind');
-    if (langInd) langInd.textContent = getLangIndicator(state.lang);
+    syncLanguageControls();
     updateAllLabels();
     updateWeatherUI();
     if (state.activeTab === 'record') renderRecords();
     if (state.activeTab === 'rewards') renderRewards();
+}
+
+async function toggleLang() {
+    return setLang(nextAppLang(state.lang));
 }
 
 function updateAllLabels() {
@@ -2147,8 +2156,6 @@ function updateAllLabels() {
         'lbl-fact-title': 'didYouKnow',
         'lbl-weather-temperature': 'weather.detail.temperature',
         'lbl-weather-location': 'weather.detail.location',
-        'lbl-weather-updated': 'weather.detail.updated',
-        'lbl-weather-source': 'weather.detail.source',
         'lbl-weather-close': 'weather.detail.close',
         'lbl-rew-balance': 'pointsBalance',
         'lbl-rew-sub': 'rewardsSub',

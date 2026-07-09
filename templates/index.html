@@ -245,7 +245,14 @@
               </select>
             </div>
             <button class="btn btn--outline btn--full btn--small" id="sound-btn" onclick="toggleSound()"><img id="sound-icon" src="/static/assets/Sound_On.png" alt="Sound" class="btn-icon"><span id="sound-label">Sound ON</span></button>
-            <button class="btn btn--outline btn--full btn--small" onclick="toggleLang()"><img id="lang-icon" src="/static/assets/Language.png" alt="Language" class="btn-icon"><span id="lang-label">Language</span> <span id="lang-ind">Eng</span></button>
+            <div class="ai-row">
+              <span class="ai-row-label"><img id="lang-icon" src="/static/assets/Language.png" alt="" class="btn-icon"><span id="lang-label">Language</span></span>
+              <select class="select-field" id="lang-select" onchange="setLang(this.value)" style="width:auto;min-width:128px">
+                <option value="en">English</option>
+                <option value="zh_simplified">简体中文</option>
+                <option value="zh_traditional">繁體中文</option>
+              </select>
+            </div>
             <button class="btn btn--outline btn--full btn--small" onclick="openPolicy()"><img src="/static/assets/Policy.png" alt="Policy" class="btn-icon"><span id="lbl-policy">Policy</span></button>
             <button class="btn btn--outline btn--full btn--small" id="debug-btn" onclick="toggleDebug()"><span id="debug-label">🔧 Debug Mode: OFF</span></button>
             <button class="btn btn--danger btn--full btn--small" id="logout-btn" onclick="handleLogout()" style="display:none"><span id="logout-label">Logout</span></button>
@@ -323,13 +330,12 @@
         <span class="weather-panel-stat-label" id="lbl-weather-location">Location</span>
         <strong class="weather-panel-stat-value" id="weather-detail-location">Hong Kong</strong>
       </div>
-      <div class="weather-panel-stat weather-panel-stat--meta">
-        <span class="weather-panel-stat-label" id="lbl-weather-updated">Updated</span>
-        <strong class="weather-panel-stat-value" id="weather-detail-updated">Live data</strong>
-      </div>
-      <div class="weather-panel-stat weather-panel-stat--meta">
-        <span class="weather-panel-stat-label" id="lbl-weather-source">Source</span>
-        <strong class="weather-panel-stat-value" id="weather-detail-source">HKO Open Data</strong>
+    </div>
+    <div class="weather-panel-warning hidden" id="weather-detail-warning" role="alert">
+      <div class="weather-panel-warning-icon" id="weather-detail-warning-icon">⚠️</div>
+      <div class="weather-panel-warning-copy">
+        <div class="weather-panel-warning-title" id="weather-detail-warning-title">Weather warning</div>
+        <div class="weather-panel-warning-body" id="weather-detail-warning-body">Check conditions before going out.</div>
       </div>
     </div>
     <div class="weather-panel-callout">

@@ -234,6 +234,18 @@ body {
     background: rgba(255,255,255,0.16);
 }
 
+.header-weather.has-weather-warning {
+    border-color: rgba(245, 158, 11, 0.52);
+    background: rgba(255, 247, 237, 0.24);
+    box-shadow: 0 0 0 1px rgba(245, 158, 11, 0.12), inset 0 1px 1px rgba(255,255,255,0.22);
+}
+
+.header-weather.has-typhoon-warning {
+    border-color: rgba(14, 116, 144, 0.42);
+    background: rgba(224, 242, 254, 0.24);
+    box-shadow: 0 0 0 1px rgba(14, 116, 144, 0.10), inset 0 1px 1px rgba(255,255,255,0.22);
+}
+
 .header-weather:focus-visible {
     outline: 2px solid rgba(56, 122, 77, 0.45);
     outline-offset: 2px;
@@ -243,6 +255,18 @@ body {
     font-size: 18px;
     line-height: 1;
     flex: 0 0 auto;
+    width: 22px;
+    height: 22px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.header-weather-emoji img {
+    display: block;
+    width: 22px;
+    height: 22px;
+    object-fit: contain;
 }
 
 .header-weather-copy {
@@ -2075,6 +2099,18 @@ body {
     font-size: 38px;
     line-height: 1;
     flex: 0 0 auto;
+    width: 48px;
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.weather-panel-emoji img {
+    display: block;
+    width: 48px;
+    height: 48px;
+    object-fit: contain;
 }
 
 .weather-panel-copy {
@@ -2114,11 +2150,6 @@ body {
     border-color: rgba(72, 150, 96, 0.12);
 }
 
-.weather-panel-stat--meta {
-    padding: 9px 12px 10px;
-    background: rgba(255, 255, 255, 0.56);
-}
-
 .weather-panel-stat-label {
     display: block;
     margin-bottom: 4px;
@@ -2141,10 +2172,51 @@ body {
     color: var(--color-gray-900);
 }
 
-.weather-panel-stat--meta .weather-panel-stat-value {
+.weather-panel-warning {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 14px;
+    padding: 12px;
+    border-radius: 16px;
+    border: 1px solid rgba(245, 158, 11, 0.34);
+    background: linear-gradient(180deg, rgba(255, 247, 237, 0.95), rgba(255, 237, 213, 0.72));
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.48);
+}
+
+.weather-panel-warning-icon {
+    flex: 0 0 auto;
+    width: 34px;
+    height: 34px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+}
+
+.weather-panel-warning-icon img {
+    display: block;
+    width: 34px;
+    height: 34px;
+    object-fit: contain;
+}
+
+.weather-panel-warning-copy {
+    min-width: 0;
+}
+
+.weather-panel-warning-title {
     font-size: 12px;
-    font-weight: 700;
-    color: var(--color-gray-600);
+    font-weight: 850;
+    color: #92400e;
+}
+
+.weather-panel-warning-body {
+    margin-top: 3px;
+    font-size: 13px;
+    line-height: 1.45;
+    font-weight: 600;
+    color: #78350f;
 }
 
 .weather-panel-callout {

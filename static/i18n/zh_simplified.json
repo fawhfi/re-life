@@ -75,20 +75,20 @@
     "detail": {
       "temperature": "温度",
       "location": "地点",
-      "updated": "更新",
-      "source": "来源",
-      "liveData": "实时资料",
       "close": "关闭"
     },
     "location": {
       "hongKong": "香港"
     },
-    "source": {
-      "hkoOpenData": "香港天文台开放资料",
-      "fallback": "后备资料"
+    "warning": {
+      "typhoonTitle": "台风警告",
+      "typhoonBody": "热带气旋警告现正生效。请收好松散物件，避免前往海边及当风位置，出门前留意官方天气消息。",
+      "weatherTitle": "恶劣天气警告",
+      "weatherBody": "恶劣天气警告现正生效。请先查看天气，再安排外出和回收行程。"
     },
     "summary": {
       "default": "香港天气",
+      "Tropical Cyclone Warning": "热带气旋警告",
       "Sunny": "晴天",
       "Sunny periods": "晴间多云",
       "Sunny intervals": "阳光间中出现",
@@ -158,6 +158,10 @@
       "Windy day": {
         "title": "有风的日子",
         "body": "微风最适合在美丽的海旁散步。未来还想享受清澈又美丽？立刻行动，减少污染海洋。由转用可持续产品开始。"
+      },
+      "Safety first": {
+        "title": "安全优先",
+        "body": "回收行程可以等天气稳定后再安排。请把松散的回收物留在室内，避免被强风吹起。"
       }
     }
   },

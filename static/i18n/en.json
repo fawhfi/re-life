@@ -45,20 +45,20 @@
     "detail": {
       "temperature": "Temperature",
       "location": "Location",
-      "updated": "Updated",
-      "source": "Source",
-      "liveData": "Live data",
       "close": "Close"
     },
     "location": {
       "hongKong": "Hong Kong"
     },
-    "source": {
-      "hkoOpenData": "HKO Open Data",
-      "fallback": "Fallback"
+    "warning": {
+      "typhoonTitle": "Typhoon warning",
+      "typhoonBody": "A tropical cyclone warning is in force. Secure loose items, avoid exposed waterfronts, and check official advice before going out.",
+      "weatherTitle": "Weather warning",
+      "weatherBody": "Bad weather warning is in force. Check conditions before going out and keep recycling plans flexible."
     },
     "summary": {
       "default": "Hong Kong weather",
+      "Tropical Cyclone Warning": "Tropical Cyclone Warning",
       "Sunny": "Sunny",
       "Sunny periods": "Sunny periods",
       "Sunny intervals": "Sunny intervals",
@@ -128,6 +128,10 @@
       "Windy day": {
         "title": "Windy day",
         "body": "Fresh wind feels better when the air stays clean. Recycling helps keep the long game on track."
+      },
+      "Safety first": {
+        "title": "Safety first",
+        "body": "Leave recycling trips for calmer weather. Keep loose recyclables indoors so they do not become flying debris."
       }
     }
   },

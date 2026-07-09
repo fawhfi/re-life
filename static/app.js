@@ -398,6 +398,8 @@ function initNavDrag() {
     let pendingTab = state.activeTab;
     let suppressNavClickUntil = 0;
     const liquidShell = createLiquidNavShell(navbar, indicator);
+    let indicatorXTo = null;
+    let indicatorWidthTo = null;
 
     if (indicator) {
         indicator.style.transformOrigin = 'left center';
@@ -445,6 +447,14 @@ function initNavDrag() {
         return getCssPx('--nav-shell-paint-inset', 1);
     }
 
+    function getNavShellYPaintInset() {
+        return getCssPx('--nav-shell-y-paint-inset', 1);
+    }
+
+    function getNavShellBottomBleed() {
+        return getCssPx('--nav-shell-bottom-bleed', 8);
+    }
+
     function getNavShellXBleed() {
         return getCssPx('--nav-shell-x-bleed', 0);
     }
@@ -488,10 +498,11 @@ function initNavDrag() {
         const halfSegmentLength = Math.max(10, Math.min(indicatorWidth / 2 - 22, indicatorWidth * 0.22));
         const safeInset = getNavShellSafeInset();
         const paintInset = getNavShellPaintInset();
+        const yPaintInset = getNavShellYPaintInset();
         const horizontalBleed = getNavShellXBleed();
         const xMin = paintInset - horizontalBleed;
         const xLimit = mesh.width - paintInset + horizontalBleed;
-        const yLimit = mesh.height - safeInset;
+        const yLimit = mesh.height + getNavShellBottomBleed() - yPaintInset;
         let path = "";
 
         mesh.points.forEach((p, index) => {
@@ -598,19 +609,35 @@ function initNavDrag() {
 
     function setIndicator(targetX, width, duration, ease) {
         if (!indicator) return;
-        if (width) indicator.style.width = `${width}px`;
         liquidShell.setIndicator(targetX, width);
         if (MOTION_ENABLED) {
+            const quick = isDragging ? getIndicatorQuickTo() : null;
+            if (quick) {
+                quick.xTo(targetX);
+                if (Number.isFinite(width)) quick.widthTo(width);
+                return;
+            }
             gsap.to(indicator, {
                 x: targetX,
+                width: Number.isFinite(width) ? width : undefined,
                 scaleX: 1,
                 duration,
                 ease,
                 overwrite: "auto",
             });
         } else {
+            if (Number.isFinite(width)) indicator.style.width = `${width}px`;
             indicator.style.transform = `translate3d(${targetX}px, 0, 0) scaleX(1)`;
         }
+    }
+
+    function getIndicatorQuickTo() {
+        if (!indicator || typeof gsap === 'undefined' || !gsap.quickTo) return null;
+        if (!indicatorXTo) {
+            indicatorXTo = gsap.quickTo(indicator, 'x', { duration: 0.16, ease: 'power2.out' });
+            indicatorWidthTo = gsap.quickTo(indicator, 'width', { duration: 0.16, ease: 'power2.out' });
+        }
+        return { xTo: indicatorXTo, widthTo: indicatorWidthTo };
     }
 
     function applyEdgeCompression(box, navRect, clientX, side) {
@@ -619,15 +646,15 @@ function initNavDrag() {
             ? box.rect.left + box.rect.width * 0.4
             : box.rect.right - box.rect.width * 0.4;
         const distance = side === 'left' ? threshold - clientX : clientX - threshold;
-        const t = smoothstep(distance / 72);
-        if (t <= 0) return { x: box.x, width: box.width };
+        const compression = smoothstep(distance / 96);
+        if (compression <= 0) return { x: box.x, width: box.width };
 
         const minWidth = Math.max(getIndicatorWidth(false), box.width * 0.82);
-        const width = box.width + (minWidth - box.width) * t;
+        const width = box.width + (minWidth - box.width) * compression;
         const targetX = side === 'left'
             ? 0
             : Math.max(0, navRect.width - width - edge * 2);
-        const x = box.x + (targetX - box.x) * t;
+        const x = box.x + (targetX - box.x) * compression;
         return { x, width };
     }
 
@@ -749,6 +776,8 @@ function initNavDrag() {
         try { navbar.releasePointerCapture(e.pointerId); } catch {}
         if (indicator) {
             gsap.killTweensOf(indicator);
+            indicatorXTo = null;
+            indicatorWidthTo = null;
             indicator.style.transform = '';
         }
 

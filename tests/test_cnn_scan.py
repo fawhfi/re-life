@@ -396,9 +396,13 @@ class CnnScanTests(unittest.TestCase):
         self.assertIn("--nav-shell-safe-inset: 2px", style)
         self.assertIn("--nav-shell-edge-inset: 10px", style)
         self.assertIn("--nav-shell-paint-inset: 1px", style)
+        self.assertIn("--nav-shell-y-paint-inset: 1px", style)
+        self.assertIn("--nav-shell-bottom-bleed: 8px", style)
         self.assertIn("--nav-shell-x-bleed: 0px", style)
         self.assertIn("--nav-indicator-bg:", style)
         self.assertIn("--nav-indicator-bg-active:", style)
+        self.assertIn("--nav-indicator-border: rgba(61,106,75,0.30);", style)
+        self.assertIn("--nav-indicator-border-active: rgba(61,106,75,0.46);", style)
         self.assertIn("--nav-indicator-ring:", style)
         self.assertIn("--nav-indicator-shadow:", style)
         self.assertIn("--nav-shell-shadow:", style)
@@ -424,6 +428,10 @@ class CnnScanTests(unittest.TestCase):
         )
         self.assertRegex(
             style,
+            r"nav\.nav::before, \.app-nav::before \{[\s\S]*inset:\s*0 0 calc\(var\(--nav-shell-bottom-bleed\) \* -1\) 0;",
+        )
+        self.assertRegex(
+            style,
             r"nav\.nav::before, \.app-nav::before \{[\s\S]*filter: var\(--nav-shell-shadow\);",
         )
         self.assertNotRegex(style, r"nav\.nav, \.app-nav \{[^}]*box-shadow:\s*0 4px 24px")
@@ -439,11 +447,20 @@ class CnnScanTests(unittest.TestCase):
         self.assertIn("function getNavShellSafeInset", app)
         self.assertIn("function getNavShellEdgeInset", app)
         self.assertIn("function getNavShellPaintInset", app)
+        self.assertIn("function getNavShellYPaintInset", app)
+        self.assertIn("function getNavShellBottomBleed", app)
         self.assertIn("function getNavShellXBleed", app)
         self.assertIn("function smoothstep", app)
         self.assertIn("function applyEdgeCompression", app)
+        self.assertIn("let indicatorXTo = null;", app)
+        self.assertIn("let indicatorWidthTo = null;", app)
+        self.assertIn("function getIndicatorQuickTo", app)
+        self.assertIn("gsap.quickTo(indicator, 'x'", app)
+        self.assertIn("gsap.quickTo(indicator, 'width'", app)
         self.assertIn("getCssPx('--nav-shell-edge-inset', 10)", app)
         self.assertIn("getCssPx('--nav-shell-paint-inset', 1)", app)
+        self.assertIn("getCssPx('--nav-shell-y-paint-inset', 1)", app)
+        self.assertIn("getCssPx('--nav-shell-bottom-bleed', 8)", app)
         self.assertIn("const edgeInset = getNavShellEdgeInset();", app)
         self.assertIn("const startX = edgeInset - horizontalBleed;", app)
         self.assertIn("const endX = Math.max(startX + 2, width - edgeInset + horizontalBleed);", app)
@@ -467,12 +484,17 @@ class CnnScanTests(unittest.TestCase):
         self.assertIn("function generateNavShellPath", app)
         self.assertIn("function drawNavShell", app)
         self.assertIn("const paintInset = getNavShellPaintInset();", app)
+        self.assertIn("const yPaintInset = getNavShellYPaintInset();", app)
         self.assertIn("const xMin = paintInset - horizontalBleed;", app)
         self.assertIn("const xLimit = mesh.width - paintInset + horizontalBleed;", app)
-        self.assertIn("const yLimit = mesh.height - safeInset;", app)
+        self.assertIn("const yLimit = mesh.height + getNavShellBottomBleed() - yPaintInset;", app)
         self.assertIn("liquidShell.setBulge(getCssPx('--nav-bulge-active', 8));", app)
         self.assertIn("navbar.classList.add('nav-is-holding');", app)
         self.assertIn("navbar.classList.remove('nav-is-holding', 'nav-is-dragging');", app)
+        self.assertIn("border-color: var(--nav-indicator-border-active);", style)
+        self.assertIn("--nav-indicator-border-active: rgba(45,90,30,0.46);", theme)
+        self.assertIn("--nav-indicator-border-active: rgba(26,74,106,0.44);", theme)
+        self.assertIn("--nav-indicator-border-active: rgba(138,58,42,0.44);", theme)
         self.assertIn("--nav-indicator-radius: calc(var(--nav-indicator-window-height) / 2);", theme)
         self.assertIn("--nav-indicator-hold-radius: calc(var(--nav-indicator-hold-height) / 2);", theme)
         self.assertNotIn("--nav-indicator-y-offset: 3px;", theme)
@@ -492,6 +514,17 @@ class CnnScanTests(unittest.TestCase):
         self.assertNotIn("x = 0;", app)
         self.assertNotIn("scale(1.28)", style)
         self.assertNotIn("scale(1.38)", style)
+
+    def test_dark_theme_header_text_has_high_contrast(self):
+        style = Path("static/style.css").read_text(encoding="utf-8")
+        theme = Path("static/css/theme.css").read_text(encoding="utf-8")
+
+        self.assertIn("[data-theme=\"dark\"] .header-title { color: #dff7e2; }", theme)
+        self.assertIn("[data-theme=\"dark\"] .header-time,", theme)
+        self.assertIn("[data-theme=\"dark\"] .header-user,", theme)
+        self.assertIn("[data-theme=\"dark\"] .header-weather-temp,", theme)
+        self.assertIn("[data-theme=\"dark\"] .header-weather-city { color: rgba(232,235,232,0.92); }", theme)
+        self.assertIn("[data-theme=\"dark\"] .header-title {\n    color: #dff7e2;", style)
 
     def test_grade_tags_use_white_text_on_colored_backgrounds(self):
         style = Path("static/style.css").read_text(encoding="utf-8")

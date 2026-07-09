@@ -2514,6 +2514,7 @@ nav.nav, .app-nav {
     --nav-indicator-hold-width: 90px;
     --nav-indicator-hold-height: 48px;
     --nav-shell-safe-inset: 2px;
+    --nav-shell-edge-inset: 5px;
     --nav-shell-x-bleed: 0px;
     --nav-glass-bg: rgba(255,255,255,0.10);
     --nav-shell-shadow: drop-shadow(0 8px 18px rgba(0,0,0,0.20));

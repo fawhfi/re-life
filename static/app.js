@@ -437,6 +437,10 @@ function initNavDrag() {
         return getCssPx('--nav-shell-safe-inset', 2);
     }
 
+    function getNavShellEdgeInset() {
+        return getCssPx('--nav-shell-edge-inset', 5);
+    }
+
     function getNavShellXBleed() {
         return getCssPx('--nav-shell-x-bleed', 0);
     }
@@ -450,10 +454,12 @@ function initNavDrag() {
         const arch = getCssPx('--nav-arch', 8);
         const shellHeight = getCssPx('--nav-shell-height', Math.max(44, height - arch));
         const horizontalBleed = getNavShellXBleed();
-        const startX = -horizontalBleed;
-        const endX = Math.max(startX + 2, width + horizontalBleed);
+        const edgeInset = getNavShellEdgeInset();
+        const startX = edgeInset - horizontalBleed;
+        const endX = Math.max(startX + 2, width - edgeInset + horizontalBleed);
         const centerY = arch + shellHeight / 2;
-        const radius = Math.min(getCssPx('--nav-shell-radius', 24), shellHeight / 2);
+        const innerWidth = Math.max(2, endX - startX);
+        const radius = Math.min(getCssPx('--nav-shell-radius', 24), shellHeight / 2, innerWidth / 2);
         const topY = centerY - radius;
         const bottomY = centerY + radius;
         const points = [];
@@ -477,9 +483,10 @@ function initNavDrag() {
         const influenceRadius = Math.max(44, getCssPx('--nav-indicator-hold-height', 48));
         const halfSegmentLength = Math.max(10, Math.min(indicatorWidth / 2 - 22, indicatorWidth * 0.22));
         const safeInset = getNavShellSafeInset();
+        const edgeInset = getNavShellEdgeInset();
         const horizontalBleed = getNavShellXBleed();
-        const xMin = -horizontalBleed;
-        const xLimit = mesh.width + horizontalBleed;
+        const xMin = edgeInset - horizontalBleed;
+        const xLimit = mesh.width - edgeInset + horizontalBleed;
         const yLimit = mesh.height - safeInset;
         let path = "";
 

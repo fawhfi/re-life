@@ -3462,6 +3462,10 @@ html.perf-lite .skeleton::after {
     cursor: pointer;
 }
 
+.auth-lang-select {
+    max-width: 106px;
+}
+
 .auth-theme-select:hover {
     color: var(--color-primary);
 }

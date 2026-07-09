@@ -438,7 +438,11 @@ function initNavDrag() {
     }
 
     function getNavShellEdgeInset() {
-        return getCssPx('--nav-shell-edge-inset', 5);
+        return getCssPx('--nav-shell-edge-inset', 10);
+    }
+
+    function getNavShellPaintInset() {
+        return getCssPx('--nav-shell-paint-inset', 1);
     }
 
     function getNavShellXBleed() {
@@ -483,10 +487,10 @@ function initNavDrag() {
         const influenceRadius = Math.max(44, getCssPx('--nav-indicator-hold-height', 48));
         const halfSegmentLength = Math.max(10, Math.min(indicatorWidth / 2 - 22, indicatorWidth * 0.22));
         const safeInset = getNavShellSafeInset();
-        const edgeInset = getNavShellEdgeInset();
+        const paintInset = getNavShellPaintInset();
         const horizontalBleed = getNavShellXBleed();
-        const xMin = edgeInset - horizontalBleed;
-        const xLimit = mesh.width - edgeInset + horizontalBleed;
+        const xMin = paintInset - horizontalBleed;
+        const xLimit = mesh.width - paintInset + horizontalBleed;
         const yLimit = mesh.height - safeInset;
         let path = "";
 

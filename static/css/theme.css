@@ -114,8 +114,6 @@
 [data-theme="midnight"] .app-nav {
     --nav-glass-bg: rgba(20,28,20,0.12);
     --nav-shell-shadow: drop-shadow(0 8px 18px rgba(0,0,0,0.32));
-    --nav-indicator-radius: calc(var(--nav-indicator-window-height) / 2);
-    --nav-indicator-hold-radius: calc(var(--nav-indicator-hold-height) / 2);
     background: transparent;
     border: 0;
     box-shadow: none;

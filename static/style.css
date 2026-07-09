@@ -2529,8 +2529,8 @@ nav.nav, .app-nav {
     --nav-indicator-ring-active: rgba(45,90,30,0.40);
     --nav-indicator-shadow: rgba(30,55,37,0.16);
     --nav-indicator-shadow-active: rgba(30,55,37,0.24);
-    --nav-indicator-radius: calc(var(--nav-shell-radius) - var(--nav-indicator-inset));
-    --nav-indicator-hold-radius: var(--nav-indicator-radius);
+    --nav-indicator-radius: calc(var(--nav-indicator-window-height) / 2);
+    --nav-indicator-hold-radius: calc(var(--nav-indicator-hold-height) / 2);
     position: fixed;
     bottom: max(20px, env(safe-area-inset-bottom, 20px));
     left: 0; right: 0;
@@ -2658,8 +2658,6 @@ nav.nav::before, .app-nav::before {
 [data-theme="dark"] .app-nav,
 [data-theme="midnight"] nav.nav,
 [data-theme="midnight"] .app-nav {
-    --nav-indicator-radius: calc(var(--nav-indicator-window-height) / 2);
-    --nav-indicator-hold-radius: calc(var(--nav-indicator-hold-height) / 2);
     border: 0;
 }
 

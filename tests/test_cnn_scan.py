@@ -412,8 +412,10 @@ class CnnScanTests(unittest.TestCase):
         self.assertIn("stroke-width: 0;", style)
         self.assertIn("width: calc(100% - 36px)", style)
         self.assertIn("max-width: 392px", style)
-        self.assertIn("--nav-indicator-radius: calc(var(--nav-shell-radius) - var(--nav-indicator-inset))", style)
-        self.assertIn("--nav-indicator-hold-radius: var(--nav-indicator-radius)", style)
+        self.assertIn("--nav-indicator-radius: calc(var(--nav-indicator-window-height) / 2);", style)
+        self.assertIn("--nav-indicator-hold-radius: calc(var(--nav-indicator-hold-height) / 2);", style)
+        self.assertNotIn("--nav-indicator-radius: calc(var(--nav-shell-radius) - var(--nav-indicator-inset))", style)
+        self.assertNotIn("--nav-indicator-hold-radius: var(--nav-indicator-radius)", style)
         self.assertRegex(
             style,
             r"nav\.nav::before, \.app-nav::before \{[\s\S]*backdrop-filter: blur\(20px\) brightness\(1\.15\) saturate\(150%\);",
@@ -495,8 +497,8 @@ class CnnScanTests(unittest.TestCase):
         self.assertIn("--nav-indicator-border-active: rgba(45,90,30,0.46);", theme)
         self.assertIn("--nav-indicator-border-active: rgba(26,74,106,0.44);", theme)
         self.assertIn("--nav-indicator-border-active: rgba(138,58,42,0.44);", theme)
-        self.assertIn("--nav-indicator-radius: calc(var(--nav-indicator-window-height) / 2);", theme)
-        self.assertIn("--nav-indicator-hold-radius: calc(var(--nav-indicator-hold-height) / 2);", theme)
+        self.assertNotIn("--nav-indicator-radius:", theme)
+        self.assertNotIn("--nav-indicator-hold-radius:", theme)
         self.assertNotIn("--nav-indicator-y-offset: 3px;", theme)
         self.assertIn("[data-theme=\"midnight\"] .nav-indicator", theme)
         self.assertRegex(theme, r"\[data-theme=\"dark\"\] nav\.nav,[\s\S]*box-shadow:\s*none;")

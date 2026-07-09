@@ -374,41 +374,38 @@
   <div id="weather-overlay" class="weather-overlay" aria-hidden="true" onclick="closeWeatherDetails()">
     <div id="weather-panel" class="weather-panel" role="dialog" aria-modal="true" aria-labelledby="weather-detail-title"
       onclick="event.stopPropagation()">
-      <button class="weather-close" type="button" aria-label="Close weather details"
-        onclick="closeWeatherDetails()">×</button>
-      <div class="weather-panel-header">
-        <div class="weather-panel-emoji" id="weather-detail-emoji">🌤️</div>
-        <div class="weather-panel-copy">
-          <div class="weather-panel-title" id="weather-detail-title">Hong Kong weather</div>
-          <div class="weather-panel-subtitle" id="weather-detail-subtitle">Tap the weather chip for a quick read</div>
-        </div>
+      <div class="weather-panel-emoji" id="weather-detail-emoji">🌤️</div>
+      <div class="weather-panel-copy">
+        <div class="weather-panel-title" id="weather-detail-title">Hong Kong weather</div>
+        <div class="weather-panel-subtitle" id="weather-detail-subtitle">Tap the weather chip for a quick read</div>
       </div>
-      <div class="weather-panel-grid">
-        <div class="weather-panel-stat weather-panel-stat--primary">
-          <span class="weather-panel-stat-label" id="lbl-weather-temperature">Temperature</span>
-          <strong class="weather-panel-stat-value" id="weather-detail-temp">--°C</strong>
-        </div>
-        <div class="weather-panel-stat weather-panel-stat--primary">
-          <span class="weather-panel-stat-label" id="lbl-weather-location">Location</span>
-          <strong class="weather-panel-stat-value" id="weather-detail-location">Hong Kong</strong>
-        </div>
-      </div>
-      <div class="weather-panel-warning hidden" id="weather-detail-warning" role="alert">
-        <div class="weather-panel-warning-icon" id="weather-detail-warning-icon">⚠️</div>
-        <div class="weather-panel-warning-copy">
-          <div class="weather-panel-warning-title" id="weather-detail-warning-title">Weather warning</div>
-          <div class="weather-panel-warning-body" id="weather-detail-warning-body">Check conditions before going out.
-          </div>
-        </div>
-      </div>
-      <div class="weather-panel-callout">
-        <div class="weather-panel-callout-title" id="weather-detail-callout-title">Hong Kong weather</div>
-        <div class="weather-panel-callout-body" id="weather-detail-callout">Small habits make the city easier to breathe
-          in.</div>
-      </div>
-      <button class="btn btn--primary btn--full" type="button" id="lbl-weather-close"
-        onclick="closeWeatherDetails()">Close</button>
     </div>
+    <div class="weather-panel-grid">
+      <div class="weather-panel-stat weather-panel-stat--primary">
+        <span class="weather-panel-stat-label" id="lbl-weather-temperature">Temperature</span>
+        <strong class="weather-panel-stat-value" id="weather-detail-temp">--°C</strong>
+      </div>
+      <div class="weather-panel-stat weather-panel-stat--primary">
+        <span class="weather-panel-stat-label" id="lbl-weather-location">Location</span>
+        <strong class="weather-panel-stat-value" id="weather-detail-location">Hong Kong</strong>
+      </div>
+    </div>
+    <div class="weather-panel-warning hidden" id="weather-detail-warning" role="alert">
+      <div class="weather-panel-warning-icon" id="weather-detail-warning-icon">⚠️</div>
+      <div class="weather-panel-warning-copy">
+        <div class="weather-panel-warning-title" id="weather-detail-warning-title">Weather warning</div>
+        <div class="weather-panel-warning-body" id="weather-detail-warning-body">Check conditions before going out.
+        </div>
+      </div>
+    </div>
+    <div class="weather-panel-callout">
+      <div class="weather-panel-callout-title" id="weather-detail-callout-title">Hong Kong weather</div>
+      <div class="weather-panel-callout-body" id="weather-detail-callout">Small habits make the city easier to breathe
+        in.</div>
+    </div>
+    <button class="btn btn--primary btn--full" type="button" id="lbl-weather-close"
+      onclick="closeWeatherDetails()">Close</button>
+  </div>
   </div>
 
   <!-- ═══ TOAST CONTAINER ═══ -->

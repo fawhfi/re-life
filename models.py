@@ -184,19 +184,29 @@ Respond with ONLY a JSON object (no markdown, no explanation):
 
 def _normalize_language(language: str | None) -> str:
     value = (language or "").strip().lower()
-    if value.startswith("zh") or value in {"cn", "hk", "zh-hk", "zh_hk", "traditional_chinese"}:
-        return "zh"
+    if value in {
+        "zh_traditional", "zh-hk", "zh_hk", "zh-tw", "zh_tw",
+        "zh-hant", "zh_hant", "hk", "tw", "traditional_chinese",
+    }:
+        return "zh_traditional"
+    if value in {
+        "zh_simplified", "zh", "zh-cn", "zh_cn", "zh-hans", "zh_hans",
+        "cn", "simplified_chinese",
+    } or value.startswith("zh"):
+        return "zh_simplified"
     return "en"
 
 
 def _prompt_for_language(prompt: str, language: str | None) -> str:
-    if _normalize_language(language) != "zh":
+    normalized_language = _normalize_language(language)
+    if normalized_language == "en":
         return prompt
+    language_name = "Traditional Chinese (zh-HK)" if normalized_language == "zh_traditional" else "Simplified Chinese (zh-CN)"
     return (
         prompt
         + "\n\nLanguage rule:\n"
-        + "- User interface language is Traditional Chinese (zh-HK).\n"
-        + "- Return all human-readable JSON string values in Traditional Chinese.\n"
+        + f"- User interface language is {language_name}.\n"
+        + f"- Return all human-readable JSON string values in {language_name}.\n"
         + "- Keep JSON property names exactly as specified, for example name, description, disposalGuide, reuseTip.\n"
         + "- Keep enum-like values such as material and standardType in the allowed English values.\n"
     )

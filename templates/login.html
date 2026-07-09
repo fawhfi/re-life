@@ -16,6 +16,7 @@
     })();
   </script>
   <script src="/static/js/auth-theme.js"></script>
+  <script src="/static/js/auth-lang.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap" rel="stylesheet">
@@ -126,11 +127,38 @@ function waitForStorage(cb) {
     }, 100);
 }
 
-let loginLang = localStorage.getItem('RE_LIFE_LANG') || 'en';
+let loginLang = AUTH_LANG.normalize(localStorage.getItem('RE_LIFE_LANG') || 'en');
+
+function loginText(en, zhSimplified, zhTraditional) {
+    return AUTH_LANG.text(loginLang, en, zhSimplified, zhTraditional);
+}
+
+function setText(selector, text) {
+    const el = document.querySelector(selector);
+    if (el) el.textContent = text;
+}
+
+function applyLoginLocale() {
+    document.documentElement.lang = AUTH_LANG.htmlLang(loginLang);
+    setText('label[for="login-username"]', loginText('Username', '用户名', '用戶名'));
+    setText('label[for="login-password"]', loginText('Password', '密码', '密碼'));
+    setText('#login-submit-btn', loginText('Log In', '登录', '登入'));
+    setText('.login-divider span', loginText('or', '或', '或'));
+    setText('a[href="/register"]', loginText('Create Account', '创建账户', '建立帳戶'));
+    setText('#forgot-link', loginText('Forgot Password?', '忘记密码？', '忘記密碼？'));
+    setText('label[for="forgot-email"]', loginText('Email Address', '电子邮箱', '電子郵箱'));
+    setText('label[for="forgot-code"]', loginText('Reset Code', '重置验证码', '重設驗證碼'));
+    setText('label[for="forgot-password"]', loginText('New Password', '新密码', '新密碼'));
+    setText('#forgot-btn', forgotStep === 1
+        ? loginText('Reset Password', '重置密码', '重設密碼')
+        : loginText('Send Reset Code', '发送重置码', '傳送重設碼'));
+    setText('.login-footer-link[onclick="toggleLoginLang()"]', `🌐 ${AUTH_LANG.label(loginLang)}`);
+}
+
 function toggleLoginLang() {
-    loginLang = loginLang === 'en' ? 'zh' : 'en';
+    loginLang = AUTH_LANG.next(loginLang);
     localStorage.setItem('RE_LIFE_LANG', loginLang);
-    location.reload();
+    applyLoginLocale();
 }
 
 waitForStorage(() => {
@@ -145,11 +173,11 @@ async function handleLogin(e) {
     const username = document.getElementById('login-username').value.trim();
     const password = document.getElementById('login-password').value;
     if (!username) {
-        errorEl.textContent = loginLang === 'zh' ? '請輸入用戶名' : 'Please enter a username';
+        errorEl.textContent = loginText('Please enter a username', '请输入用户名', '請輸入用戶名');
         return;
     }
     if (!password) {
-        errorEl.textContent = loginLang === 'zh' ? '請輸入密碼' : 'Please enter a password';
+        errorEl.textContent = loginText('Please enter a password', '请输入密码', '請輸入密碼');
         return;
     }
     btn.textContent = '...';
@@ -162,27 +190,29 @@ async function handleLogin(e) {
         window.location.replace('/');
     } catch (err) {
         if (err.message === 'USER_NOT_FOUND') {
-            errorEl.textContent = loginLang === 'zh' ? '用戶不存在，請先註冊' : 'User not found. Please register first.';
+            errorEl.textContent = loginText('User not found. Please register first.', '用户不存在，请先注册。', '用戶不存在，請先註冊。');
         } else if (err.message === 'WRONG_PASSWORD') {
-            errorEl.textContent = loginLang === 'zh' ? '密碼錯誤' : 'Wrong password.';
+            errorEl.textContent = loginText('Wrong password.', '密码错误。', '密碼錯誤。');
         } else {
-            errorEl.textContent = 'Login failed. Try again.';
+            errorEl.textContent = loginText('Login failed. Try again.', '登录失败，请重试。', '登入失敗，請重試。');
         }
         console.error('Login error:', err);
     }
-    btn.textContent = 'Log In';
+    btn.textContent = loginText('Log In', '登录', '登入');
 }
 
 // ── Forgot Password Flow ────────────────────────────────────────────
 let forgotStep = 0; // 0=enter email, 1=enter code+password
 let forgotEmail = '';
 
+applyLoginLocale();
+
 function showForgotForm() {
     document.getElementById('forgot-form').classList.toggle('hidden');
     forgotStep = 0;
     document.getElementById('forgot-code-field').classList.add('hidden');
     document.getElementById('forgot-password-field').classList.add('hidden');
-    document.getElementById('forgot-btn').textContent = 'Send Reset Code';
+    document.getElementById('forgot-btn').textContent = loginText('Send Reset Code', '发送重置码', '傳送重設碼');
     document.getElementById('forgot-error').textContent = '';
 }
 
@@ -193,8 +223,8 @@ async function handleForgotStep() {
 
     if (forgotStep === 0) {
         const email = document.getElementById('forgot-email').value.trim();
-        if (!email) { errorEl.textContent = 'Please enter your email'; return; }
-        btn.textContent = 'Sending...';
+        if (!email) { errorEl.textContent = loginText('Please enter your email', '请输入你的电子邮箱', '請輸入你的電子郵箱'); return; }
+        btn.textContent = loginText('Sending...', '发送中...', '傳送中...');
         try {
             const res = await fetch('/api/forgot-password', {
                 method: 'POST', headers: {'Content-Type':'application/json'},
@@ -212,16 +242,16 @@ async function handleForgotStep() {
                     errorEl.style.color = '#047857';
                 }
             } else {
-                errorEl.textContent = data.error || 'Failed to send code';
+                errorEl.textContent = data.error || loginText('Failed to send code', '发送验证码失败', '傳送驗證碼失敗');
             }
-        } catch (_) { errorEl.textContent = 'Network error'; }
-        btn.textContent = 'Send Reset Code';
+        } catch (_) { errorEl.textContent = loginText('Network error', '网络错误', '網絡錯誤'); }
+        btn.textContent = loginText('Send Reset Code', '发送重置码', '傳送重設碼');
     } else {
         const code = document.getElementById('forgot-code').value.trim();
         const password = document.getElementById('forgot-password').value;
-        if (!code || code.length !== 6) { errorEl.textContent = 'Enter the 6-digit code'; return; }
-        if (!password || password.length < 8) { errorEl.textContent = 'Password must be 8+ chars'; return; }
-        btn.textContent = 'Resetting...';
+        if (!code || code.length !== 6) { errorEl.textContent = loginText('Enter the 6-digit code', '请输入 6 位验证码', '請輸入 6 位驗證碼'); return; }
+        if (!password || password.length < 8) { errorEl.textContent = loginText('Password must be 8+ chars', '密码至少需要 8 个字符', '密碼至少需要 8 個字符'); return; }
+        btn.textContent = loginText('Resetting...', '重置中...', '重設中...');
         try {
         const res = await fetch('/api/reset-password', {
             method: 'POST', headers: {'Content-Type':'application/json'},
@@ -229,18 +259,18 @@ async function handleForgotStep() {
         });
         const data = await res.json();
         if (data.ok) {
-            errorEl.textContent = '✅ Password reset! You can now log in.';
+            errorEl.textContent = loginText('Password reset! You can now log in.', '密码已重置，现在可以登录。', '密碼已重設，現在可以登入。');
             errorEl.style.color = '#047857';
-            btn.textContent = 'Done';
+            btn.textContent = loginText('Done', '完成', '完成');
                 btn.disabled = true;
             } else {
-                errorEl.textContent = data.error || 'Invalid code';
+                errorEl.textContent = data.error || loginText('Invalid code', '验证码无效', '驗證碼無效');
             }
         } catch (err) {
-            errorEl.textContent = 'Reset failed: ' + (err.message || 'try again');
+            errorEl.textContent = loginText('Reset failed: ', '重置失败：', '重設失敗：') + (err.message || loginText('try again', '请重试', '請重試'));
             console.error(err);
         }
-        btn.textContent = 'Reset Password';
+        btn.textContent = loginText('Reset Password', '重置密码', '重設密碼');
     }
 }
 

@@ -16,6 +16,7 @@
     })();
   </script>
   <script src="/static/js/auth-theme.js"></script>
+  <script src="/static/js/auth-lang.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap" rel="stylesheet">
@@ -134,15 +135,49 @@
 
 <script type="module" src="/static/supabase.js"></script>
 <script>
-let registerLang = localStorage.getItem('RE_LIFE_LANG') || 'en';
+let registerLang = AUTH_LANG.normalize(localStorage.getItem('RE_LIFE_LANG') || 'en');
 let pendingEmail = '';
 let pendingUsername = '';
 let pendingPassword = '';
 
+function registerText(en, zhSimplified, zhTraditional) {
+    return AUTH_LANG.text(registerLang, en, zhSimplified, zhTraditional);
+}
+
+function setText(selector, text) {
+    const el = document.querySelector(selector);
+    if (el) el.textContent = text;
+}
+
+function applyRegisterLocale() {
+    document.documentElement.lang = AUTH_LANG.htmlLang(registerLang);
+    setText('label[for="reg-username"]', registerText('Choose Username', '选择用户名', '選擇用戶名'));
+    setText('label[for="reg-email"]', registerText('Email Address', '电子邮箱', '電子郵箱'));
+    setText('label[for="reg-password"]', registerText('Choose Password', '选择密码', '選擇密碼'));
+    setText('label[for="reg-password-confirm"]', registerText('Confirm Password', '确认密码', '確認密碼'));
+    setText('#register-submit-btn', registerText('Send Verification Code', '发送验证码', '傳送驗證碼'));
+    setText('label.login-label:not([for])', registerText('Verification Code', '验证码', '驗證碼'));
+    setText('#verify-submit-btn', registerText('Verify & Create Account', '验证并创建账户', '驗證並建立帳戶'));
+    setText('button[onclick="goBack()"]', registerText('← Try a different email', '← 使用其他邮箱', '← 使用其他電子郵箱'));
+    setText('.login-divider span', registerText('or', '或', '或'));
+    setText('a[href="/login"]', registerText('← Back to Login', '← 返回登录', '← 返回登入'));
+    setText('.login-footer-link[onclick="toggleRegisterLang()"]', `🌐 ${AUTH_LANG.label(registerLang)}`);
+    const titleEl = document.getElementById('step-title');
+    if (titleEl) {
+        titleEl.textContent = document.getElementById('step-verify')?.classList.contains('active')
+            ? registerText('Verify your email', '验证你的电子邮箱', '驗證你的電子郵箱')
+            : registerText('Create your eco account', '创建你的环保账户', '建立你的環保帳戶');
+    }
+    if (pendingEmail && document.getElementById('step-verify')?.classList.contains('active')) {
+        document.getElementById('verify-hint').textContent =
+            registerText('We sent a 6-digit code to ', '我们已发送 6 位验证码到 ', '我們已傳送 6 位驗證碼到 ') + pendingEmail;
+    }
+}
+
 function toggleRegisterLang() {
-    registerLang = registerLang === 'en' ? 'zh' : 'en';
+    registerLang = AUTH_LANG.next(registerLang);
     localStorage.setItem('RE_LIFE_LANG', registerLang);
-    location.reload();
+    applyRegisterLocale();
 }
 
 function showStep(id) {
@@ -154,10 +189,11 @@ function showStep(id) {
     const titleEl = document.getElementById('step-title');
     if (titleEl) {
         if (id === 'step-verify') {
-            titleEl.textContent = registerLang === 'zh' ? '驗證您的電子郵件' : 'Verify your email';
-            document.getElementById('verify-hint').textContent = 'We sent a 6-digit code to ' + pendingEmail;
+            titleEl.textContent = registerText('Verify your email', '验证你的电子邮箱', '驗證你的電子郵箱');
+            document.getElementById('verify-hint').textContent =
+                registerText('We sent a 6-digit code to ', '我们已发送 6 位验证码到 ', '我們已傳送 6 位驗證碼到 ') + pendingEmail;
         } else {
-            titleEl.textContent = registerLang === 'zh' ? '建立您的環保帳戶' : 'Create your eco account';
+            titleEl.textContent = registerText('Create your eco account', '创建你的环保账户', '建立你的環保帳戶');
         }
     }
 }
@@ -187,23 +223,23 @@ async function handleRegister(e) {
     const passwordConfirm = document.getElementById('reg-password-confirm').value;
 
     if (!username || username.length < 2) {
-        errorEl.textContent = registerLang === 'zh' ? '用戶名至少需要2個字符' : 'Username must be at least 2 characters';
+        errorEl.textContent = registerText('Username must be at least 2 characters', '用户名至少需要 2 个字符', '用戶名至少需要 2 個字符');
         return;
     }
     if (password !== passwordConfirm) {
-        errorEl.textContent = registerLang === 'zh' ? '兩次輸入的密碼不一致' : 'Passwords do not match';
+        errorEl.textContent = registerText('Passwords do not match', '两次输入的密码不一致', '兩次輸入的密碼不一致');
         return;
     }
     if (!email || !email.includes('@') || !email.includes('.')) {
-        errorEl.textContent = registerLang === 'zh' ? '請輸入有效的電子郵件' : 'Please enter a valid email address';
+        errorEl.textContent = registerText('Please enter a valid email address', '请输入有效的电子邮箱', '請輸入有效的電子郵箱');
         return;
     }
     if (!password || password.length < 8) {
-        errorEl.textContent = registerLang === 'zh' ? '密碼至少需要8個字符' : 'Password must be at least 8 characters';
+        errorEl.textContent = registerText('Password must be at least 8 characters', '密码至少需要 8 个字符', '密碼至少需要 8 個字符');
         return;
     }
 
-    btn.textContent = 'Sending...';
+    btn.textContent = registerText('Sending...', '发送中...', '傳送中...');
     try {
         const res = await fetch('/api/send-verification', {
             method: 'POST',
@@ -222,17 +258,17 @@ async function handleRegister(e) {
                     'DEV MODE — code: ' + data.dev_code + ' (sent to ' + pendingEmail + ')';
             } else {
                 document.getElementById('verify-hint').textContent =
-                    'We sent a 6-digit code to ' + pendingEmail;
+                    registerText('We sent a 6-digit code to ', '我们已发送 6 位验证码到 ', '我們已傳送 6 位驗證碼到 ') + pendingEmail;
             }
             document.getElementById('verify-code').focus();
         } else {
-            errorEl.textContent = data.error || 'Failed to send verification code';
+            errorEl.textContent = data.error || registerText('Failed to send verification code', '发送验证码失败', '傳送驗證碼失敗');
         }
     } catch (err) {
-        errorEl.textContent = 'Network error — check your connection';
+        errorEl.textContent = registerText('Network error — check your connection', '网络错误，请检查连接', '網絡錯誤，請檢查連線');
         console.error(err);
     }
-    btn.textContent = 'Send Verification Code';
+    btn.textContent = registerText('Send Verification Code', '发送验证码', '傳送驗證碼');
 }
 
 async function handleVerify(e) {
@@ -243,11 +279,11 @@ async function handleVerify(e) {
 
     const code = document.getElementById('verify-code').value.trim();
     if (!code || code.length !== 6) {
-        errorEl.textContent = 'Please enter the 6-digit code';
+        errorEl.textContent = registerText('Please enter the 6-digit code', '请输入 6 位验证码', '請輸入 6 位驗證碼');
         return;
     }
 
-    btn.textContent = 'Verifying...';
+    btn.textContent = registerText('Verifying...', '验证中...', '驗證中...');
     try {
         const res = await fetch('/api/verify-code', {
             method: 'POST',
@@ -256,8 +292,8 @@ async function handleVerify(e) {
         });
         const data = await res.json();
         if (!data.ok) {
-            errorEl.textContent = data.error || 'Invalid code';
-            btn.textContent = 'Verify & Create Account';
+            errorEl.textContent = data.error || registerText('Invalid code', '验证码无效', '驗證碼無效');
+            btn.textContent = registerText('Verify & Create Account', '验证并创建账户', '驗證並建立帳戶');
             return;
         }
 
@@ -271,15 +307,15 @@ async function handleVerify(e) {
         window.location.replace('/');
     } catch (err) {
         if (err.message === 'USERNAME_TAKEN') {
-            errorEl.textContent = registerLang === 'zh' ? '用戶名已被使用' : 'Username already taken';
+            errorEl.textContent = registerText('Username already taken', '用户名已被使用', '用戶名已被使用');
         } else if (err.message === 'EMAIL_TAKEN') {
-            errorEl.textContent = registerLang === 'zh' ? '此電子郵件已被註冊' : 'This email is already registered';
+            errorEl.textContent = registerText('This email is already registered', '此电子邮箱已被注册', '此電子郵箱已被註冊');
         } else {
-            errorEl.textContent = err.message || 'Registration failed';
+            errorEl.textContent = err.message || registerText('Registration failed', '注册失败', '註冊失敗');
         }
         console.error(err);
     }
-    btn.textContent = 'Verify & Create Account';
+    btn.textContent = registerText('Verify & Create Account', '验证并创建账户', '驗證並建立帳戶');
 }
 
 function waitForStoragePromise() {
@@ -292,6 +328,8 @@ function waitForStoragePromise() {
         }, 100);
     });
 }
+
+applyRegisterLocale();
 </script>
 </body>
 </html>

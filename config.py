@@ -75,5 +75,5 @@ MAX_UPLOAD_BYTES = 10 * 1024 * 1024
 ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp"}
 SUPABASE_STORAGE_BUCKET = os.getenv("SUPABASE_STORAGE_BUCKET", "scan-images")
 
-# ── SerpAPI ─────────────────────────────────────────────────────────────────
-SERPAPI_KEY = os.getenv("SERPAPI_KEY", "")
+# ── NewsAPI ─────────────────────────────────────────────────────────────────
+NEWS_API_KEY = os.getenv("NEWS_API_KEY", os.getenv("NEWSAPI_KEY", ""))

@@ -18,7 +18,20 @@ const I18N = (() => {
         }, source);
     }
 
+    function normalizeLang(lang) {
+        const value = String(lang || 'en').trim().toLowerCase();
+        if (!value || value === 'en') return 'en';
+        if (['zh', 'cn', 'zh-cn', 'zh_cn', 'zh-hans', 'zh_hans', 'simplified_chinese'].includes(value)) {
+            return 'zh_simplified';
+        }
+        if (['hk', 'tw', 'zh-hk', 'zh_hk', 'zh-tw', 'zh_tw', 'zh-hant', 'zh_hant', 'traditional_chinese'].includes(value)) {
+            return 'zh_traditional';
+        }
+        return value;
+    }
+
     async function load(lang) {
+        lang = normalizeLang(lang);
         if (_loaded && lang === _currentLang) return;
         // Try localStorage cache first
         const cacheKey = `I18N_CACHE_${lang}`;
@@ -63,5 +76,5 @@ const I18N = (() => {
 
     function getLang() { return _currentLang; }
 
-    return { load, tr, getLang };
+    return { load, tr, getLang, normalizeLang };
 })();

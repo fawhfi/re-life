@@ -31,6 +31,71 @@ function tr(key) {
     return (typeof I18N !== 'undefined' && I18N.tr) ? I18N.tr(key) : key;
 }
 
+const APP_LANG_EN = 'en';
+const APP_LANG_ZH_SIMPLIFIED = 'zh_simplified';
+const APP_LANG_ZH_TRADITIONAL = 'zh_traditional';
+const APP_LANG_ORDER = [APP_LANG_EN, APP_LANG_ZH_SIMPLIFIED, APP_LANG_ZH_TRADITIONAL];
+
+function normalizeAppLang(lang) {
+    if (typeof I18N !== 'undefined' && typeof I18N.normalizeLang === 'function') {
+        const normalized = I18N.normalizeLang(lang);
+        return APP_LANG_ORDER.includes(normalized) ? normalized : APP_LANG_EN;
+    }
+    const value = String(lang || APP_LANG_EN).trim().toLowerCase();
+    if (value === APP_LANG_EN) return APP_LANG_EN;
+    if (['hk', 'tw', 'zh-hk', 'zh_hk', 'zh-tw', 'zh_tw', 'zh-hant', 'zh_hant', 'traditional_chinese'].includes(value)) {
+        return APP_LANG_ZH_TRADITIONAL;
+    }
+    if (value.startsWith('zh') || ['cn', 'zh-cn', 'zh_cn', 'zh-hans', 'zh_hans', 'simplified_chinese'].includes(value)) {
+        return APP_LANG_ZH_SIMPLIFIED;
+    }
+    return APP_LANG_EN;
+}
+
+function isChineseLang(lang = state.lang) {
+    return normalizeAppLang(lang) !== APP_LANG_EN;
+}
+
+function getHtmlLang(lang = state.lang) {
+    const normalized = normalizeAppLang(lang);
+    if (normalized === APP_LANG_ZH_SIMPLIFIED) return 'zh-CN';
+    if (normalized === APP_LANG_ZH_TRADITIONAL) return 'zh-HK';
+    return 'en';
+}
+
+function getLangIndicator(lang = state.lang) {
+    const normalized = normalizeAppLang(lang);
+    if (normalized === APP_LANG_ZH_SIMPLIFIED) return '简中';
+    if (normalized === APP_LANG_ZH_TRADITIONAL) return '繁中';
+    return 'Eng';
+}
+
+function getAuthLangButtonText(lang = state.lang) {
+    const normalized = normalizeAppLang(lang);
+    if (normalized === APP_LANG_ZH_SIMPLIFIED) return '🌐 简中';
+    if (normalized === APP_LANG_ZH_TRADITIONAL) return '🌐 繁中';
+    return '🌐 EN';
+}
+
+function readStoredAppLang() {
+    return normalizeAppLang(safeStorage.get('RE_LIFE_LANG') || APP_LANG_EN);
+}
+
+function persistAppLang(lang) {
+    const normalized = normalizeAppLang(lang);
+    safeStorage.set('RE_LIFE_LANG', normalized);
+    return normalized;
+}
+
+function nextAppLang(lang = state.lang) {
+    const index = APP_LANG_ORDER.indexOf(normalizeAppLang(lang));
+    return APP_LANG_ORDER[(index + 1) % APP_LANG_ORDER.length];
+}
+
+function applyDocumentLang(lang = state.lang) {
+    document.documentElement.lang = getHtmlLang(lang);
+}
+
 // ═══════════════════════════════════════════════════════════════════════
 // 2b. TOAST NOTIFICATIONS
 // ═══════════════════════════════════════════════════════════════════════
@@ -236,11 +301,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     // Init language from storage
-    state.lang = safeStorage.get('RE_LIFE_LANG') || 'en';
-    document.documentElement.lang = state.lang === 'zh' ? 'zh-HK' : 'en';
+    state.lang = readStoredAppLang();
+    applyDocumentLang(state.lang);
     // Update language indicator immediately
     const langInd = document.getElementById('lang-ind');
-    if (langInd) langInd.textContent = state.lang === 'en' ? 'Eng' : '中文';
+    if (langInd) langInd.textContent = getLangIndicator(state.lang);
     // Load i18n then update labels — avoids showing English briefly
     if (typeof I18N !== 'undefined') {
         I18N.load(state.lang).then(() => {
@@ -333,6 +398,8 @@ function initNavDrag() {
     let pendingTab = state.activeTab;
     let suppressNavClickUntil = 0;
     const liquidShell = createLiquidNavShell(navbar, indicator);
+    let indicatorXTo = null;
+    let indicatorWidthTo = null;
 
     if (indicator) {
         indicator.style.transformOrigin = 'left center';
@@ -372,6 +439,22 @@ function initNavDrag() {
         return getCssPx('--nav-shell-safe-inset', 2);
     }
 
+    function getNavShellEdgeInset() {
+        return getCssPx('--nav-shell-edge-inset', 10);
+    }
+
+    function getNavShellPaintInset() {
+        return getCssPx('--nav-shell-paint-inset', 1);
+    }
+
+    function getNavShellYPaintInset() {
+        return getCssPx('--nav-shell-y-paint-inset', 1);
+    }
+
+    function getNavShellBottomBleed() {
+        return getCssPx('--nav-shell-bottom-bleed', 8);
+    }
+
     function getNavShellXBleed() {
         return getCssPx('--nav-shell-x-bleed', 0);
     }
@@ -385,10 +468,12 @@ function initNavDrag() {
         const arch = getCssPx('--nav-arch', 8);
         const shellHeight = getCssPx('--nav-shell-height', Math.max(44, height - arch));
         const horizontalBleed = getNavShellXBleed();
-        const startX = -horizontalBleed;
-        const endX = Math.max(startX + 2, width + horizontalBleed);
+        const edgeInset = getNavShellEdgeInset();
+        const startX = edgeInset - horizontalBleed;
+        const endX = Math.max(startX + 2, width - edgeInset + horizontalBleed);
         const centerY = arch + shellHeight / 2;
-        const radius = Math.min(getCssPx('--nav-shell-radius', 24), shellHeight / 2);
+        const innerWidth = Math.max(2, endX - startX);
+        const radius = Math.min(getCssPx('--nav-shell-radius', 24), shellHeight / 2, innerWidth / 2);
         const topY = centerY - radius;
         const bottomY = centerY + radius;
         const points = [];
@@ -412,10 +497,12 @@ function initNavDrag() {
         const influenceRadius = Math.max(44, getCssPx('--nav-indicator-hold-height', 48));
         const halfSegmentLength = Math.max(10, Math.min(indicatorWidth / 2 - 22, indicatorWidth * 0.22));
         const safeInset = getNavShellSafeInset();
+        const paintInset = getNavShellPaintInset();
+        const yPaintInset = getNavShellYPaintInset();
         const horizontalBleed = getNavShellXBleed();
-        const xMin = -horizontalBleed;
-        const xLimit = mesh.width + horizontalBleed;
-        const yLimit = mesh.height - safeInset;
+        const xMin = paintInset - horizontalBleed;
+        const xLimit = mesh.width - paintInset + horizontalBleed;
+        const yLimit = mesh.height + getNavShellBottomBleed() - yPaintInset;
         let path = "";
 
         mesh.points.forEach((p, index) => {
@@ -522,19 +609,35 @@ function initNavDrag() {
 
     function setIndicator(targetX, width, duration, ease) {
         if (!indicator) return;
-        if (width) indicator.style.width = `${width}px`;
         liquidShell.setIndicator(targetX, width);
         if (MOTION_ENABLED) {
+            const quick = isDragging ? getIndicatorQuickTo() : null;
+            if (quick) {
+                quick.xTo(targetX);
+                if (Number.isFinite(width)) quick.widthTo(width);
+                return;
+            }
             gsap.to(indicator, {
                 x: targetX,
+                width: Number.isFinite(width) ? width : undefined,
                 scaleX: 1,
                 duration,
                 ease,
                 overwrite: "auto",
             });
         } else {
+            if (Number.isFinite(width)) indicator.style.width = `${width}px`;
             indicator.style.transform = `translate3d(${targetX}px, 0, 0) scaleX(1)`;
         }
+    }
+
+    function getIndicatorQuickTo() {
+        if (!indicator || typeof gsap === 'undefined' || !gsap.quickTo) return null;
+        if (!indicatorXTo) {
+            indicatorXTo = gsap.quickTo(indicator, 'x', { duration: 0.16, ease: 'power2.out' });
+            indicatorWidthTo = gsap.quickTo(indicator, 'width', { duration: 0.16, ease: 'power2.out' });
+        }
+        return { xTo: indicatorXTo, widthTo: indicatorWidthTo };
     }
 
     function applyEdgeCompression(box, navRect, clientX, side) {
@@ -543,15 +646,15 @@ function initNavDrag() {
             ? box.rect.left + box.rect.width * 0.4
             : box.rect.right - box.rect.width * 0.4;
         const distance = side === 'left' ? threshold - clientX : clientX - threshold;
-        const t = smoothstep(distance / 72);
-        if (t <= 0) return { x: box.x, width: box.width };
+        const compression = smoothstep(distance / 96);
+        if (compression <= 0) return { x: box.x, width: box.width };
 
         const minWidth = Math.max(getIndicatorWidth(false), box.width * 0.82);
-        const width = box.width + (minWidth - box.width) * t;
+        const width = box.width + (minWidth - box.width) * compression;
         const targetX = side === 'left'
             ? 0
             : Math.max(0, navRect.width - width - edge * 2);
-        const x = box.x + (targetX - box.x) * t;
+        const x = box.x + (targetX - box.x) * compression;
         return { x, width };
     }
 
@@ -673,6 +776,8 @@ function initNavDrag() {
         try { navbar.releasePointerCapture(e.pointerId); } catch {}
         if (indicator) {
             gsap.killTweensOf(indicator);
+            indicatorXTo = null;
+            indicatorWidthTo = null;
             indicator.style.transform = '';
         }
 
@@ -1450,7 +1555,7 @@ function normalizeNewsItems(news) {
     if (!Array.isArray(news)) return [];
     return news.map(n => ({
         title: String(n?.title || '').trim(),
-        source: String(n?.source || '').trim() || 'Google News',
+        source: String(n?.source || '').trim() || 'NewsAPI',
         snippet: String(n?.snippet || '').trim(),
         link: String(n?.link || '').trim(),
     })).filter(item => item.title);
@@ -1940,10 +2045,10 @@ window.addEventListener('beforeunload', () => {
 // 14b. LOGIN PAGE
 // ═══════════════════════════════════════════════════════════════════════
 
-let loginLang = safeStorage.get('RE_LIFE_LANG') || 'en';
+let loginLang = readStoredAppLang();
 
 function initLoginPage() {
-    loginLang = safeStorage.get('RE_LIFE_LANG') || 'en';
+    loginLang = readStoredAppLang();
     state.lang = loginLang; // sync with main state
     applyLoginLabels();
 }
@@ -1967,12 +2072,11 @@ function applyLoginLabels() {
         if (el) el.textContent = STRINGS[loginLang][key];
     }
     const langBtn = document.getElementById('lang-btn');
-    if (langBtn) langBtn.textContent = loginLang === 'en' ? '🌐 EN' : '🌐 中文';
+    if (langBtn) langBtn.textContent = getAuthLangButtonText(loginLang);
 }
 
 function toggleLoginLang() {
-    loginLang = loginLang === 'en' ? 'zh' : 'en';
-    safeStorage.set('RE_LIFE_LANG', loginLang);
+    loginLang = persistAppLang(nextAppLang(loginLang));
     state.lang = loginLang;
     applyLoginLabels();
 }
@@ -1997,12 +2101,11 @@ function toggleRegister() {
 // ═══════════════════════════════════════════════════════════════════════
 
 async function toggleLang() {
-    state.lang = state.lang === 'en' ? 'zh' : 'en';
-    safeStorage.set('RE_LIFE_LANG', state.lang);
+    state.lang = persistAppLang(nextAppLang(state.lang));
     if (typeof I18N !== 'undefined') await I18N.load(state.lang);
-    document.documentElement.lang = state.lang === 'en' ? 'en' : 'zh-HK';
+    applyDocumentLang(state.lang);
     const langInd = document.getElementById('lang-ind');
-    if (langInd) langInd.textContent = state.lang === 'en' ? 'Eng' : '中文';
+    if (langInd) langInd.textContent = getLangIndicator(state.lang);
     updateAllLabels();
     updateWeatherUI();
     if (state.activeTab === 'record') renderRecords();

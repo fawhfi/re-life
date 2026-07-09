@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
@@ -12,351 +13,416 @@
           || !!(connection && connection.saveData)
           || (typeof navigator.deviceMemory === 'number' && navigator.deviceMemory > 0 && navigator.deviceMemory <= 4);
         if (lowEnd) document.documentElement.classList.add('perf-lite');
-      } catch (_) {}
+      } catch (_) { }
     })();
   </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,700;9..40,900&display=swap" rel="stylesheet">
+  <link
+    href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,700;9..40,900&display=swap"
+    rel="stylesheet">
   <link rel="stylesheet" href="/static/style.css">
   <link rel="stylesheet" href="/static/css/theme.css">
   <link rel="icon" type="image/png" href="/static/assets/favicon.png">
 </head>
+
 <body>
-<div class="app">
+  <div class="app">
 
-  <!-- ═══ HEADER ═══ -->
-  <header class="app-header">
-    <div class="header-left">
-      <div class="header-avatar" id="hdr-avatar" onclick="handleAvatarClick()">👤</div>
-      <span class="header-title">Re-Life</span>
-      <span class="header-user" id="hdr-user" onclick="handleAvatarClick()">Not Logged In</span>
-    </div>
-    <div class="header-right">
-      <button type="button" class="header-weather" id="header-weather" aria-live="polite" aria-haspopup="dialog" aria-expanded="false" onclick="toggleWeatherDetails()">
-        <span class="header-weather-emoji" id="header-weather-emoji">🌤️</span>
-        <span class="header-weather-copy">
-          <span class="header-weather-temp" id="header-weather-temp">--°</span>
-          <span class="header-weather-city" id="header-weather-city">Hong Kong</span>
-        </span>
-      </button>
-      <span class="header-time" id="header-time">11:45:14 AM</span>
-    </div>
-  </header>
-
-  <!-- ═══ MAIN ═══ -->
-  <main class="main">
-
-    <!-- TAB: Home -->
-    <section id="tab-home" class="tab active">
-      <div class="card">
-        <h2 class="card-header" id="lbl-scan-title">SCAN YOUR ITEMS</h2>
-        <div class="scan-grid">
-          <button class="scan-btn scan-btn--dispose" onclick="startScanningMode('dispose')">
-            <div class="scan-btn-icon"><img src="/static/assets/to_dispose.png" alt="Dispose" class="img-cover"></div>
-            <span class="scan-btn-label" id="lbl-dispose-btn">TO DISPOSE</span>
-          </button>
-          <button class="scan-btn scan-btn--purchase" onclick="startScanningMode('purchase')">
-            <div class="scan-btn-icon"><img src="/static/assets/to_purchase.png" alt="Purchase" class="img-cover"></div>
-            <span class="scan-btn-label" id="lbl-purchase-btn">TO PURCHASE</span>
-          </button>
-        </div>
+    <!-- ═══ HEADER ═══ -->
+    <header class="app-header">
+      <div class="header-left">
+        <div class="header-avatar" id="hdr-avatar" onclick="handleAvatarClick()">👤</div>
+        <span class="header-title">Re-Life</span>
+        <span class="header-user" id="hdr-user" onclick="handleAvatarClick()">Not Logged In</span>
       </div>
-
-      <div class="upload-zone" id="upload-zone" onclick="zoneTap()">
-        <div class="upload-zone-icon"><img src="/static/assets/Scan.png" alt="Scan" class="img-cover" style="opacity:0.7"></div>
-        <div class="upload-zone-text" id="lbl-upload-text">Tap to scan</div>
-        <div class="upload-zone-sub" id="lbl-upload-hint">or drag &amp; drop anywhere</div>
-        <input type="file" id="file-input" accept="image/*" capture="environment" onchange="handleFileSelect(event)" class="hidden">
-        <div class="upload-gallery-link hidden" id="upload-gallery-link" onclick="event.stopPropagation();triggerUpload()">📁 Choose from gallery</div>
-        <div class="upload-preview" id="upload-preview">
-          <img id="upload-preview-img" src="" alt="Preview">
-          <button class="upload-preview-remove" onclick="event.stopPropagation();clearPreview()">×</button>
-        </div>
+      <div class="header-right">
+        <button type="button" class="header-weather" id="header-weather" aria-live="polite" aria-haspopup="dialog"
+          aria-expanded="false" onclick="toggleWeatherDetails()">
+          <span class="header-weather-emoji" id="header-weather-emoji">🌤️</span>
+          <span class="header-weather-copy">
+            <span class="header-weather-temp" id="header-weather-temp">--°</span>
+            <span class="header-weather-city" id="header-weather-city">Hong Kong</span>
+          </span>
+        </button>
+        <span class="header-time" id="header-time">11:45:14 AM</span>
       </div>
+    </header>
 
-      <div id="scan-status" class="scanning-status">
-        <div class="scanning-spinner"></div>
-        <div class="scanning-text" id="lbl-scanning-text">AI Analyzing...</div>
-        <div class="scanning-spinner-dots">
+    <!-- ═══ MAIN ═══ -->
+    <main class="main">
+
+      <!-- TAB: Home -->
+      <section id="tab-home" class="tab active">
+        <div class="card">
+          <h2 class="card-header" id="lbl-scan-title">SCAN YOUR ITEMS</h2>
+          <div class="scan-grid">
+            <button class="scan-btn scan-btn--dispose" onclick="startScanningMode('dispose')">
+              <div class="scan-btn-icon"><img src="/static/assets/to_dispose.png" alt="Dispose" class="img-cover"></div>
+              <span class="scan-btn-label" id="lbl-dispose-btn">TO DISPOSE</span>
+            </button>
+            <button class="scan-btn scan-btn--purchase" onclick="startScanningMode('purchase')">
+              <div class="scan-btn-icon"><img src="/static/assets/to_purchase.png" alt="Purchase" class="img-cover">
+              </div>
+              <span class="scan-btn-label" id="lbl-purchase-btn">TO PURCHASE</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="upload-zone" id="upload-zone" onclick="zoneTap()">
+          <div class="upload-zone-icon"><img src="/static/assets/Scan.png" alt="Scan" class="img-cover"
+              style="opacity:0.7"></div>
+          <div class="upload-zone-text" id="lbl-upload-text">Tap to scan</div>
+          <div class="upload-zone-sub" id="lbl-upload-hint">or drag &amp; drop anywhere</div>
+          <input type="file" id="file-input" accept="image/*" capture="environment" onchange="handleFileSelect(event)"
+            class="hidden">
+          <div class="upload-gallery-link hidden" id="upload-gallery-link"
+            onclick="event.stopPropagation();triggerUpload()">📁 Choose from gallery</div>
+          <div class="upload-preview" id="upload-preview">
+            <img id="upload-preview-img" src="" alt="Preview">
+            <button class="upload-preview-remove" onclick="event.stopPropagation();clearPreview()">×</button>
+          </div>
+        </div>
+
+        <div id="scan-status" class="scanning-status">
+          <div class="scanning-spinner"></div>
+          <div class="scanning-text" id="lbl-scanning-text">AI Analyzing...</div>
+          <div class="scanning-spinner-dots">
             <span></span><span></span><span></span>
-        </div>
-        <div class="scanning-hint" id="lbl-scanning-hint">AI is evaluating your item</div>
-      </div>
-
-      <!-- Scan Result -->
-      <div id="scan-result" class="result-card hidden">
-        <div class="record-card-image" id="result-img">📦</div>
-        <div class="result-card-name" id="result-name">Scanned Item</div>
-        <div class="result-card-tip font-bold" id="result-brand"></div>
-        <div class="result-card-tip" id="result-desc"></div>
-        <div class="gemini-error hidden" id="gemini-error"></div>
-
-        <div class="record-card-ratings flex-center mt-3" id="result-ratings">
-          <div class="rating-item">
-            <span class="rating-label">Eco-Rate</span>
-            <div class="star-rating" id="result-eco-stars"></div>
           </div>
-          <div class="rating-item">
-            <span class="rating-label">Recycle Rate</span>
-            <div class="star-rating" id="result-recycle-stars"></div>
-          </div>
+          <div class="scanning-hint" id="lbl-scanning-hint">AI is evaluating your item</div>
         </div>
 
-        <div id="result-alt" class="alternative-card hidden">
-          <div class="alternative-card-label">Alternative Product</div>
-          <div class="alternative-card-name" id="alt-name"></div>
-          <div class="alternative-card-ratings">
-            <div class="rating-item"><span class="rating-label">Eco-Rate:</span><div class="star-rating" id="alt-eco-stars"></div></div>
-            <div class="rating-item"><span class="rating-label">Recycle Rate:</span><div class="star-rating" id="alt-recycle-stars"></div></div>
-          </div>
-        </div>
+        <!-- Scan Result -->
+        <div id="scan-result" class="result-card hidden">
+          <div class="record-card-image" id="result-img">📦</div>
+          <div class="result-card-name" id="result-name">Scanned Item</div>
+          <div class="result-card-tip font-bold" id="result-brand"></div>
+          <div class="result-card-tip" id="result-desc"></div>
+          <div class="gemini-error hidden" id="gemini-error"></div>
 
-        <!-- Disposal Guide -->
-        <div id="disposal-guide" class="disposal-guide hidden">
-          <div class="disposal-guide-title" id="lbl-dg-title">♻️ Disposal Guide</div>
-          <div class="disposal-guide-row"><span class="disposal-guide-label" id="lbl-disp-material">Material:</span><span id="disp-material"></span></div>
-          <div class="disposal-guide-row"><span class="disposal-guide-label" id="lbl-disp-method">Method:</span><span id="disp-method"></span></div>
-          <div class="disposal-guide-row"><span class="disposal-guide-label" id="lbl-disp-location">Location:</span><span id="disp-location"></span></div>
-          <div class="disposal-guide-row"><span class="disposal-guide-label" id="lbl-disp-reuse">Reuse:</span><span id="disp-reuse"></span></div>
-          <div class="disposal-guide-row mt-2" id="disp-guide"></div>
-          <div id="nearby-recycling" class="nearby-recycling hidden" aria-live="polite">
-            <div class="nearby-recycling-header">
-              <div>
-                <div class="nearby-recycling-title" id="lbl-nearby-recycling-title">Nearby Recycling Points</div>
-                <div class="nearby-recycling-subtitle" id="nearby-recycling-status">Use your location to find nearby options.</div>
-              </div>
-              <button type="button" class="nearby-recycling-refresh" id="nearby-recycling-refresh" onclick="refreshNearbyRecyclingPoints()">↻</button>
+          <div class="record-card-ratings flex-center mt-3" id="result-ratings">
+            <div class="rating-item">
+              <span class="rating-label">Eco-Rate</span>
+              <div class="star-rating" id="result-eco-stars"></div>
             </div>
-            <div id="nearby-recycling-list" class="nearby-recycling-list"></div>
-            <a id="nearby-recycling-source" class="nearby-recycling-source hidden" href="https://www.wastereduction.gov.hk/zh-hk/recycling-map" target="_blank" rel="noopener">Open recycling map</a>
-          </div>
-          <div class="disposal-guide-precaution" id="disp-prec"></div>
-        </div>
-
-        <!-- Weighted Score -->
-        <div class="weighted-section" id="weighted-section">
-          <div class="weighted-header">
-            <span class="weighted-title" id="ws-title">Weighted Criteria</span>
-          </div>
-          <div class="overall-score-display">
-            <div class="score-ring-wrap">
-              <svg class="score-ring" viewBox="0 0 120 120" width="120" height="120">
-                <circle class="score-ring-bg" cx="60" cy="60" r="52" fill="none" stroke-width="8"/>
-                <circle class="score-ring-fill" id="score-ring-fill" cx="60" cy="60" r="52" fill="none" stroke-width="8" stroke-dasharray="326.73" stroke-dashoffset="326.73" stroke-linecap="round"/>
-              </svg>
-              <div class="score-ring-value"><span class="overall-value" id="ov-score">74</span><span class="overall-max">/100</span></div>
+            <div class="rating-item">
+              <span class="rating-label">Recycle Rate</span>
+              <div class="star-rating" id="result-recycle-stars"></div>
             </div>
-            <div class="score-ring-meta">
-              <div class="grade-row">
-                <span class="rating-label" id="lbl-grade">Grade</span>
-                <span class="grade-tag" id="grade-tag" style="background:#047857">Good (B)</span>
-                <span class="text-muted text-sm font-bold" id="grade-advice">Acceptable</span>
+          </div>
+
+          <div id="result-alt" class="alternative-card hidden">
+            <div class="alternative-card-label">Alternative Product</div>
+            <div class="alternative-card-name" id="alt-name"></div>
+            <div class="alternative-card-ratings">
+              <div class="rating-item"><span class="rating-label">Eco-Rate:</span>
+                <div class="star-rating" id="alt-eco-stars"></div>
               </div>
-              <div class="overall-bar-wrap">
-                <div class="overall-bar">
-                  <div class="overall-bar-fill" id="ov-bar-fill" style="width:74%;background:#047857"></div>
+              <div class="rating-item"><span class="rating-label">Recycle Rate:</span>
+                <div class="star-rating" id="alt-recycle-stars"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Disposal Guide -->
+          <div id="disposal-guide" class="disposal-guide hidden">
+            <div class="disposal-guide-title" id="lbl-dg-title">♻️ Disposal Guide</div>
+            <div class="disposal-guide-row"><span class="disposal-guide-label"
+                id="lbl-disp-material">Material:</span><span id="disp-material"></span></div>
+            <div class="disposal-guide-row"><span class="disposal-guide-label" id="lbl-disp-method">Method:</span><span
+                id="disp-method"></span></div>
+            <div class="disposal-guide-row"><span class="disposal-guide-label"
+                id="lbl-disp-location">Location:</span><span id="disp-location"></span></div>
+            <div class="disposal-guide-row"><span class="disposal-guide-label" id="lbl-disp-reuse">Reuse:</span><span
+                id="disp-reuse"></span></div>
+            <div class="disposal-guide-row mt-2" id="disp-guide"></div>
+            <div id="nearby-recycling" class="nearby-recycling hidden" aria-live="polite">
+              <div class="nearby-recycling-header">
+                <div>
+                  <div class="nearby-recycling-title" id="lbl-nearby-recycling-title">Nearby Recycling Points</div>
+                  <div class="nearby-recycling-subtitle" id="nearby-recycling-status">Use your location to find nearby
+                    options.</div>
+                </div>
+                <button type="button" class="nearby-recycling-refresh" id="nearby-recycling-refresh"
+                  onclick="refreshNearbyRecyclingPoints()">↻</button>
+              </div>
+              <div id="nearby-recycling-list" class="nearby-recycling-list"></div>
+              <a id="nearby-recycling-source" class="nearby-recycling-source hidden"
+                href="https://www.wastereduction.gov.hk/zh-hk/recycling-map" target="_blank" rel="noopener">Open
+                recycling map</a>
+            </div>
+            <div class="disposal-guide-precaution" id="disp-prec"></div>
+          </div>
+
+          <!-- Weighted Score -->
+          <div class="weighted-section" id="weighted-section">
+            <div class="weighted-header">
+              <span class="weighted-title" id="ws-title">Weighted Criteria</span>
+            </div>
+            <div class="overall-score-display">
+              <div class="score-ring-wrap">
+                <svg class="score-ring" viewBox="0 0 120 120" width="120" height="120">
+                  <circle class="score-ring-bg" cx="60" cy="60" r="52" fill="none" stroke-width="8" />
+                  <circle class="score-ring-fill" id="score-ring-fill" cx="60" cy="60" r="52" fill="none"
+                    stroke-width="8" stroke-dasharray="326.73" stroke-dashoffset="326.73" stroke-linecap="round" />
+                </svg>
+                <div class="score-ring-value"><span class="overall-value" id="ov-score">74</span><span
+                    class="overall-max">/100</span></div>
+              </div>
+              <div class="score-ring-meta">
+                <div class="grade-row">
+                  <span class="rating-label" id="lbl-grade">Grade</span>
+                  <span class="grade-tag" id="grade-tag" style="background:#047857">Good (B)</span>
+                  <span class="text-muted text-sm font-bold" id="grade-advice">Acceptable</span>
+                </div>
+                <div class="overall-bar-wrap">
+                  <div class="overall-bar">
+                    <div class="overall-bar-fill" id="ov-bar-fill" style="width:74%;background:#047857"></div>
+                  </div>
                 </div>
               </div>
             </div>
+            <div class="weighted-detail" id="weighted-detail"></div>
           </div>
-          <div class="weighted-detail" id="weighted-detail"></div>
-        </div>
 
-        <!-- Swap proof -->
-        <button class="btn btn--primary btn--full mt-3" id="lbl-prove-swap" onclick="completeSwapFlow()">♻️ Swap & Prove You Swapped → Earn +50 Pts</button>
-        <input type="file" id="swap-proof-input" accept="image/*" capture="environment" onchange="handleSwapProof(event)" class="hidden">
+          <!-- Swap proof -->
+          <button class="btn btn--primary btn--full mt-3" id="lbl-prove-swap" onclick="completeSwapFlow()">♻️ Swap &
+            Prove You Swapped → Earn +50 Pts</button>
+          <input type="file" id="swap-proof-input" accept="image/*" capture="environment"
+            onchange="handleSwapProof(event)" class="hidden">
 
-        <div class="result-card-actions">
-          <button class="btn btn--outline" id="lbl-scan-again" onclick="resetScan()">Scan Again</button>
-          <button class="btn btn--primary" id="lbl-add-record" onclick="addScanToRecord()">Add to Record</button>
-        </div>
-      </div>
-
-      <!-- Tips -->
-      <div class="tips-card">
-        <div class="tips-card-header">
-          <span class="tips-pill" id="lbl-green-tips-pill">GREEN TIPS</span>
-          <span class="tips-source" id="tips-source">From HSBC SG</span>
-        </div>
-        <div class="tips-title" id="tips-title">"Energy saving tips"</div>
-        <p class="tips-snippet" id="tips-snippet">More and more people are making a conscious effort...</p>
-        <div class="tips-footer">
-          <div class="tips-dots" id="tips-dots"></div>
-          <button class="tips-more" id="lbl-know-more" onclick="nextTip()">+ KNOW MORE</button>
-        </div>
-      </div>
-
-      <!-- Fact -->
-      <div class="fact-card"><span class="fact-card-icon">🏆</span><div><div class="fact-card-title" id="lbl-fact-title">Did you know?</div><div class="fact-card-text" id="fact-text">Recycling a single aluminum can saves enough energy to power a TV for 3 hours.</div></div></div>
-    </section>
-
-    <!-- TAB: Record -->
-    <section id="tab-record" class="tab">
-      <div class="stats-bar">
-        <div class="stat"><div class="stat-number" id="stat-items">0</div><div class="stat-label" id="lbl-stat-items">Items</div></div>
-        <div class="stat"><div class="stat-number" id="stat-eco">0</div><div class="stat-label" id="lbl-stat-eco">Eco Avg</div></div>
-        <div class="stat"><div class="stat-number" id="stat-recycle">0</div><div class="stat-label" id="lbl-stat-recycle">Recycle Avg</div></div>
-      </div>
-      <button class="btn btn--danger btn--full" id="clear-btn" onclick="clearAllRecords()">Clear All</button>
-      <div id="records-list"></div>
-      <div id="records-empty" class="empty-state">
-        <div class="empty-state-icon"><img src="/static/assets/Record.png" alt="No records" style="width:100%;height:100%;object-fit:contain;opacity:0.5"></div>
-        <div class="empty-state-text" id="lbl-empty-text">No records yet</div>
-        <div class="empty-state-hint" id="lbl-empty-hint">Start by scanning an item</div>
-      </div>
-    </section>
-
-    <!-- TAB: Rewards -->
-    <section id="tab-rewards" class="tab">
-      <div class="rewards-wallet">
-        <div class="rewards-label" id="lbl-rew-balance">Eco Points Balance</div>
-        <div class="rewards-points">🪙 <span id="rew-pts">340</span></div>
-        <div class="rewards-sub" id="lbl-rew-sub">Convert your choices into real-world action.</div>
-        <div id="rew-shortcut" class="rewards-shortcut">
-          <span class="text-sm font-bold" style="color:var(--color-emerald-200)" id="lbl-my-coupons">My Coupons</span>
-          <button class="rew-view-btn" onclick="document.getElementById('rew-coupons').scrollIntoView({behavior:'smooth'})" id="lbl-view-claimed">🎫 View Claimed</button>
-        </div>
-      </div>
-      <div id="rew-alert" class="rewards-alert">⚠️ Not enough points.</div>
-      <h3 class="section-title" id="lbl-marketplace">Eco-Marketplace</h3>
-      <div id="rew-catalogue" class="flex-col gap-2"></div>
-      <div id="rew-coupons" style="margin-top:16px">
-        <h3 class="section-title mb-2" id="lbl-claimed-title">My Claimed Coupons</h3>
-        <div id="rew-coupon-grid" class="rewards-coupons"></div>
-      </div>
-    </section>
-
-    <!-- TAB: More -->
-    <section id="tab-more" class="tab">
-      <div class="more-section">
-        <div class="card">
-          <h3 class="section-title mb-3" id="lbl-settings">Settings</h3>
-          <div class="flex-col gap-2">
-            <div class="ai-row">
-              <span class="ai-row-label" id="lbl-theme">Theme</span>
-              <select class="select-field" id="theme-select" onchange="applyTheme(this.value)" style="width:auto;min-width:120px">
-                <option value="light">🌿 Light</option>
-                <option value="dark">🌙 Dark</option>
-                <option value="forest">🌲 Forest</option>
-                <option value="ocean">🌊 Ocean</option>
-                <option value="sunset">🌅 Sunset</option>
-                <option value="midnight">✨ Midnight</option>
-              </select>
-            </div>
-            <button class="btn btn--outline btn--full btn--small" id="sound-btn" onclick="toggleSound()"><img id="sound-icon" src="/static/assets/Sound_On.png" alt="Sound" class="btn-icon"><span id="sound-label">Sound ON</span></button>
-            <div class="ai-row">
-              <span class="ai-row-label"><img id="lang-icon" src="/static/assets/Language.png" alt="" class="btn-icon"><span id="lang-label">Language</span></span>
-              <select class="select-field" id="lang-select" onchange="setLang(this.value)" style="width:auto;min-width:128px">
-                <option value="en">English</option>
-                <option value="zh_simplified">简体中文</option>
-                <option value="zh_traditional">繁體中文</option>
-              </select>
-            </div>
-            <button class="btn btn--outline btn--full btn--small" onclick="openPolicy()"><img src="/static/assets/Policy.png" alt="Policy" class="btn-icon"><span id="lbl-policy">Policy</span></button>
-            <button class="btn btn--outline btn--full btn--small" id="debug-btn" onclick="toggleDebug()"><span id="debug-label">🔧 Debug Mode: OFF</span></button>
-            <button class="btn btn--danger btn--full btn--small" id="logout-btn" onclick="handleLogout()" style="display:none"><span id="logout-label">Logout</span></button>
+          <div class="result-card-actions">
+            <button class="btn btn--outline" id="lbl-scan-again" onclick="resetScan()">Scan Again</button>
+            <button class="btn btn--primary" id="lbl-add-record" onclick="addScanToRecord()">Add to Record</button>
           </div>
         </div>
 
-      </div>
-    </section>
+        <!-- Tips -->
+        <div class="tips-card">
+          <div class="tips-card-header">
+            <span class="tips-pill" id="lbl-green-tips-pill">GREEN TIPS</span>
+            <span class="tips-source" id="tips-source">From HSBC SG</span>
+          </div>
+          <div class="tips-title" id="tips-title">"Energy saving tips"</div>
+          <p class="tips-snippet" id="tips-snippet">More and more people are making a conscious effort...</p>
+          <div class="tips-footer">
+            <div class="tips-dots" id="tips-dots"></div>
+            <button class="tips-more" id="lbl-know-more" onclick="nextTip()">+ KNOW MORE</button>
+          </div>
+        </div>
 
-  </main>
+        <!-- Fact -->
+        <div class="fact-card"><span class="fact-card-icon">🏆</span>
+          <div>
+            <div class="fact-card-title" id="lbl-fact-title">Do you know?</div>
+            <div class="fact-card-text" id="fact-text">Recycling a single aluminum can saves enough energy to power a TV
+              for 3 hours.</div>
+          </div>
+        </div>
+      </section>
 
-  <!-- ═══ NAV ═══ -->
-  <nav class="nav" id="main-nav">
-    <svg class="nav-clip-defs" width="0" height="0" aria-hidden="true" focusable="false">
-      <defs>
-        <clipPath id="nav-shell-clip" clipPathUnits="userSpaceOnUse">
-          <path id="nav-shell-clip-path" d=""></path>
-        </clipPath>
-      </defs>
-    </svg>
-    <svg class="nav-shell-svg" viewBox="0 0 400 72" preserveAspectRatio="none" aria-hidden="true" focusable="false">
-      <path class="nav-shell-path" id="nav-shell-path" d=""></path>
-    </svg>
-    <div class="nav-indicator" id="nav-indicator"></div>
-    <button id="nav-home" class="nav-btn is-active" data-tab="home" onclick="navigateTo('home')"><span class="nav-btn-icon"><img src="/static/assets/Home.png" alt="Home" style="width:100%;height:100%;object-fit:contain"></span><span id="nav-lbl-home">Home</span></button>
-    <button id="nav-record" class="nav-btn" data-tab="record" onclick="navigateTo('record')"><span class="nav-btn-icon"><img src="/static/assets/Record.png" alt="Record" style="width:100%;height:100%;object-fit:contain"></span><span id="nav-lbl-record">Record</span></button>
-    <button id="nav-rewards" class="nav-btn" data-tab="rewards" onclick="navigateTo('rewards')"><span class="nav-btn-icon"><img src="/static/assets/Reward.png" alt="Rewards" style="width:100%;height:100%;object-fit:contain"></span><span id="nav-lbl-rewards">Rewards</span></button>
-    <button id="nav-more" class="nav-btn" data-tab="more" onclick="navigateTo('more')"><span class="nav-btn-icon"><img src="/static/assets/More.png" alt="More" style="width:100%;height:100%;object-fit:contain"></span><span id="nav-lbl-more">More</span></button>
-  </nav>
+      <!-- TAB: Record -->
+      <section id="tab-record" class="tab">
+        <div class="stats-bar">
+          <div class="stat">
+            <div class="stat-number" id="stat-items">0</div>
+            <div class="stat-label" id="lbl-stat-items">Items</div>
+          </div>
+          <div class="stat">
+            <div class="stat-number" id="stat-eco">0</div>
+            <div class="stat-label" id="lbl-stat-eco">Eco Avg</div>
+          </div>
+          <div class="stat">
+            <div class="stat-number" id="stat-recycle">0</div>
+            <div class="stat-label" id="lbl-stat-recycle">Recycle Avg</div>
+          </div>
+        </div>
+        <button class="btn btn--danger btn--full" id="clear-btn" onclick="clearAllRecords()">Clear All</button>
+        <div id="records-list"></div>
+        <div id="records-empty" class="empty-state">
+          <div class="empty-state-icon"><img src="/static/assets/Record.png" alt="No records"
+              style="width:100%;height:100%;object-fit:contain;opacity:0.5"></div>
+          <div class="empty-state-text" id="lbl-empty-text">No records yet</div>
+          <div class="empty-state-hint" id="lbl-empty-hint">Start by scanning an item</div>
+        </div>
+      </section>
 
-</div>
+      <!-- TAB: Rewards -->
+      <section id="tab-rewards" class="tab">
+        <div class="rewards-wallet">
+          <div class="rewards-label" id="lbl-rew-balance">Eco Points Balance</div>
+          <div class="rewards-points">🪙 <span id="rew-pts">340</span></div>
+          <div class="rewards-sub" id="lbl-rew-sub">Convert your choices into real-world action.</div>
+          <div id="rew-shortcut" class="rewards-shortcut">
+            <span class="text-sm font-bold" style="color:var(--color-emerald-200)" id="lbl-my-coupons">My Coupons</span>
+            <button class="rew-view-btn"
+              onclick="document.getElementById('rew-coupons').scrollIntoView({behavior:'smooth'})"
+              id="lbl-view-claimed">🎫 View Claimed</button>
+          </div>
+        </div>
+        <div id="rew-alert" class="rewards-alert">⚠️ Not enough points.</div>
+        <h3 class="section-title" id="lbl-marketplace">Eco-Marketplace</h3>
+        <div id="rew-catalogue" class="flex-col gap-2"></div>
+        <div id="rew-coupons" style="margin-top:16px">
+          <h3 class="section-title mb-2" id="lbl-claimed-title">My Claimed Coupons</h3>
+          <div id="rew-coupon-grid" class="rewards-coupons"></div>
+        </div>
+      </section>
 
-<!-- ═══ CAMERA MODAL ═══ -->
-<div id="camera-modal" class="camera-modal">
-  <video id="camera-video" autoplay playsinline muted></video>
-  <canvas id="camera-canvas" class="hidden"></canvas>
-  <div class="camera-controls">
-    <button class="camera-btn camera-btn--close" onclick="closeCamera()">✕</button>
-    <button class="camera-btn camera-btn--capture" onclick="capturePhoto()">
-      <span class="camera-capture-ring"></span>
-    </button>
-    <button class="camera-btn camera-btn--flip" onclick="flipCamera()">🔄</button>
+      <!-- TAB: More -->
+      <section id="tab-more" class="tab">
+        <div class="more-section">
+          <div class="card">
+            <h3 class="section-title mb-3" id="lbl-settings">Settings</h3>
+            <div class="flex-col gap-2">
+              <div class="ai-row">
+                <span class="ai-row-label" id="lbl-theme">Theme</span>
+                <select class="select-field" id="theme-select" onchange="applyTheme(this.value)"
+                  style="width:auto;min-width:120px">
+                  <option value="light">🌿 Light</option>
+                  <option value="dark">🌙 Dark</option>
+                  <option value="forest">🌲 Forest</option>
+                  <option value="ocean">🌊 Ocean</option>
+                  <option value="sunset">🌅 Sunset</option>
+                  <option value="midnight">✨ Midnight</option>
+                </select>
+              </div>
+              <div class="ai-row">
+                <span class="ai-row-label"><img id="lang-icon" src="/static/assets/Language.png" alt=""
+                    class="btn-icon"><span id="lang-label">Language</span></span>
+                <select class="select-field" id="lang-select" onchange="setLang(this.value)"
+                  style="width:auto;min-width:128px">
+                  <option value="en">English</option>
+                  <option value="zh_simplified">简体中文</option>
+                  <option value="zh_traditional">繁體中文</option>
+                </select>
+              </div>
+              <button class="btn btn--outline btn--full btn--small" id="sound-btn" onclick="toggleSound()"><img
+                  id="sound-icon" src="/static/assets/Sound_On.png" alt="Sound" class="btn-icon"><span
+                  id="sound-label">Sound ON</span></button>
+              <button class="btn btn--outline btn--full btn--small" onclick="openPolicy()"><img
+                  src="/static/assets/Policy.png" alt="Policy" class="btn-icon"><span
+                  id="lbl-policy">Policy</span></button>
+              <button class="btn btn--outline btn--full btn--small" id="debug-btn" onclick="toggleDebug()"><span
+                  id="debug-label">🔧 Debug Mode: OFF</span></button>
+              <button class="btn btn--danger btn--full btn--small" id="logout-btn" onclick="handleLogout()"
+                style="display:none"><span id="logout-label">Logout</span></button>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+    </main>
+
+    <!-- ═══ NAV ═══ -->
+    <nav class="nav" id="main-nav">
+      <svg class="nav-clip-defs" width="0" height="0" aria-hidden="true" focusable="false">
+        <defs>
+          <clipPath id="nav-shell-clip" clipPathUnits="userSpaceOnUse">
+            <path id="nav-shell-clip-path" d=""></path>
+          </clipPath>
+        </defs>
+      </svg>
+      <svg class="nav-shell-svg" viewBox="0 0 400 72" preserveAspectRatio="none" aria-hidden="true" focusable="false">
+        <path class="nav-shell-path" id="nav-shell-path" d=""></path>
+      </svg>
+      <div class="nav-indicator" id="nav-indicator"></div>
+      <button id="nav-home" class="nav-btn is-active" data-tab="home" onclick="navigateTo('home')"><span
+          class="nav-btn-icon"><img src="/static/assets/Home.png" alt="Home"
+            style="width:100%;height:100%;object-fit:contain"></span><span id="nav-lbl-home">Home</span></button>
+      <button id="nav-record" class="nav-btn" data-tab="record" onclick="navigateTo('record')"><span
+          class="nav-btn-icon"><img src="/static/assets/Record.png" alt="Record"
+            style="width:100%;height:100%;object-fit:contain"></span><span id="nav-lbl-record">Record</span></button>
+      <button id="nav-rewards" class="nav-btn" data-tab="rewards" onclick="navigateTo('rewards')"><span
+          class="nav-btn-icon"><img src="/static/assets/Reward.png" alt="Rewards"
+            style="width:100%;height:100%;object-fit:contain"></span><span id="nav-lbl-rewards">Rewards</span></button>
+      <button id="nav-more" class="nav-btn" data-tab="more" onclick="navigateTo('more')"><span class="nav-btn-icon"><img
+            src="/static/assets/More.png" alt="More" style="width:100%;height:100%;object-fit:contain"></span><span
+          id="nav-lbl-more">More</span></button>
+    </nav>
+
   </div>
-</div>
 
-<!-- ═══ MODAL ═══ -->
-<div id="modal-overlay" class="modal-overlay">
-  <div class="modal">
-    <div class="modal-icon" id="modal-icon">⚠️</div>
-    <div class="modal-title" id="modal-title">Alert</div>
-    <div class="modal-body" id="modal-body">Message here.</div>
-    <div class="modal-actions" id="modal-actions">
-      <button class="btn btn--primary btn--full" onclick="closeModal()">Close</button>
+  <!-- ═══ CAMERA MODAL ═══ -->
+  <div id="camera-modal" class="camera-modal">
+    <video id="camera-video" autoplay playsinline muted></video>
+    <canvas id="camera-canvas" class="hidden"></canvas>
+    <div class="camera-controls">
+      <button class="camera-btn camera-btn--close" onclick="closeCamera()">✕</button>
+      <button class="camera-btn camera-btn--capture" onclick="capturePhoto()">
+        <span class="camera-capture-ring"></span>
+      </button>
+      <button class="camera-btn camera-btn--flip" onclick="flipCamera()">🔄</button>
     </div>
   </div>
-</div>
 
-<!-- ═══ WEATHER DETAILS ═══ -->
-<div id="weather-overlay" class="weather-overlay" aria-hidden="true" onclick="closeWeatherDetails()">
-  <div id="weather-panel" class="weather-panel" role="dialog" aria-modal="true" aria-labelledby="weather-detail-title" onclick="event.stopPropagation()">
-    <button class="weather-close" type="button" aria-label="Close weather details" onclick="closeWeatherDetails()">×</button>
-    <div class="weather-panel-header">
-      <div class="weather-panel-emoji" id="weather-detail-emoji">🌤️</div>
-      <div class="weather-panel-copy">
-        <div class="weather-panel-title" id="weather-detail-title">Hong Kong weather</div>
-        <div class="weather-panel-subtitle" id="weather-detail-subtitle">Tap the weather chip for a quick read</div>
+  <!-- ═══ MODAL ═══ -->
+  <div id="modal-overlay" class="modal-overlay">
+    <div class="modal">
+      <div class="modal-icon" id="modal-icon">⚠️</div>
+      <div class="modal-title" id="modal-title">Alert</div>
+      <div class="modal-body" id="modal-body">Message here.</div>
+      <div class="modal-actions" id="modal-actions">
+        <button class="btn btn--primary btn--full" onclick="closeModal()">Close</button>
       </div>
     </div>
-    <div class="weather-panel-grid">
-      <div class="weather-panel-stat weather-panel-stat--primary">
-        <span class="weather-panel-stat-label" id="lbl-weather-temperature">Temperature</span>
-        <strong class="weather-panel-stat-value" id="weather-detail-temp">--°C</strong>
-      </div>
-      <div class="weather-panel-stat weather-panel-stat--primary">
-        <span class="weather-panel-stat-label" id="lbl-weather-location">Location</span>
-        <strong class="weather-panel-stat-value" id="weather-detail-location">Hong Kong</strong>
-      </div>
-    </div>
-    <div class="weather-panel-warning hidden" id="weather-detail-warning" role="alert">
-      <div class="weather-panel-warning-icon" id="weather-detail-warning-icon">⚠️</div>
-      <div class="weather-panel-warning-copy">
-        <div class="weather-panel-warning-title" id="weather-detail-warning-title">Weather warning</div>
-        <div class="weather-panel-warning-body" id="weather-detail-warning-body">Check conditions before going out.</div>
-      </div>
-    </div>
-    <div class="weather-panel-callout">
-      <div class="weather-panel-callout-title" id="weather-detail-callout-title">Hong Kong weather</div>
-      <div class="weather-panel-callout-body" id="weather-detail-callout">Small habits make the city easier to breathe in.</div>
-    </div>
-    <button class="btn btn--primary btn--full" type="button" id="lbl-weather-close" onclick="closeWeatherDetails()">Close</button>
   </div>
-</div>
 
-<!-- ═══ TOAST CONTAINER ═══ -->
-<div id="toast-container" class="toast-container" role="status" aria-live="polite"></div>
+  <!-- ═══ WEATHER DETAILS ═══ -->
+  <div id="weather-overlay" class="weather-overlay" aria-hidden="true" onclick="closeWeatherDetails()">
+    <div id="weather-panel" class="weather-panel" role="dialog" aria-modal="true" aria-labelledby="weather-detail-title"
+      onclick="event.stopPropagation()">
+      <button class="weather-close" type="button" aria-label="Close weather details"
+        onclick="closeWeatherDetails()">×</button>
+      <div class="weather-panel-header">
+        <div class="weather-panel-emoji" id="weather-detail-emoji">🌤️</div>
+        <div class="weather-panel-copy">
+          <div class="weather-panel-title" id="weather-detail-title">Hong Kong weather</div>
+          <div class="weather-panel-subtitle" id="weather-detail-subtitle">Tap the weather chip for a quick read</div>
+        </div>
+      </div>
+      <div class="weather-panel-grid">
+        <div class="weather-panel-stat weather-panel-stat--primary">
+          <span class="weather-panel-stat-label" id="lbl-weather-temperature">Temperature</span>
+          <strong class="weather-panel-stat-value" id="weather-detail-temp">--°C</strong>
+        </div>
+        <div class="weather-panel-stat weather-panel-stat--primary">
+          <span class="weather-panel-stat-label" id="lbl-weather-location">Location</span>
+          <strong class="weather-panel-stat-value" id="weather-detail-location">Hong Kong</strong>
+        </div>
+      </div>
+      <div class="weather-panel-warning hidden" id="weather-detail-warning" role="alert">
+        <div class="weather-panel-warning-icon" id="weather-detail-warning-icon">⚠️</div>
+        <div class="weather-panel-warning-copy">
+          <div class="weather-panel-warning-title" id="weather-detail-warning-title">Weather warning</div>
+          <div class="weather-panel-warning-body" id="weather-detail-warning-body">Check conditions before going out.
+          </div>
+        </div>
+      </div>
+      <div class="weather-panel-callout">
+        <div class="weather-panel-callout-title" id="weather-detail-callout-title">Hong Kong weather</div>
+        <div class="weather-panel-callout-body" id="weather-detail-callout">Small habits make the city easier to breathe
+          in.</div>
+      </div>
+      <button class="btn btn--primary btn--full" type="button" id="lbl-weather-close"
+        onclick="closeWeatherDetails()">Close</button>
+    </div>
+  </div>
 
-<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
-<script src="/static/js/camera.js"></script>
-<script type="module" src="/static/supabase.js"></script>
-<script src="/static/js/i18n.js"></script>
-<script src="/static/js/utils.js"></script>
-<script src="/static/app.js"></script>
-<script src="/static/js/app-weather.js"></script>
-<script src="/static/js/app-recycling.js"></script>
-<script src="/static/js/app-records.js"></script>
+  <!-- ═══ TOAST CONTAINER ═══ -->
+  <div id="toast-container" class="toast-container" role="status" aria-live="polite"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+  <script src="/static/js/camera.js"></script>
+  <script type="module" src="/static/supabase.js"></script>
+  <script src="/static/js/i18n.js"></script>
+  <script src="/static/js/utils.js"></script>
+  <script src="/static/app.js"></script>
+  <script src="/static/js/app-weather.js"></script>
+  <script src="/static/js/app-recycling.js"></script>
+  <script src="/static/js/app-records.js"></script>
 </body>
+
 </html>

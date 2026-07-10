@@ -107,7 +107,14 @@
         </select>
       </div>
       <span class="login-footer-dot">·</span>
-      <button class="login-footer-link" onclick="toggleLoginLang()">🌐 EN</button>
+      <div class="auth-theme-control">
+        <span class="auth-theme-icon" aria-hidden="true">🌐</span>
+        <select class="auth-theme-select auth-lang-select" id="login-lang-select" aria-label="Language" onchange="setLoginLang(this.value)">
+          <option value="en">English</option>
+          <option value="zh_simplified">简体中文</option>
+          <option value="zh_traditional">繁體中文</option>
+        </select>
+      </div>
       <span class="login-footer-dot">·</span>
       <span class="login-footer-text">v1</span>
     </div>
@@ -152,13 +159,18 @@ function applyLoginLocale() {
     setText('#forgot-btn', forgotStep === 1
         ? loginText('Reset Password', '重置密码', '重設密碼')
         : loginText('Send Reset Code', '发送重置码', '傳送重設碼'));
-    setText('.login-footer-link[onclick="toggleLoginLang()"]', `🌐 ${AUTH_LANG.label(loginLang)}`);
+    const langSelect = document.getElementById('login-lang-select');
+    if (langSelect) langSelect.value = loginLang;
+}
+
+function setLoginLang(lang) {
+    loginLang = AUTH_LANG.normalize(lang);
+    localStorage.setItem('RE_LIFE_LANG', loginLang);
+    applyLoginLocale();
 }
 
 function toggleLoginLang() {
-    loginLang = AUTH_LANG.next(loginLang);
-    localStorage.setItem('RE_LIFE_LANG', loginLang);
-    applyLoginLocale();
+    setLoginLang(AUTH_LANG.next(loginLang));
 }
 
 waitForStorage(() => {

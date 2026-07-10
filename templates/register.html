@@ -125,7 +125,14 @@
         </select>
       </div>
       <span class="login-footer-dot">·</span>
-      <button class="login-footer-link" onclick="toggleRegisterLang()">🌐 EN</button>
+      <div class="auth-theme-control">
+        <span class="auth-theme-icon" aria-hidden="true">🌐</span>
+        <select class="auth-theme-select auth-lang-select" id="register-lang-select" aria-label="Language" onchange="setRegisterLang(this.value)">
+          <option value="en">English</option>
+          <option value="zh_simplified">简体中文</option>
+          <option value="zh_traditional">繁體中文</option>
+        </select>
+      </div>
       <span class="login-footer-dot">·</span>
       <span class="login-footer-text">v1</span>
     </div>
@@ -161,7 +168,8 @@ function applyRegisterLocale() {
     setText('button[onclick="goBack()"]', registerText('← Try a different email', '← 使用其他邮箱', '← 使用其他電子郵箱'));
     setText('.login-divider span', registerText('or', '或', '或'));
     setText('a[href="/login"]', registerText('← Back to Login', '← 返回登录', '← 返回登入'));
-    setText('.login-footer-link[onclick="toggleRegisterLang()"]', `🌐 ${AUTH_LANG.label(registerLang)}`);
+    const langSelect = document.getElementById('register-lang-select');
+    if (langSelect) langSelect.value = registerLang;
     const titleEl = document.getElementById('step-title');
     if (titleEl) {
         titleEl.textContent = document.getElementById('step-verify')?.classList.contains('active')
@@ -174,10 +182,14 @@ function applyRegisterLocale() {
     }
 }
 
-function toggleRegisterLang() {
-    registerLang = AUTH_LANG.next(registerLang);
+function setRegisterLang(lang) {
+    registerLang = AUTH_LANG.normalize(lang);
     localStorage.setItem('RE_LIFE_LANG', registerLang);
     applyRegisterLocale();
+}
+
+function toggleRegisterLang() {
+    setRegisterLang(AUTH_LANG.next(registerLang));
 }
 
 function showStep(id) {

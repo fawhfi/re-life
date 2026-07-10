@@ -8,13 +8,6 @@ function weatherTr(key, fallback) {
     return value === key ? fallback : value;
 }
 
-function getWeatherLocale() {
-    if (typeof getHtmlLang === 'function') return getHtmlLang(state.lang);
-    if (state.lang === 'zh_traditional') return 'zh-HK';
-    if (state.lang === 'zh' || state.lang === 'zh_simplified') return 'zh-CN';
-    return 'en-HK';
-}
-
 function isWeatherChinese() {
     if (typeof isChineseLang === 'function') return isChineseLang(state.lang);
     return state.lang === 'zh' || state.lang === 'zh_simplified' || state.lang === 'zh_traditional';
@@ -22,6 +15,26 @@ function isWeatherChinese() {
 
 function weatherChineseFallback(simplified, traditional) {
     return state.lang === 'zh_traditional' ? traditional : simplified;
+}
+
+function renderWeatherIcon(el, model, fallbackEmoji = '🌤️') {
+    if (!el) return;
+    const iconUrl = String(model?.icon_url || '').trim();
+    const fallback = String(model?.emoji || fallbackEmoji || '🌤️');
+    el.textContent = '';
+    if (!iconUrl) {
+        el.textContent = fallback;
+        return;
+    }
+    const img = document.createElement('img');
+    img.src = iconUrl;
+    img.alt = localizeWeatherSummary(model?.summary);
+    img.loading = 'lazy';
+    img.decoding = 'async';
+    img.onerror = () => {
+        el.textContent = fallback;
+    };
+    el.appendChild(img);
 }
 
 async function resolveWeatherCoordinates(forcePrompt = false) {
@@ -69,13 +82,14 @@ function updateWeatherUI() {
     const cityEl = document.getElementById('header-weather-city');
     const localizedSummary = localizeWeatherSummary(weather.summary);
     const defaultTitle = weatherTr('weather.header.defaultTitle', 'Hong Kong weather');
+    const localizedWarning = localizeWeatherWarning(weather.warning);
 
-    if (emojiEl) emojiEl.textContent = weather.emoji || '🌤️';
+    renderWeatherIcon(emojiEl, weather, '🌤️');
     if (tempEl) tempEl.textContent = Number.isFinite(weather.temperature) ? `${Math.round(weather.temperature)}°` : '--°';
     if (cityEl) cityEl.textContent = localizeWeatherLocation(weather.location);
 
     if (widget) {
-        const readableSummary = localizedSummary || defaultTitle;
+        const readableSummary = localizedWarning?.title || localizedSummary || defaultTitle;
         const readableTemp = Number.isFinite(weather.temperature) ? ` • ${Math.round(weather.temperature)}°C` : '';
         const tapForDetails = weatherTr('weather.header.tapForDetails', 'Tap for details');
         const ariaDetails = weatherTr('weather.header.ariaDetails', 'Tap for weather details.');
@@ -83,6 +97,8 @@ function updateWeatherUI() {
         widget.setAttribute('aria-label', `${readableSummary}${readableTemp}. ${ariaDetails}`);
         widget.setAttribute('aria-expanded', state.weatherDetailsOpen ? 'true' : 'false');
         widget.classList.toggle('is-loading', !weather.loaded);
+        widget.classList.toggle('has-weather-warning', !!weather.warning?.active);
+        widget.classList.toggle('has-typhoon-warning', weather.warning?.type === 'typhoon');
         if (!weather.loaded && !state.weather) {
             widget.setAttribute('aria-busy', 'true');
         } else {
@@ -114,9 +130,11 @@ async function fetchHeaderWeatherPayload(forcePrompt = false) {
     } catch (_) {
         return {
             emoji: '🌤️',
+            icon_url: '',
             summary: 'Hong Kong weather',
             temperature: null,
             location: 'Hong Kong',
+            warning: { active: false },
             loaded: true,
         };
     }
@@ -150,28 +168,15 @@ async function refreshHeaderWeather() {
     return state.weatherLoadPromise;
 }
 
-function formatWeatherUpdatedAt(value) {
-    if (!value) return weatherTr('weather.detail.liveData', isWeatherChinese() ? weatherChineseFallback('实时资料', '即時資料') : 'Live data');
-    const stamp = new Date(value);
-    if (Number.isNaN(stamp.getTime())) return weatherTr('weather.detail.liveData', isWeatherChinese() ? weatherChineseFallback('实时资料', '即時資料') : 'Live data');
-    return stamp.toLocaleString(getWeatherLocale(), {
-        month: 'short',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: false,
-    });
-}
-
 function getWeatherDetailModel() {
     const weather = state.weather || {};
     const fallback = {
         emoji: '🌤️',
+        icon_url: '',
         summary: 'Hong Kong weather',
         temperature: null,
         location: 'Hong Kong',
-        updated_at: null,
-        source: 'HKO Open Data',
+        warning: { active: false },
         callout: {
             title: weatherTr('weather.callout.default.title', 'Hong Kong weather'),
             body: weatherTr(
@@ -203,19 +208,6 @@ function localizeWeatherLocation(location) {
     return location;
 }
 
-function localizeWeatherSource(source) {
-    if (getWeatherLanguage() !== 'zh') {
-        return source || weatherTr('weather.source.hkoOpenData', 'HKO Open Data');
-    }
-    if (source === 'Fallback') {
-        return weatherTr('weather.source.fallback', '後備資料');
-    }
-    if (!source || source === 'HKO Open Data') {
-        return weatherTr('weather.source.hkoOpenData', '香港天文台開放資料');
-    }
-    return source;
-}
-
 function localizeWeatherCallout(model) {
     const defaultTitle = weatherTr('weather.callout.default.title', 'Hong Kong weather');
     const defaultBody = weatherTr(
@@ -230,6 +222,27 @@ function localizeWeatherCallout(model) {
     return {
         title: weatherTr(`weather.callout.${key}.title`, defaultTitle),
         body: weatherTr(`weather.callout.${key}.body`, defaultBody),
+    };
+}
+
+function localizeWeatherWarning(warning) {
+    if (!warning?.active) return null;
+    const isTyphoon = warning.type === 'typhoon';
+    const titleKey = isTyphoon ? 'weather.warning.typhoonTitle' : 'weather.warning.weatherTitle';
+    const bodyKey = isTyphoon ? 'weather.warning.typhoonBody' : 'weather.warning.weatherBody';
+    const titleFallback = isTyphoon
+        ? (isWeatherChinese() ? weatherChineseFallback('台风警告', '颱風警告') : (warning.title || 'Typhoon warning'))
+        : (isWeatherChinese() ? weatherChineseFallback('恶劣天气警告', '惡劣天氣警告') : (warning.title || 'Weather warning'));
+    const bodyFallback = isTyphoon
+        ? (isWeatherChinese()
+            ? weatherChineseFallback('热带气旋警告现正生效。出门前请留意官方天气消息。', '熱帶氣旋警告現正生效。出門前請留意官方天氣消息。')
+            : (warning.body || 'A tropical cyclone warning is in force. Check official advice before going out.'))
+        : (isWeatherChinese()
+            ? weatherChineseFallback('恶劣天气警告现正生效。请先查看天气，再安排外出。', '惡劣天氣警告現正生效。請先查看天氣，再安排外出。')
+            : (warning.body || 'Bad weather warning is in force. Check conditions before going out.'));
+    return {
+        title: weatherTr(titleKey, titleFallback),
+        body: weatherTr(bodyKey, bodyFallback),
     };
 }
 
@@ -248,22 +261,27 @@ function renderWeatherDetails() {
     const emojiEl = document.getElementById('weather-detail-emoji');
     const tempEl = document.getElementById('weather-detail-temp');
     const locationEl = document.getElementById('weather-detail-location');
-    const updatedEl = document.getElementById('weather-detail-updated');
-    const sourceEl = document.getElementById('weather-detail-source');
+    const warningEl = document.getElementById('weather-detail-warning');
+    const warningIconEl = document.getElementById('weather-detail-warning-icon');
+    const warningTitleEl = document.getElementById('weather-detail-warning-title');
+    const warningBodyEl = document.getElementById('weather-detail-warning-body');
     const calloutTitleEl = document.getElementById('weather-detail-callout-title');
     const calloutEl = document.getElementById('weather-detail-callout');
     const closeButton = document.querySelector('.weather-close');
     const callout = localizeWeatherCallout(model);
+    const warning = localizeWeatherWarning(model.warning);
 
     if (titleEl) titleEl.textContent = localizeWeatherSummary(model.summary);
     if (subtitleEl) {
         subtitleEl.textContent = getWeatherSubtitle(model);
     }
-    if (emojiEl) emojiEl.textContent = model.emoji || '🌤️';
+    renderWeatherIcon(emojiEl, model, '🌤️');
     if (tempEl) tempEl.textContent = Number.isFinite(model.temperature) ? `${Math.round(model.temperature)}°C` : '--°C';
     if (locationEl) locationEl.textContent = localizeWeatherLocation(model.location);
-    if (updatedEl) updatedEl.textContent = formatWeatherUpdatedAt(model.updated_at);
-    if (sourceEl) sourceEl.textContent = localizeWeatherSource(model.source);
+    if (warningEl) warningEl.classList.toggle('hidden', !warning);
+    if (warningIconEl) renderWeatherIcon(warningIconEl, model.warning, model.warning?.emoji || '⚠️');
+    if (warningTitleEl) warningTitleEl.textContent = warning?.title || '';
+    if (warningBodyEl) warningBodyEl.textContent = warning?.body || '';
     if (calloutTitleEl) calloutTitleEl.textContent = callout.title;
     if (calloutEl) {
         calloutEl.textContent = callout.body;

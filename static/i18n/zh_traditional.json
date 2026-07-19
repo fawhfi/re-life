@@ -75,6 +75,8 @@
     "detail": {
       "temperature": "溫度",
       "location": "地點",
+      "updated": "更新時間",
+      "source": "資料來源",
       "close": "關閉"
     },
     "location": {

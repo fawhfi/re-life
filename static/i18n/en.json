@@ -75,6 +75,8 @@
     "detail": {
       "temperature": "Temperature",
       "location": "Location",
+      "updated": "Updated",
+      "source": "Source",
       "close": "Close"
     },
     "location": {

@@ -1,6 +1,7 @@
 -- Re-Life Supabase schema
 -- Primary tables:
 --   app_users      -> user profiles and credentials
+--   app_sessions   -> opaque server-side user sessions
 --   scan_records   -> scanned waste records
 --   auth_codes     -> verification / reset codes
 --   news_cache     -> cached news payloads
@@ -39,6 +40,20 @@ for each row
 execute function public.set_updated_at();
 
 create index if not exists app_users_created_at_idx on public.app_users (created_at desc);
+
+create table if not exists public.app_sessions (
+  id uuid primary key default gen_random_uuid(),
+  user_id bigint not null references public.app_users(id) on delete cascade,
+  token_hash text not null unique check (token_hash ~ '^[0-9a-f]{64}$'),
+  user_agent text not null default '' check (char_length(user_agent) <= 256),
+  request_ip_hash text not null default '' check (char_length(request_ip_hash) <= 64) check (request_ip_hash = '' or request_ip_hash ~ '^[0-9a-f]{64}$'),
+  created_at timestamptz not null default now(),
+  last_seen_at timestamptz not null default now(),
+  revoked_at timestamptz
+);
+create index if not exists app_sessions_user_id_idx on public.app_sessions (user_id);
+create index if not exists app_sessions_last_seen_idx on public.app_sessions (last_seen_at);
+comment on table public.app_sessions is 'Opaque server-side sessions for the custom app_users account system.';
 
 create table if not exists public.scan_records (
   id bigint generated always as identity primary key,
@@ -80,12 +95,24 @@ create table if not exists public.auth_codes (
   user_id bigint references public.app_users(id) on delete cascade,
   code_hash text not null,
   expires_at timestamptz not null,
-  attempts integer not null default 0 check (attempts >= 0),
+  attempts integer not null default 0 check (attempts between 0 and 5),
   consumed_at timestamptz,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   unique (purpose, email)
 );
+
+alter table public.auth_codes
+drop constraint if exists auth_codes_attempts_check;
+
+update public.auth_codes
+set attempts = 5,
+    consumed_at = coalesce(consumed_at, now())
+where attempts > 5;
+
+alter table public.auth_codes
+add constraint auth_codes_attempts_check
+check (attempts between 0 and 5);
 
 drop trigger if exists set_auth_codes_updated_at on public.auth_codes;
 create trigger set_auth_codes_updated_at
@@ -95,6 +122,9 @@ execute function public.set_updated_at();
 
 create index if not exists auth_codes_email_idx on public.auth_codes (email);
 create index if not exists auth_codes_expires_at_idx on public.auth_codes (expires_at);
+create index if not exists auth_codes_active_lookup_idx
+on public.auth_codes (purpose, email, expires_at)
+where consumed_at is null;
 
 create table if not exists public.news_cache (
   cache_key text primary key,

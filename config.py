@@ -1,8 +1,50 @@
 """Re-Life configuration — env vars and runtime constants."""
 import os
+from email.utils import parseaddr
 from pathlib import Path
 
 root_dir = Path(__file__).parent
+
+
+def _env_bool(name: str, default: bool = False) -> bool:
+    return os.getenv(name, "true" if default else "false").strip().lower() in {"1", "true", "yes", "on"}
+
+
+APP_ENV = os.getenv("APP_ENV", "development").strip().lower()
+if APP_ENV not in {"development", "production"}:
+    raise RuntimeError(
+        f"Invalid APP_ENV {APP_ENV!r}; expected 'development' or 'production'"
+    )
+IS_DEVELOPMENT = APP_ENV == "development"
+IS_PRODUCTION = APP_ENV == "production"
+ALLOW_DEV_AUTH_CODES = IS_DEVELOPMENT and _env_bool("ALLOW_DEV_AUTH_CODES")
+SESSION_COOKIE_NAME = os.getenv("SESSION_COOKIE_NAME", "rel_session").strip() or "rel_session"
+SESSION_IDLE_DAYS = max(1, int(os.getenv("SESSION_IDLE_DAYS", "30")))
+SESSION_IDLE_SECONDS = SESSION_IDLE_DAYS * 24 * 60 * 60
+SESSION_TOUCH_INTERVAL_SECONDS = max(60, int(os.getenv("SESSION_TOUCH_INTERVAL_SECONDS", "900")))
+SESSION_CLOCK_SKEW_SECONDS = max(0, int(os.getenv("SESSION_CLOCK_SKEW_SECONDS", "300")))
+SESSION_METADATA_HASH_KEY = os.getenv("SESSION_METADATA_HASH_KEY", "").strip()
+if IS_DEVELOPMENT and not SESSION_METADATA_HASH_KEY:
+    SESSION_METADATA_HASH_KEY = "development-only-session-metadata-key"
+if IS_PRODUCTION:
+    if len(SESSION_METADATA_HASH_KEY) < 32:
+        raise RuntimeError(
+            "SESSION_METADATA_HASH_KEY must be at least 32 characters in production"
+        )
+    supabase_keys = {
+        value
+        for name in (
+            "SUPABASE_SECRET_KEY",
+            "SUPABASE_SERVICE_ROLE_KEY",
+            "SUPABASE_ANON_KEY",
+            "SUPABASE_PUBLISHABLE_KEY",
+        )
+        if (value := os.getenv(name, "").strip())
+    }
+    if SESSION_METADATA_HASH_KEY in supabase_keys:
+        raise RuntimeError(
+            "SESSION_METADATA_HASH_KEY must be independent from Supabase keys"
+        )
 
 # ── Multi-model AI ──────────────────────────────────────────────────────────
 NVIDIA_API_KEY   = os.getenv("NVIDIA_API", "")
@@ -56,19 +98,90 @@ UPSTASH_REDIS_REST_URL = (
     or os.getenv("KV_REST_API_URL")
     or os.getenv("VERCEL_KV_REST_API_URL")
     or ""
-)
+).strip()
 UPSTASH_REDIS_REST_TOKEN = (
     os.getenv("UPSTASH_REDIS_REST_TOKEN")
     or os.getenv("KV_REST_API_TOKEN")
     or os.getenv("VERCEL_KV_REST_API_TOKEN")
     or ""
-)
-REDIS_URL = os.getenv("REDIS_URL", os.getenv("KV_URL", ""))
+).strip()
+REDIS_URL = os.getenv("REDIS_URL", os.getenv("KV_URL", "")).strip()
 
 # ── Email ───────────────────────────────────────────────────────────────────
-RESEND_API_KEY = os.getenv("RESEND_API_KEY", "")
-RESEND_FROM = os.getenv("RESEND_FROM", "Re-Life <noreply@yourdomain.com>")
-VERIFICATION_CODE_EXPIRY = 300
+RESEND_API_KEY = os.getenv("RESEND_API_KEY", "").strip()
+RESEND_FROM = os.getenv("RESEND_FROM", "Re-Life <noreply@yourdomain.com>").strip()
+AUTH_CODE_SECRET = os.getenv("AUTH_CODE_SECRET", "").strip()
+if IS_DEVELOPMENT and not AUTH_CODE_SECRET:
+    AUTH_CODE_SECRET = "development-only-auth-code-secret"
+VERIFICATION_CODE_EXPIRY_SECONDS = max(
+    60,
+    int(os.getenv("VERIFICATION_CODE_EXPIRY_SECONDS", "600")),
+)
+VERIFICATION_CODE_EXPIRY = VERIFICATION_CODE_EXPIRY_SECONDS
+AUTH_CODE_MAX_ATTEMPTS = min(
+    5,
+    max(1, int(os.getenv("AUTH_CODE_MAX_ATTEMPTS", "5"))),
+)
+
+
+def validate_auth_security_settings() -> None:
+    """Reject unsafe production email-auth configuration."""
+    if not IS_PRODUCTION:
+        return
+    if len(AUTH_CODE_SECRET) < 32:
+        raise RuntimeError(
+            "AUTH_CODE_SECRET must be at least 32 characters in production"
+        )
+
+    independent_secrets = {
+        value
+        for value in (
+            SESSION_METADATA_HASH_KEY,
+            SUPABASE_SECRET_KEY,
+            SUPABASE_SERVICE_ROLE_KEY,
+            SUPABASE_ANON_KEY,
+            SUPABASE_PUBLISHABLE_KEY,
+        )
+        if value
+    }
+    if AUTH_CODE_SECRET in independent_secrets:
+        raise RuntimeError(
+            "AUTH_CODE_SECRET must be independent from session and Supabase keys"
+        )
+    if not RESEND_API_KEY:
+        raise RuntimeError("RESEND_API_KEY is required in production")
+
+    display_name, sender_address = parseaddr(RESEND_FROM)
+    local_part, separator, domain = sender_address.lower().partition("@")
+    placeholder_domains = {
+        "yourdomain.com",
+        "example.com",
+        "example.org",
+        "example.net",
+    }
+    if (
+        not separator
+        or not local_part
+        or "." not in domain
+        or domain in placeholder_domains
+        or domain.startswith("your")
+        or ("<" in RESEND_FROM and not display_name)
+    ):
+        raise RuntimeError(
+            "RESEND_FROM must be a valid, non-placeholder sender address in production"
+        )
+
+    if bool(UPSTASH_REDIS_REST_URL) != bool(UPSTASH_REDIS_REST_TOKEN):
+        raise RuntimeError(
+            "UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN must be configured together"
+        )
+    if not (
+        (UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN)
+        or REDIS_URL
+    ):
+        raise RuntimeError(
+            "A durable rate-limit backend is required in production"
+        )
 
 # ── Upload ──────────────────────────────────────────────────────────────────
 MAX_UPLOAD_BYTES = 10 * 1024 * 1024

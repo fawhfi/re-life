@@ -253,35 +253,6 @@ const gsap = (typeof window !== 'undefined' && window.gsap && typeof window.gsap
     ? window.gsap
     : GSAP_FALLBACK;
 
-function readSessionState() {
-    return {
-        name: safeStorage.get('RE_LIFE_CURRENT_USER'),
-        id: safeStorage.get('RE_LIFE_CURRENT_USER_ID'),
-        key: safeStorage.get('RE_LIFE_CURRENT_USER_KEY'),
-        avatar: safeStorage.get('RE_LIFE_USER_AVATAR'),
-    };
-}
-
-function persistSessionState(session = {}) {
-    const apply = (key, value) => {
-        if (value === undefined || value === null || value === '') {
-            safeStorage.remove(key);
-        } else {
-            safeStorage.set(key, value);
-        }
-    };
-
-    apply('RE_LIFE_CURRENT_USER', session.name);
-    apply('RE_LIFE_CURRENT_USER_ID', session.id);
-    apply('RE_LIFE_CURRENT_USER_KEY', session.key);
-    apply('RE_LIFE_USER_AVATAR', session.avatar);
-}
-
-function clearSessionState() {
-    persistSessionState({});
-}
-
-
 // ═══════════════════════════════════════════════════════════════════════
 // 4. INITIALIZATION
 // ═══════════════════════════════════════════════════════════════════════
@@ -290,13 +261,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Detect login page vs main app
     if (document.querySelector('.login-page')) {
         initLoginPage();
-        return;
-    }
-
-    // Main app — redirect to login if no session
-    const session = readSessionState();
-    if (!session.name && !session.id && !session.key) {
-        window.location.replace('/login');
         return;
     }
 
@@ -325,7 +289,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     loadTips();
 
     // Critical: load user before records so we never paint another user's data
-    await initAccounts();
+    const accountReady = await initAccounts();
+    if (!accountReady) return;
     await loadRecords();
 
     // Non-critical: lazy load in background
@@ -1347,9 +1312,6 @@ function addScanToRecord() {
         );
     }
 
-    record.userId = state.userId || null;
-    record.userName = state.currentUser || null;
-
     // Disable add button
     const addBtn = document.getElementById('lbl-add-record');
     if (addBtn) {
@@ -1372,8 +1334,6 @@ function addScanToRecord() {
                     photoUrl: savedImageUrl,
                     disposal_guide: record.disposal_guide || record.dealtWithMethod || '',
                     dealtWithMethod: record.dealtWithMethod || record.disposal_guide || '',
-                    userId: state.userId || null,
-                    userName: state.currentUser || null,
                 });
             } else {
                 invalidateRecordsCache();
@@ -1701,15 +1661,38 @@ function renderRewards() {
                 <div class="empty-state-hint" style="font-size:10px">${tr('noCouponsHint')}</div>
             </div>`;
     } else {
-        grid.innerHTML = state.claimedCoupons.map(c => `
-            <button onclick="showCouponTicket('${c.code}')" class="rewards-coupon">
-                <span style="font-size:20px">${c.image}</span>
-                <div style="min-width:0">
-                    <div style="font-weight:700;font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.title}</div>
-                    <div style="font-size:8px;color:var(--color-gray-400);font-family:monospace">${c.code}</div>
-                </div>
-            </button>
-        `).join('');
+        const couponButtons = state.claimedCoupons.map(coupon => {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'rewards-coupon';
+            button.addEventListener('click', () => showCouponTicket(coupon.code));
+
+            const image = document.createElement('span');
+            image.style.fontSize = '20px';
+            image.textContent = coupon.image || '🎫';
+
+            const details = document.createElement('div');
+            details.style.minWidth = '0';
+
+            const title = document.createElement('div');
+            title.style.fontWeight = '700';
+            title.style.fontSize = '10px';
+            title.style.overflow = 'hidden';
+            title.style.textOverflow = 'ellipsis';
+            title.style.whiteSpace = 'nowrap';
+            title.textContent = coupon.title || '';
+
+            const code = document.createElement('div');
+            code.style.fontSize = '8px';
+            code.style.color = 'var(--color-gray-400)';
+            code.style.fontFamily = 'monospace';
+            code.textContent = coupon.code || '';
+
+            details.replaceChildren(title, code);
+            button.replaceChildren(image, details);
+            return button;
+        });
+        grid.replaceChildren(...couponButtons);
     }
 }
 
@@ -1788,12 +1771,31 @@ function showCouponTicket(code) {
     if (!coupon) return;
     document.getElementById('modal-icon').textContent = '🎫';
     document.getElementById('modal-title').textContent = tr('couponClaimed');
-    document.getElementById('modal-body').innerHTML = `
-        <div class="coupon-code">${coupon.code}</div>
-        <div class="coupon-expiry">${coupon.expiry}</div>
-        <div style="margin-top:8px;font-size:11px">${coupon.title}</div>`;
-    document.getElementById('modal-actions').innerHTML =
-        `<button class="btn btn--primary btn--full" onclick="closeModal()">${tr('closeBtn')}</button>`;
+
+    const couponCode = document.createElement('div');
+    couponCode.className = 'coupon-code';
+    couponCode.textContent = coupon.code || '';
+
+    const couponExpiry = document.createElement('div');
+    couponExpiry.className = 'coupon-expiry';
+    couponExpiry.textContent = coupon.expiry || '';
+
+    const couponTitle = document.createElement('div');
+    couponTitle.style.marginTop = '8px';
+    couponTitle.style.fontSize = '11px';
+    couponTitle.textContent = coupon.title || '';
+    document.getElementById('modal-body').replaceChildren(
+        couponCode,
+        couponExpiry,
+        couponTitle,
+    );
+
+    const closeButton = document.createElement('button');
+    closeButton.type = 'button';
+    closeButton.className = 'btn btn--primary btn--full';
+    closeButton.textContent = tr('closeBtn');
+    closeButton.addEventListener('click', closeModal);
+    document.getElementById('modal-actions').replaceChildren(closeButton);
     document.getElementById('modal-overlay').classList.add('is-shown');
 }
 
@@ -1810,54 +1812,61 @@ document.addEventListener('click', e => {
 // 15. ACCOUNTS
 // ═══════════════════════════════════════════════════════════════════════
 
-async function initAccounts() {
-    if (typeof FB === 'undefined') { console.warn('[App] FB not ready for initAccounts, retrying...'); setTimeout(initAccounts, 500); return; }
-    const session = readSessionState();
-    if (session.name || session.id || session.key) {
-        state.currentUser = session.name || null;
-        state.userId = session.id || null;
-        state.userKey = session.key || session.id || null;
-        state.userAvatar = session.avatar || '👤';
-        try {
-            let user = null;
-            const lookupId = state.userKey || state.userId;
-            if (lookupId) {
-                user = await FB.getUserById(lookupId);
-            }
-            if (!user && state.currentUser) {
-                user = await FB.getUserByName(state.currentUser);
-            }
-            if (user) {
-                state.currentUser = user.displayName || state.currentUser;
-                state.userId = user.id ?? state.userId;
-                state.userKey = user._key || user.public_id || user.userId || state.userKey;
-                state.spentPoints = user.spent_points || user.spentPoints || 0;
-                state.earnedPoints = user.earned_points || user.earnedPoints || 0;
-                state.claimedCoupons = user.claimed_coupons || [];
-                state.userAvatar = user.photoUrl || session.avatar || '👤';
-                persistSessionState({
-                    name: state.currentUser,
-                    id: state.userId,
-                    key: state.userKey,
-                    avatar: state.userAvatar,
-                });
-            } else {
-                state.userAvatar = session.avatar || '👤';
-            }
-        } catch (_) {
-            state.userAvatar = session.avatar || '👤';
-        }
+async function waitForFB() {
+    const deadline = Date.now() + 5000;
+    while (typeof window.FB === 'undefined') {
+        if (Date.now() >= deadline) throw new Error('AUTH_CLIENT_UNAVAILABLE');
+        await new Promise(resolve => setTimeout(resolve, 50));
     }
-    updateHeaderUI();
+}
+
+async function initAccounts() {
+    resetSessionState();
+    try {
+        await waitForFB();
+        const user = await FB.getCurrentUser();
+        if (!user) throw new Error('INVALID_SESSION_USER');
+        state.currentUser = user.displayName || null;
+        state.userId = user.id ?? null;
+        state.userKey = user._key || user.public_id || user.userId || null;
+        state.spentPoints = user.spent_points ?? user.spentPoints ?? 0;
+        state.earnedPoints = user.earned_points ?? user.earnedPoints ?? 0;
+        state.claimedCoupons = user.claimed_coupons || user.claimedCoupons || [];
+        state.userAvatar = user.photoUrl || user.photo_url || '👤';
+        updateHeaderUI();
+        return true;
+    } catch (error) {
+        if (error.status === 401) {
+            window.location.replace('/login');
+            return false;
+        }
+        throw error;
+    }
 }
 
 function updateHeaderUI() {
     const avatarEl = document.getElementById('hdr-avatar');
-    if (state.userAvatar && state.userAvatar.startsWith('data:') && state.userAvatar.length > 100) {
-        avatarEl.innerHTML = `<img src="${state.userAvatar}" decoding="async" style="width:100%;height:100%;border-radius:50%;object-fit:cover" onerror="this.parentElement.textContent='👤'">`;
+    const avatar = typeof state.userAvatar === 'string' ? state.userAvatar : '';
+    const isImageAvatar = avatar.startsWith('https://') || avatar.startsWith('data:image/');
+    avatarEl.replaceChildren();
+    if (isImageAvatar) {
+        const avatarImage = document.createElement('img');
+        avatarImage.src = avatar;
+        avatarImage.alt = '';
+        avatarImage.decoding = 'async';
+        avatarImage.style.width = '100%';
+        avatarImage.style.height = '100%';
+        avatarImage.style.borderRadius = '50%';
+        avatarImage.style.objectFit = 'cover';
+        avatarImage.addEventListener('error', () => {
+            avatarEl.replaceChildren();
+            avatarEl.textContent = '👤';
+            avatarEl.style.background = '';
+        }, { once: true });
+        avatarEl.replaceChildren(avatarImage);
         avatarEl.style.background = 'none';
     } else {
-        avatarEl.textContent = state.userAvatar || '👤';
+        avatarEl.textContent = avatar || '👤';
         avatarEl.style.background = '';
     }
     document.getElementById('hdr-user').textContent = state.currentUser || tr('notLoggedIn');
@@ -1868,7 +1877,7 @@ function updateHeaderUI() {
 
 function handleAvatarClick() {
     if (!state.currentUser) {
-        showUserPicker();
+        window.location.replace('/login');
         return;
     }
     const avatars = ['🌿','♻️','🌱','🍃','🌳','💚','🌍','🪴','🐼','🐨','🦊','🐸','🌺','🍀','🌊','🔥','⭐','🌈','🦋','🐝'];
@@ -1909,17 +1918,8 @@ function handleAvatarUpload(e) {
 
 function setAvatar(emoji) {
     state.userAvatar = emoji;
-    persistSessionState({
-        name: state.currentUser,
-        id: state.userId,
-        key: state.userKey,
-        avatar: emoji,
-    });
     updateHeaderUI();
-    // Save to backend storage
-    if (state.userKey || state.userId) {
-        FB.saveUserData(state.userKey || state.userId, { photoUrl: emoji });
-    }
+    FB.saveUserData({ photoUrl: emoji });
     closeModal();
 }
 
@@ -1936,88 +1936,39 @@ function resetSessionState() {
     if (typeof resetNearbyRecyclingUI === 'function') {
         resetNearbyRecyclingUI();
     }
-    clearSessionState();
     updateHeaderUI();
+}
+
+async function logoutToLogin() {
+    try {
+        await FB.logout();
+    } catch (error) {
+        console.warn('[App] Logout request failed; continuing local sign-out.');
+    } finally {
+        resetSessionState();
+        window.location.replace('/login');
+    }
 }
 
 function handleLogout() {
     if (!state.currentUser) return;
     showConfirm(tr('confirmLogout'), () => {
-        resetSessionState();
-        window.location.replace('/login');
+        logoutToLogin();
     });
 }
 
 function toggleLogin() {
     if (state.currentUser) {
         showConfirm(tr('confirmLogout'), () => {
-            resetSessionState();
-            window.location.replace('/login');
+            logoutToLogin();
         });
         return;
     }
-    showUserPicker();
-}
-
-async function showUserPicker() {
-    try {
-        const users = await FB.getAllUsers();
-        document.getElementById('modal-icon').textContent = '👤';
-        document.getElementById('modal-title').textContent = tr('loginAs');
-        const list = users.map(u => `
-            <button class="btn btn--outline btn--full" style="margin-bottom:6px;justify-content:flex-start;gap:8px"
-                    onclick='loginAs(${JSON.stringify(u.displayName || '')}, ${JSON.stringify(u.photoUrl || '👤')}, ${JSON.stringify(String(u.id ?? ''))}, ${JSON.stringify(u.public_id || u.userId || '')})'>
-                <span style="font-size:20px">${u.photoUrl || '👤'}</span>
-                <span>${esc(u.displayName || '')}</span>
-            </button>
-        `).join('');
-        document.getElementById('modal-body').innerHTML = list;
-        document.getElementById('modal-actions').innerHTML =
-            `<button class="btn btn--outline btn--full" onclick="closeModal()">${tr('cancelBtn')}</button>`;
-        document.getElementById('modal-overlay').classList.add('is-shown');
-    } catch (_) { /* offline */ }
-}
-
-async function loginAs(name, avatar, userId, userKey = null) {
-    state.currentUser = name;
-    state.userAvatar = avatar;
-    state.userId = userId || null;
-    state.userKey = userKey || null;
-    invalidateRecordsCache({ clear: true });
-    persistSessionState({
-        name,
-        id: state.userId,
-        key: state.userKey,
-        avatar,
-    });
-    try {
-        const lookupId = state.userId || state.userKey || name;
-        const user = await FB.getUserById(lookupId);
-        if (user) {
-            state.currentUser = user.displayName || name;
-            state.userId = user.id ?? state.userId;
-            state.userKey = user._key || user.public_id || user.userId || state.userKey;
-            state.spentPoints = user.spent_points || 0;
-            state.earnedPoints = user.earned_points || 0;
-            state.claimedCoupons = user.claimed_coupons || [];
-            state.userAvatar = user.photoUrl || avatar || '👤';
-            persistSessionState({
-                name: state.currentUser,
-                id: state.userId,
-                key: state.userKey,
-                avatar: state.userAvatar,
-            });
-        }
-    } catch (_) { /* offline */ }
-    closeModal();
-    updateHeaderUI();
-    navigateTo('home');
+    window.location.replace('/login');
 }
 
 async function saveUserData() {
     if (!state.currentUser) return;
-    const id = state.userKey || state.userId;
-    if (!id) return;
     const data = {
         spent_points: state.spentPoints,
         earned_points: state.earnedPoints,
@@ -2026,7 +1977,7 @@ async function saveUserData() {
     // Retry up to 3 times with backoff
     for (let attempt = 0; attempt < 3; attempt++) {
         try {
-            await FB.saveUserData(id, data);
+            await FB.saveUserData(data);
             return;
         } catch (e) {
             if (attempt < 2) await new Promise(r => setTimeout(r, 300 * (attempt + 1)));
@@ -2156,6 +2107,8 @@ function updateAllLabels() {
         'lbl-fact-title': 'didYouKnow',
         'lbl-weather-temperature': 'weather.detail.temperature',
         'lbl-weather-location': 'weather.detail.location',
+        'lbl-weather-updated': 'weather.detail.updated',
+        'lbl-weather-source': 'weather.detail.source',
         'lbl-weather-close': 'weather.detail.close',
         'lbl-rew-balance': 'pointsBalance',
         'lbl-rew-sub': 'rewardsSub',

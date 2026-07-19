@@ -297,33 +297,19 @@ async function handleVerify(e) {
 
     btn.textContent = registerText('Verifying...', '验证中...', '驗證中...');
     try {
-        const res = await fetch('/api/verify-code', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email: pendingEmail, code }),
-        });
-        const data = await res.json();
-        if (!data.ok) {
-            errorEl.textContent = data.error || registerText('Invalid code', '验证码无效', '驗證碼無效');
-            btn.textContent = registerText('Verify & Create Account', '验证并创建账户', '驗證並建立帳戶');
-            return;
-        }
-
-        // Code verified — now create the user through backend storage
         await waitForStoragePromise();
-        const user = await window.FB.createUser(pendingUsername, pendingPassword, pendingEmail);
-        localStorage.setItem('RE_LIFE_CURRENT_USER', user.displayName);
-        localStorage.setItem('RE_LIFE_CURRENT_USER_ID', String(user.id || user.public_id || ''));
-        localStorage.setItem('RE_LIFE_CURRENT_USER_KEY', String(user.public_id || user.userId || ''));
-        localStorage.setItem('RE_LIFE_USER_AVATAR', '👤');
-        window.location.replace('/');
+        await window.FB.createUser(pendingUsername, pendingPassword, pendingEmail, code);
+        window.location.replace('/login');
     } catch (err) {
-        if (err.message === 'USERNAME_TAKEN') {
+        const errorCode = err.payload?.error;
+        if (errorCode === 'USERNAME_TAKEN') {
             errorEl.textContent = registerText('Username already taken', '用户名已被使用', '用戶名已被使用');
-        } else if (err.message === 'EMAIL_TAKEN') {
+        } else if (errorCode === 'EMAIL_TAKEN') {
             errorEl.textContent = registerText('This email is already registered', '此电子邮箱已被注册', '此電子郵箱已被註冊');
+        } else if (errorCode === 'INVALID_OR_EXPIRED_CODE') {
+            errorEl.textContent = registerText('Invalid or expired code', '验证码无效或已过期', '驗證碼無效或已過期');
         } else {
-            errorEl.textContent = err.message || registerText('Registration failed', '注册失败', '註冊失敗');
+            errorEl.textContent = registerText('Registration failed', '注册失败', '註冊失敗');
         }
         console.error(err);
     }

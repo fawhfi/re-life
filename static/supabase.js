@@ -19,6 +19,7 @@ async function requestJson(path, { method = "GET", body = undefined, params = nu
     const init = {
         method,
         headers: { Accept: "application/json" },
+        credentials: "same-origin",
     };
     if (body !== undefined) {
         init.headers["Content-Type"] = "application/json";
@@ -48,6 +49,7 @@ async function requestFormJson(path, { method = "POST", body = undefined, params
     const response = await fetch(url, {
         method,
         headers: { Accept: "application/json" },
+        credentials: "same-origin",
         body,
     });
     const text = await response.text();
@@ -160,12 +162,32 @@ function normalizeItem(item) {
     };
 }
 
-function fallbackUserId() {
-    return localStorage.getItem("RE_LIFE_CURRENT_USER_ID") || localStorage.getItem("RE_LIFE_CURRENT_USER_KEY") || "";
+let currentSessionUser = null;
+let authOperationGeneration = 0;
+const AUTH_COOKIE_LOCK_NAME = "re-life-auth-cookie";
+let authMutationQueue = Promise.resolve();
+
+function beginAuthOperation() {
+    authOperationGeneration += 1;
+    currentSessionUser = null;
+    return authOperationGeneration;
 }
 
-function fallbackUserName() {
-    return localStorage.getItem("RE_LIFE_CURRENT_USER") || "";
+function ensureCurrentAuthOperation(operationGeneration) {
+    if (operationGeneration !== authOperationGeneration) {
+        const error = new Error("AUTH_STATE_CHANGED");
+        error.code = "AUTH_STATE_CHANGED";
+        throw error;
+    }
+}
+
+function runSerializedAuthMutation(callback) {
+    if (typeof navigator !== "undefined" && navigator.locks?.request) {
+        return navigator.locks.request(AUTH_COOKIE_LOCK_NAME, callback);
+    }
+    const operation = authMutationQueue.then(callback, callback);
+    authMutationQueue = operation.catch(() => undefined);
+    return operation;
 }
 
 function isDataImageUrl(value) {
@@ -202,9 +224,6 @@ async function uploadRecordImageIfNeeded(payload) {
     const { blob, mime } = dataUrlToBlob(localImage);
     const form = new FormData();
     form.append("file", blob, `scan-record${imageExtensionForMime(mime)}`);
-    form.append("user_id", payload.userId || fallbackUserId() || "");
-    form.append("display_name", payload.userName || fallbackUserName() || "");
-    form.append("user_key", payload.userKey || fallbackUserId() || "");
 
     const data = await requestFormJson("/api/records/image", {
         body: form,
@@ -234,9 +253,6 @@ function buildRecordPayload(item) {
         alternative: item.alternative || null,
         precaution: item.precaution || null,
         reuse_tip: item.reuse_tip || item.reuse || "",
-        userId: item.userId || fallbackUserId() || null,
-        userName: item.userName || fallbackUserName() || null,
-        userKey: item.userKey || fallbackUserId() || null,
     };
 }
 
@@ -245,65 +261,82 @@ const FB = {
         return true;
     },
 
-    async createUser(displayName, password, email = null) {
+    async getCurrentUser() {
+        const operationGeneration = beginAuthOperation();
+        let data;
+        try {
+            data = await requestJson("/api/users/me");
+        } catch (error) {
+            ensureCurrentAuthOperation(operationGeneration);
+            throw error;
+        }
+        const normalizedUser = normalizeUser(data);
+        ensureCurrentAuthOperation(operationGeneration);
+        currentSessionUser = normalizedUser;
+        return currentSessionUser;
+    },
+
+    async createUser(displayName, password, email = null, code) {
         const data = await requestJson("/api/auth/register", {
             method: "POST",
             body: {
                 display_name: displayName,
                 email,
                 password,
+                code,
             },
         });
         return normalizeUser(data.user);
-    },
-
-    async getUserById(userId) {
-        const data = await requestJson(`/api/users/by-id/${encodeURIComponent(userId)}`);
-        return normalizeUser(data);
-    },
-
-    async getUserByName(displayName) {
-        const data = await requestJson(`/api/users/by-name/${encodeURIComponent(displayName)}`);
-        return normalizeUser(data);
-    },
-
-    async getUserByEmail(email) {
-        const data = await requestJson(`/api/users/by-email/${encodeURIComponent(email)}`);
-        return normalizeUser(data);
     },
 
     async loginUser(displayName, password) {
-        const data = await requestJson("/api/auth/login", {
-            method: "POST",
-            body: {
-                display_name: displayName,
-                password,
-            },
+        return runSerializedAuthMutation(async () => {
+            const operationGeneration = beginAuthOperation();
+            let data;
+            try {
+                data = await requestJson("/api/auth/login", {
+                    method: "POST",
+                    body: {
+                        display_name: displayName,
+                        password,
+                    },
+                });
+            } catch (error) {
+                ensureCurrentAuthOperation(operationGeneration);
+                throw error;
+            }
+            const normalizedUser = normalizeUser(data.user);
+            ensureCurrentAuthOperation(operationGeneration);
+            currentSessionUser = normalizedUser;
+            return currentSessionUser;
         });
-        return normalizeUser(data.user);
+    },
+
+    async logout() {
+        return runSerializedAuthMutation(async () => {
+            const operationGeneration = beginAuthOperation();
+            try {
+                await requestJson("/api/auth/logout", {
+                    method: "POST",
+                });
+            } finally {
+                if (operationGeneration === authOperationGeneration) {
+                    currentSessionUser = null;
+                }
+            }
+        });
     },
 
     async resetPasswordByEmail() {
         throw new Error("RESET_PASSWORD_REQUIRES_CODE");
     },
 
-    async getAllUsers() {
-        const data = await requestJson("/api/users");
-        return safeArray(data).map(normalizeUser);
-    },
-
-    async getUser(userId) {
-        return FB.getUserById(userId);
-    },
-
-    async saveUserData(userId, data) {
-        const identifier = userId || fallbackUserId() || fallbackUserName();
-        if (!identifier) return false;
-        await requestJson(`/api/users/${encodeURIComponent(identifier)}`, {
+    async saveUserData(data) {
+        const result = await requestJson("/api/users/me", {
             method: "PATCH",
             body: data || {},
         });
-        return true;
+        return normalizeUser(result.user);
     },
 
     async addItem(item) {
@@ -321,15 +354,8 @@ const FB = {
         return { id: data.id ?? null, image_url: payload.image_url || "" };
     },
 
-    async getItems(userId = null, displayName = null, userKey = null) {
-        if (!userId && !displayName && !userKey) return [];
-        const data = await requestJson("/api/records", {
-            params: {
-                user_id: userId || fallbackUserId() || "",
-                display_name: displayName || fallbackUserName() || "",
-                user_key: userKey || "",
-            },
-        });
+    async getItems() {
+        const data = await requestJson("/api/records");
         return safeArray(data).map(normalizeItem);
     },
 
@@ -339,14 +365,9 @@ const FB = {
         });
     },
 
-    async clearAllItems(userId = null, displayName = null, userKey = null) {
+    async clearAllItems() {
         await requestJson("/api/records", {
             method: "DELETE",
-            params: {
-                user_id: userId || fallbackUserId() || "",
-                display_name: displayName || fallbackUserName() || "",
-                user_key: userKey || "",
-            },
         });
     },
 };

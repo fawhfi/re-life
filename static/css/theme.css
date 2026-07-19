@@ -338,6 +338,10 @@
 [data-theme="dark"] .btn--danger:hover { background: #b91c1c; border-color: #b91c1c; }
 
 /* ── Dark mode: login page ────────────────────────────────────────── */
+[data-theme="dark"] .login-logo img,
+[data-theme="midnight"] .login-logo img {
+    filter: invert(1) hue-rotate(180deg);
+}
 [data-theme="dark"] .login-page { background: radial-gradient(circle at top left, #1a2a1e 0%, #0f120f 60%); }
 [data-theme="dark"] .login-card { background: rgba(20, 28, 20, 0.9); border: 1px solid rgba(255, 255, 255, 0.08); }
 [data-theme="dark"] .login-title { color: var(--color-emerald-200); }

@@ -14,7 +14,19 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from io import BytesIO
 import json
 import os, random, re, uuid
-from pydantic import AliasChoices, BaseModel, ConfigDict, Field, StrictStr, ValidationError, field_validator
+from typing import Literal
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field, StrictStr, ValidationError, field_validator, model_validator
+
+from agent import (
+    AgentConsentRequired,
+    AgentConversationNotFound,
+    AgentInputError,
+    AgentNotConfigured,
+    AgentProtocolError,
+    AgentSafetyViolation,
+    AgentSandboxService,
+    AgentToolNotAllowed,
+)
 
 from auth import (
     AuthDependencyUnavailable,
@@ -51,7 +63,7 @@ from data import (
 from models import ai_analyze, local_scan_response
 from recycling_points import find_nearby_recycling_points
 from scan_service import analyze_scan_image, enrich_scan_result, normalize_scan_payload, parse_bool
-from scoring import CRITERIA_LABELS, REWARDS_CATALOG, SCHEMA_WEIGHTS
+from scoring import CRITERIA_LABELS, HK_DISPOSAL, REWARDS_CATALOG, SCHEMA_WEIGHTS
 from sessions import (
     SecurityStoreUnavailable,
     SessionMiddleware,
@@ -142,6 +154,55 @@ class RegistrationRequest(BaseModel):
         return normalized
 
 
+class AgentLocationInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    latitude: float = Field(ge=-90, le=90)
+    longitude: float = Field(ge=-180, le=180)
+    accuracy: float | None = Field(default=None, ge=0, le=100_000)
+
+
+class AgentApprovalInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    type: Literal["read_user_records"]
+    request_id: StrictStr = Field(min_length=1, max_length=256)
+    approved: bool
+
+
+class AgentMessageRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    conversation_id: StrictStr | None = Field(default=None, min_length=1, max_length=256)
+    message: StrictStr | None = Field(default=None, min_length=1, max_length=2000)
+    location: AgentLocationInput | None = None
+    location_error: Literal["denied", "unavailable", "timeout"] | None = None
+    approval: AgentApprovalInput | None = None
+    request_id: StrictStr | None = Field(default=None, min_length=1, max_length=256)
+    language: Literal["en", "zh_simplified", "zh_traditional"] = "en"
+    data_consent: bool = False
+
+    @field_validator("message", "conversation_id", "request_id", mode="before")
+    @classmethod
+    def strip_agent_text(cls, value):
+        return value.strip() if isinstance(value, str) else value
+
+    @model_validator(mode="after")
+    def validate_agent_turn(self):
+        actions = (
+            self.message is not None,
+            self.location is not None or self.location_error is not None,
+            self.approval is not None,
+        )
+        if sum(actions) != 1:
+            raise ValueError("Send one message, location response, or approval response")
+        if not self.message and not self.conversation_id:
+            raise ValueError("conversation_id is required to resume an agent action")
+        if (self.location is not None or self.location_error is not None) and not self.request_id:
+            raise ValueError("request_id is required for a location response")
+        return self
+
+
 class MultipartBodyTooLarge(Exception):
     pass
 
@@ -206,6 +267,50 @@ def _session_owner_id(user: dict) -> int:
             status_code=401,
             detail="AUTHENTICATION_REQUIRED",
         ) from exc
+
+
+async def _agent_recent_records(*, user_id: int, limit: int) -> list[dict]:
+    records = await get_items(owner_id=user_id)
+    return records[: max(1, min(10, int(limit)))]
+
+
+def _agent_recycling_guide(material: str) -> dict:
+    normalized = re.sub(r"[^a-z_]", "", str(material or "").strip().lower().replace("-", "_"))
+    aliases = {
+        "plastics": "plastic",
+        "plasticbottle": "plastic",
+        "cardboard": "paper",
+        "aluminium": "metal",
+        "aluminum": "metal",
+        "can": "metal",
+        "bottle": "glass",
+        "foodwaste": "compostable",
+        "organic": "compostable",
+        "ewaste": "ewaste",
+        "electronic": "ewaste",
+    }
+    key = aliases.get(normalized, normalized)
+    if key == "ewaste":
+        return {
+            "type": "Electronic waste",
+            "method": "Keep batteries safe and separate when practical",
+            "location": "GREEN@COMMUNITY or an approved e-waste collection point",
+        }
+    guidance = HK_DISPOSAL.get(key)
+    if guidance:
+        return dict(guidance)
+    return {
+        "error": "No specific local guide is available for that material.",
+        "supported_materials": sorted([*HK_DISPOSAL, "ewaste"]),
+    }
+
+
+agent_service = AgentSandboxService(
+    recycling_lookup=find_nearby_recycling_points,
+    weather_lookup=get_header_weather,
+    records_lookup=_agent_recent_records,
+    guide_lookup=_agent_recycling_guide,
+)
 
 
 def _install_multipart_receive_limit(request: Request) -> None:
@@ -741,6 +846,56 @@ async def nearby_recycling_points(request: Request, lat: float, lon: float, mate
         return await find_nearby_recycling_points(lat, lon, material=material, limit=safe_limit, distance_km=safe_distance)
     except Exception:
         return JSONResponse({"error": "Recycling map unavailable"}, 502)
+
+
+@app.post("/api/agent/messages")
+async def agent_messages(
+    request: Request,
+    data: AgentMessageRequest,
+    user: dict = Depends(require_current_user),
+):
+    owner_id = _session_owner_id(user)
+    await check_rate_limit(request, 20, 60, subject=f"agent:{owner_id}")
+    try:
+        payload = await agent_service.respond(
+            user_id=owner_id,
+            message=data.message,
+            conversation_id=data.conversation_id,
+            location=data.location.model_dump() if data.location else None,
+            location_error=data.location_error,
+            approval=data.approval.model_dump() if data.approval else None,
+            request_id=data.request_id,
+            language=data.language,
+            data_consent=data.data_consent,
+        )
+    except AgentConsentRequired:
+        return JSONResponse({"error": "AGENT_DATA_CONSENT_REQUIRED"}, 403)
+    except AgentConversationNotFound:
+        return JSONResponse({"error": "AGENT_CONVERSATION_NOT_FOUND"}, 404)
+    except AgentInputError as exc:
+        return JSONResponse({"error": str(exc)}, 400)
+    except AgentSafetyViolation:
+        return JSONResponse({"error": "AGENT_SAFETY_BLOCKED"}, 400)
+    except AgentNotConfigured:
+        return JSONResponse({"error": "AGENT_NOT_CONFIGURED"}, 503)
+    except (AgentProtocolError, AgentToolNotAllowed):
+        return JSONResponse({"error": "AGENT_TOOL_ERROR"}, 502)
+    except Exception:
+        return JSONResponse({"error": "AGENT_UNAVAILABLE"}, 502)
+    return JSONResponse(payload)
+
+
+@app.delete("/api/agent/conversations/{conversation_id}")
+async def delete_agent_conversation(
+    request: Request,
+    conversation_id: str,
+    user: dict = Depends(require_current_user),
+):
+    owner_id = _session_owner_id(user)
+    await check_rate_limit(request, 20, 60, subject=f"agent:{owner_id}")
+    if not await agent_service.destroy(owner_id, conversation_id):
+        return JSONResponse({"error": "AGENT_CONVERSATION_NOT_FOUND"}, 404)
+    return {"ok": True}
 
 
 @app.post("/api/rewards/redeem")

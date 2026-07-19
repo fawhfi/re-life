@@ -354,6 +354,55 @@
 [data-theme="dark"] .login-divider::before,
 [data-theme="dark"] .login-divider::after { background: var(--color-gray-200); }
 
+/* ── Dark mode: agent ─────────────────────────────────────────────── */
+[data-theme="dark"] .agent-shell,
+[data-theme="midnight"] .agent-shell {
+    background: var(--color-white);
+    border-color: rgba(255, 255, 255, 0.10);
+}
+[data-theme="dark"] .agent-header,
+[data-theme="midnight"] .agent-header,
+[data-theme="dark"] .agent-messages,
+[data-theme="midnight"] .agent-messages,
+[data-theme="dark"] .agent-tool-status,
+[data-theme="midnight"] .agent-tool-status,
+[data-theme="dark"] .agent-composer,
+[data-theme="midnight"] .agent-composer {
+    border-color: rgba(255, 255, 255, 0.08);
+}
+[data-theme="dark"] .agent-messages,
+[data-theme="midnight"] .agent-messages {
+    background: var(--color-bg-alt);
+}
+[data-theme="dark"] .agent-composer,
+[data-theme="midnight"] .agent-composer {
+    background: var(--color-white);
+}
+[data-theme="dark"] .agent-message--assistant .agent-message-bubble,
+[data-theme="midnight"] .agent-message--assistant .agent-message-bubble,
+[data-theme="dark"] .agent-point,
+[data-theme="midnight"] .agent-point,
+[data-theme="dark"] .agent-input,
+[data-theme="midnight"] .agent-input,
+[data-theme="dark"] .agent-suggestion,
+[data-theme="midnight"] .agent-suggestion,
+[data-theme="dark"] .agent-icon-btn,
+[data-theme="midnight"] .agent-icon-btn {
+    background: var(--color-gray-100);
+    border-color: var(--color-gray-200);
+    color: var(--color-gray-800);
+}
+[data-theme="dark"] .agent-dialog,
+[data-theme="midnight"] .agent-dialog {
+    background: #151c17;
+    border-color: rgba(255, 255, 255, 0.12);
+    color: #f4f8f4;
+}
+[data-theme="dark"] .agent-dialog p,
+[data-theme="midnight"] .agent-dialog p {
+    color: rgba(244, 248, 244, 0.72);
+}
+
 /* ── Dark mode: upload zone ───────────────────────────────────────── */
 [data-theme="dark"] .upload-zone.drag-over { background-color: rgba(74, 154, 91, 0.15); box-shadow: 0 0 0 6px rgba(74, 154, 91, 0.12); }
 

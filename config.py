@@ -49,8 +49,19 @@ if IS_PRODUCTION:
 # ── Multi-model AI ──────────────────────────────────────────────────────────
 NVIDIA_API_KEY   = os.getenv("NVIDIA_API", "")
 NVIDIA_MODEL     = os.getenv("NVIDIA_MODEL", "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning")
-OPENAI_API_KEY   = os.getenv("OPENAI_API", "")
+OPENAI_API_KEY   = os.getenv("OPENAI_API_KEY", os.getenv("OPENAI_API", ""))
 OPENAI_MODEL     = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+AGENT_MODEL      = os.getenv("AGENT_MODEL", "gpt-5.6").strip() or "gpt-5.6"
+AGENT_BASE_URL   = os.getenv("AGENT_BASE_URL", "").strip()
+_AGENT_API_KEY   = os.getenv("AGENT_API_KEY", "").strip()
+# Never forward an OpenAI key to a third-party endpoint by implicit fallback.
+AGENT_API_KEY    = _AGENT_API_KEY or ("" if AGENT_BASE_URL else OPENAI_API_KEY)
+AGENT_API_MODE   = os.getenv("AGENT_API_MODE", "auto").strip().lower() or "auto"
+if AGENT_API_MODE not in {"auto", "responses", "chat_completions"}:
+    raise RuntimeError(
+        "Invalid AGENT_API_MODE; expected 'auto', 'responses', or 'chat_completions'"
+    )
+AGENT_SESSION_TTL_SECONDS = max(300, int(os.getenv("AGENT_SESSION_TTL_SECONDS", "1800")))
 GEMINI_API_KEY   = os.getenv("GEMINI_API", "")
 GEMINI_MODEL     = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
 DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API", "")

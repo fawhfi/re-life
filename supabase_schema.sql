@@ -54,6 +54,9 @@ create table if not exists public.app_sessions (
 create index if not exists app_sessions_user_id_idx on public.app_sessions (user_id);
 create index if not exists app_sessions_last_seen_idx on public.app_sessions (last_seen_at);
 comment on table public.app_sessions is 'Opaque server-side sessions for the custom app_users account system.';
+alter table public.app_sessions enable row level security;
+revoke all on table public.app_sessions from anon, authenticated;
+grant select, insert, update, delete on table public.app_sessions to service_role;
 
 create table if not exists public.scan_records (
   id bigint generated always as identity primary key,
@@ -151,3 +154,5 @@ for all
 to service_role
 using (bucket_id = 'scan-images')
 with check (bucket_id = 'scan-images');
+
+notify pgrst, 'reload schema';

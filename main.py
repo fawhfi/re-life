@@ -24,6 +24,7 @@ from agent import (
     AgentNotConfigured,
     AgentProtocolError,
     AgentSafetyViolation,
+    AgentSafetyUnavailable,
     AgentSandboxService,
     AgentToolNotAllowed,
 )
@@ -77,6 +78,16 @@ from sessions import (
 )
 from storage import supabase_storage_download, verify_supabase_storage_signature
 from weather import get_header_weather
+
+
+FACTS_CATALOG = (
+    {"id": "aluminum-can-energy", "fact": "Recycling a single aluminum can saves enough energy to power a TV for 3 hours."},
+    {"id": "hong-kong-daily-waste", "fact": "Hong Kong generates over 15,000 tonnes of municipal solid waste every day."},
+    {"id": "tree-carbon-absorption", "fact": "One tree can absorb up to 22kg of CO2 per year."},
+    {"id": "plastic-bottle-decomposition", "fact": "Plastic bottles take up to 450 years to decompose."},
+    {"id": "hong-kong-food-waste", "fact": "Food waste accounts for 30% of HK municipal solid waste."},
+    {"id": "glass-endless-recycling", "fact": "Glass is 100% recyclable endlessly without quality loss."},
+)
 
 app = FastAPI(title="Re-Life API")
 CURRENT_ACCOUNT_UPDATE_BODY_MAX_BYTES = 1_258_292
@@ -170,6 +181,38 @@ class AgentApprovalInput(BaseModel):
     approved: bool
 
 
+class AgentImageAnalysisInput(BaseModel):
+    """Bounded visual observations produced by Re-Life's image scanner."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: StrictStr | None = Field(default=None, min_length=1, max_length=160)
+    brand: StrictStr | None = Field(default=None, min_length=1, max_length=120)
+    category: StrictStr | None = Field(default=None, min_length=1, max_length=120)
+    material: StrictStr | None = Field(default=None, min_length=1, max_length=160)
+    waste_type: StrictStr | None = Field(default=None, min_length=1, max_length=80)
+    description: StrictStr | None = Field(default=None, min_length=1, max_length=800)
+
+    @field_validator(
+        "name",
+        "brand",
+        "category",
+        "material",
+        "waste_type",
+        "description",
+        mode="before",
+    )
+    @classmethod
+    def strip_image_observations(cls, value):
+        return value.strip() if isinstance(value, str) else value
+
+    @model_validator(mode="after")
+    def require_an_image_observation(self):
+        if not any((self.name, self.brand, self.category, self.material, self.waste_type, self.description)):
+            raise ValueError("image_analysis must include at least one observation")
+        return self
+
+
 class AgentMessageRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -179,6 +222,7 @@ class AgentMessageRequest(BaseModel):
     location_error: Literal["denied", "unavailable", "timeout"] | None = None
     approval: AgentApprovalInput | None = None
     request_id: StrictStr | None = Field(default=None, min_length=1, max_length=256)
+    image_analysis: AgentImageAnalysisInput | None = None
     language: Literal["en", "zh_simplified", "zh_traditional"] = "en"
     data_consent: bool = False
 
@@ -198,6 +242,8 @@ class AgentMessageRequest(BaseModel):
             raise ValueError("Send one message, location response, or approval response")
         if not self.message and not self.conversation_id:
             raise ValueError("conversation_id is required to resume an agent action")
+        if self.image_analysis is not None and self.message is None:
+            raise ValueError("image_analysis is only accepted with a message")
         if (self.location is not None or self.location_error is not None) and not self.request_id:
             raise ValueError("request_id is required for a location response")
         return self
@@ -857,16 +903,21 @@ async def agent_messages(
     owner_id = _session_owner_id(user)
     await check_rate_limit(request, 20, 60, subject=f"agent:{owner_id}")
     try:
+        respond_args = {
+            "user_id": owner_id,
+            "message": data.message,
+            "conversation_id": data.conversation_id,
+            "location": data.location.model_dump() if data.location else None,
+            "location_error": data.location_error,
+            "approval": data.approval.model_dump() if data.approval else None,
+            "request_id": data.request_id,
+            "language": data.language,
+            "data_consent": data.data_consent,
+        }
+        if data.image_analysis is not None:
+            respond_args["image_analysis"] = data.image_analysis.model_dump(exclude_none=True)
         payload = await agent_service.respond(
-            user_id=owner_id,
-            message=data.message,
-            conversation_id=data.conversation_id,
-            location=data.location.model_dump() if data.location else None,
-            location_error=data.location_error,
-            approval=data.approval.model_dump() if data.approval else None,
-            request_id=data.request_id,
-            language=data.language,
-            data_consent=data.data_consent,
+            **respond_args,
         )
     except AgentConsentRequired:
         return JSONResponse({"error": "AGENT_DATA_CONSENT_REQUIRED"}, 403)
@@ -876,6 +927,8 @@ async def agent_messages(
         return JSONResponse({"error": str(exc)}, 400)
     except AgentSafetyViolation:
         return JSONResponse({"error": "AGENT_SAFETY_BLOCKED"}, 400)
+    except AgentSafetyUnavailable:
+        return JSONResponse({"error": "AGENT_SAFETY_UNAVAILABLE"}, 503)
     except AgentNotConfigured:
         return JSONResponse({"error": "AGENT_NOT_CONFIGURED"}, 503)
     except (AgentProtocolError, AgentToolNotAllowed):
@@ -883,6 +936,30 @@ async def agent_messages(
     except Exception:
         return JSONResponse({"error": "AGENT_UNAVAILABLE"}, 502)
     return JSONResponse(payload)
+
+
+@app.get("/api/agent/conversations")
+async def list_agent_conversations(
+    request: Request,
+    user: dict = Depends(require_current_user),
+):
+    owner_id = _session_owner_id(user)
+    await check_rate_limit(request, 30, 60, subject=f"agent:{owner_id}")
+    return await agent_service.list_conversations(owner_id)
+
+
+@app.get("/api/agent/conversations/{conversation_id}")
+async def get_agent_conversation(
+    request: Request,
+    conversation_id: str,
+    user: dict = Depends(require_current_user),
+):
+    owner_id = _session_owner_id(user)
+    await check_rate_limit(request, 30, 60, subject=f"agent:{owner_id}")
+    try:
+        return await agent_service.get_conversation(owner_id, conversation_id)
+    except AgentConversationNotFound:
+        return JSONResponse({"error": "AGENT_CONVERSATION_NOT_FOUND"}, 404)
 
 
 @app.delete("/api/agent/conversations/{conversation_id}")
@@ -914,13 +991,7 @@ async def redeem(
 @app.get("/api/fact")
 async def fact(request: Request):
     await check_rate_limit(request, 60, 60)
-    facts = ["Recycling a single aluminum can saves enough energy to power a TV for 3 hours.",
-             "Hong Kong generates over 15,000 tonnes of municipal solid waste every day.",
-             "One tree can absorb up to 22kg of CO2 per year.",
-             "Plastic bottles take up to 450 years to decompose.",
-             "Food waste accounts for 30% of HK municipal solid waste.",
-             "Glass is 100% recyclable endlessly without quality loss."]
-    return {"fact": random.choice(facts)}
+    return dict(random.choice(FACTS_CATALOG))
 
 if __name__ == "__main__":
     import uvicorn; uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True)

@@ -6,7 +6,11 @@ let cameraFacing = 'environment'; // 'environment' (rear) or 'user' (front)
 async function openCamera() {
     const modal = document.getElementById('camera-modal');
     const video = document.getElementById('camera-video');
-    if (!modal || !video) { cameraAvailable = false; triggerUpload(); return; }
+    if (!modal || !video) {
+        cameraAvailable = false;
+        if (typeof openScanSourceDialog === 'function') openScanSourceDialog();
+        return;
+    }
 
     modal.classList.add('is-shown');
     document.body.style.overflow = 'hidden';
@@ -30,7 +34,8 @@ async function openCamera() {
 
     cameraAvailable = false;
     closeCamera();
-    triggerUpload();
+    if (typeof showToast === 'function') showToast(tr('scanCameraUnavailable'), 'warning');
+    if (typeof openScanSourceDialog === 'function') openScanSourceDialog();
 }
 
 function closeCamera() {

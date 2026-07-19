@@ -21,8 +21,8 @@
   <link
     href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,700;9..40,900&display=swap"
     rel="stylesheet">
-  <link rel="stylesheet" href="/static/style.css?v=20260719-agent4">
-  <link rel="stylesheet" href="/static/css/theme.css?v=20260719-agent4">
+  <link rel="stylesheet" href="/static/style.css?v=20260719-scan1">
+  <link rel="stylesheet" href="/static/css/theme.css?v=20260719-contrast1">
   <link rel="icon" type="image/png" href="/static/assets/favicon.png">
 </head>
 
@@ -74,10 +74,8 @@
               style="opacity:0.7"></div>
           <div class="upload-zone-text" id="lbl-upload-text">Tap to scan</div>
           <div class="upload-zone-sub" id="lbl-upload-hint">or drag &amp; drop anywhere</div>
-          <input type="file" id="file-input" accept="image/*" capture="environment" onchange="handleFileSelect(event)"
-            class="hidden">
-          <div class="upload-gallery-link hidden" id="upload-gallery-link"
-            onclick="event.stopPropagation();triggerUpload()">📁 Choose from gallery</div>
+          <input type="file" id="gallery-input" accept="image/*" onchange="handleFileSelect(event)" class="hidden">
+          <input type="file" id="file-input" accept="image/*" onchange="handleFileSelect(event)" class="hidden">
           <div class="upload-preview" id="upload-preview">
             <img id="upload-preview-img" src="" alt="Preview">
             <button class="upload-preview-remove" onclick="event.stopPropagation();clearPreview()">×</button>
@@ -284,10 +282,16 @@
                 </div>
               </div>
             </div>
-            <button type="button" class="agent-icon-btn" id="agent-new-conversation"
-              onclick="resetAgentConversation()" aria-label="New conversation" title="New conversation">
-              <span aria-hidden="true">＋</span>
-            </button>
+            <div class="agent-header-actions">
+              <button type="button" class="agent-icon-btn" id="agent-open-history"
+                onclick="openAgentHistory()" aria-label="Chat history" title="Chat history">
+                <span aria-hidden="true">◷</span>
+              </button>
+              <button type="button" class="agent-icon-btn" id="agent-new-conversation"
+                onclick="resetAgentConversation()" aria-label="New conversation" title="New conversation">
+                <span aria-hidden="true">＋</span>
+              </button>
+            </div>
           </div>
           <template id="agent-welcome-template">
             <div class="agent-welcome" id="agent-welcome">
@@ -312,9 +316,23 @@
           <div class="agent-messages" id="agent-messages" role="log" aria-live="polite" aria-relevant="additions"></div>
           <div class="agent-tool-status hidden" id="agent-tool-status" role="status"></div>
           <form class="agent-composer" id="agent-form" onsubmit="handleAgentSubmit(event)">
-            <textarea id="agent-input" class="agent-input" rows="1" maxlength="2000"
-              placeholder="Ask about recycling..." aria-label="Message ReAgent"></textarea>
-            <button type="submit" class="agent-send" id="agent-send" aria-label="Send message" title="Send">↑</button>
+            <div class="agent-attachment-preview hidden" id="agent-attachment-preview">
+              <img id="agent-attachment-image" src="" alt="">
+              <span class="agent-attachment-name" id="agent-attachment-name">Photo attached</span>
+              <button type="button" class="agent-attachment-remove" id="agent-attachment-remove"
+                onclick="clearAgentAttachment()" aria-label="Remove photo" title="Remove photo">×</button>
+            </div>
+            <div class="agent-composer-row">
+              <button type="button" class="agent-attach" id="agent-attach"
+                onclick="document.getElementById('agent-image-input').click()" aria-label="Attach photo"
+                title="Attach photo"><span aria-hidden="true">📎</span></button>
+              <input type="file" id="agent-image-input" accept="image/*" onchange="handleAgentAttachment(event)"
+                class="hidden">
+              <textarea id="agent-input" class="agent-input" rows="1" maxlength="2000"
+                placeholder="Ask about recycling..." aria-label="Message ReAgent"></textarea>
+              <button type="submit" class="agent-send" id="agent-send" aria-label="Send message"
+                title="Send">↑</button>
+            </div>
           </form>
         </div>
       </section>
@@ -421,14 +439,64 @@
     </div>
   </div>
 
+  <!-- ═══ SCAN SOURCE PICKER ═══ -->
+  <dialog id="scan-source-dialog" class="scan-source-dialog" aria-labelledby="scan-source-title"
+    onclick="handleScanSourceBackdrop(event)">
+    <div class="scan-source-panel">
+      <div class="scan-source-header">
+        <h2 id="scan-source-title">Choose scan source</h2>
+        <button type="button" class="scan-source-close" onclick="closeScanSourceDialog()" aria-label="Close"
+          title="Close">×</button>
+      </div>
+      <div class="scan-source-options">
+        <button type="button" class="scan-source-option" id="scan-source-camera" data-scan-source="camera"
+          onclick="chooseScanSource('camera')">
+          <span class="scan-source-icon" aria-hidden="true">📷</span>
+          <span id="scan-source-camera-label">Camera</span>
+        </button>
+        <button type="button" class="scan-source-option" data-scan-source="gallery"
+          onclick="chooseScanSource('gallery')">
+          <span class="scan-source-icon" aria-hidden="true">🖼️</span>
+          <span id="scan-source-gallery-label">Photo library</span>
+        </button>
+        <button type="button" class="scan-source-option" data-scan-source="file" onclick="chooseScanSource('file')">
+          <span class="scan-source-icon" aria-hidden="true">📁</span>
+          <span id="scan-source-file-label">Local file</span>
+        </button>
+      </div>
+    </div>
+  </dialog>
+
   <dialog id="agent-consent-dialog" class="agent-dialog" aria-labelledby="agent-consent-title">
     <form method="dialog">
       <h2 id="agent-consent-title">Use ReAgent?</h2>
-      <p id="agent-consent-body">Your messages will be processed by the AI provider configured by this service. ReAgent only reads account data after a separate approval.</p>
+      <p id="agent-consent-body">Your messages and attached photos may be processed by the AI and safety providers configured by this service. ReAgent only reads account data after a separate approval.</p>
       <div class="agent-dialog-actions">
         <button type="submit" class="btn btn--outline" id="agent-consent-cancel" value="cancel">Cancel</button>
         <button type="submit" class="btn btn--primary" id="agent-consent-allow" value="allow">Allow</button>
       </div>
+    </form>
+  </dialog>
+
+  <dialog id="agent-location-dialog" class="agent-dialog" aria-labelledby="agent-location-title">
+    <form method="dialog">
+      <h2 id="agent-location-title">Share your location?</h2>
+      <p id="agent-location-body">Allow ReAgent to use your current location once for this request. Your coordinates are not shown in the chat.</p>
+      <div class="agent-dialog-actions">
+        <button type="submit" class="btn btn--outline" id="agent-location-deny" value="deny">Not now</button>
+        <button type="submit" class="btn btn--primary" id="agent-location-allow" value="allow">Share once</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="agent-history-dialog" class="agent-dialog agent-history-dialog" aria-labelledby="agent-history-title">
+    <form method="dialog">
+      <div class="agent-history-header">
+        <h2 id="agent-history-title">Chat history</h2>
+        <button type="submit" class="agent-history-close" id="agent-history-close" value="close"
+          aria-label="Close" title="Close">×</button>
+      </div>
+      <div id="agent-history-list" class="agent-history-list"></div>
     </form>
   </dialog>
 
@@ -494,15 +562,15 @@
   <div id="toast-container" class="toast-container" role="status" aria-live="polite"></div>
 
   <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
-  <script src="/static/js/camera.js?v=20260719-agent4"></script>
-  <script type="module" src="/static/supabase.js?v=20260719-agent4"></script>
-  <script src="/static/js/i18n.js?v=20260719-agent4"></script>
-  <script src="/static/js/utils.js?v=20260719-agent4"></script>
-  <script src="/static/app.js?v=20260719-agent4"></script>
-  <script src="/static/js/app-weather.js?v=20260719-agent4"></script>
-  <script src="/static/js/app-agent.js?v=20260719-agent4"></script>
-  <script src="/static/js/app-recycling.js?v=20260719-agent4"></script>
-  <script src="/static/js/app-records.js?v=20260719-agent4"></script>
+  <script src="/static/js/camera.js?v=20260719-scan1"></script>
+  <script type="module" src="/static/supabase.js?v=20260719-agent6"></script>
+  <script src="/static/js/i18n.js?v=20260719-scan1"></script>
+  <script src="/static/js/utils.js?v=20260719-agent6"></script>
+  <script src="/static/app.js?v=20260719-scan1"></script>
+  <script src="/static/js/app-weather.js?v=20260719-agent6"></script>
+  <script src="/static/js/app-agent.js?v=20260719-attach1"></script>
+  <script src="/static/js/app-recycling.js?v=20260719-agent6"></script>
+  <script src="/static/js/app-records.js?v=20260719-agent6"></script>
 </body>
 
 </html>

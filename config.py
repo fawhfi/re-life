@@ -23,6 +23,8 @@ SESSION_IDLE_DAYS = max(1, int(os.getenv("SESSION_IDLE_DAYS", "30")))
 SESSION_IDLE_SECONDS = SESSION_IDLE_DAYS * 24 * 60 * 60
 SESSION_TOUCH_INTERVAL_SECONDS = max(60, int(os.getenv("SESSION_TOUCH_INTERVAL_SECONDS", "900")))
 SESSION_CLOCK_SKEW_SECONDS = max(0, int(os.getenv("SESSION_CLOCK_SKEW_SECONDS", "300")))
+# The database trigger independently enforces the same absolute ceiling.
+SESSION_MAX_PER_USER = min(10, max(1, int(os.getenv("SESSION_MAX_PER_USER", "10"))))
 SESSION_METADATA_HASH_KEY = os.getenv("SESSION_METADATA_HASH_KEY", "").strip()
 if IS_DEVELOPMENT and not SESSION_METADATA_HASH_KEY:
     SESSION_METADATA_HASH_KEY = "development-only-session-metadata-key"
@@ -62,6 +64,23 @@ if AGENT_API_MODE not in {"auto", "responses", "chat_completions"}:
         "Invalid AGENT_API_MODE; expected 'auto', 'responses', or 'chat_completions'"
     )
 AGENT_SESSION_TTL_SECONDS = max(300, int(os.getenv("AGENT_SESSION_TTL_SECONDS", "1800")))
+NVIDIA_INTEGRATE_BASE_URL = "https://integrate.api.nvidia.com/v1"
+AGENT_GUARD_MODEL = os.getenv("AGENT_GUARD_MODEL", "").strip()
+AGENT_GUARD_BASE_URL = (
+    os.getenv("AGENT_GUARD_BASE_URL", NVIDIA_INTEGRATE_BASE_URL).strip().rstrip("/")
+    or NVIDIA_INTEGRATE_BASE_URL
+)
+_AGENT_GUARD_API_KEY = os.getenv("AGENT_GUARD_API_KEY", "").strip()
+# Never forward an NVIDIA key to a custom guard endpoint by implicit fallback.
+AGENT_GUARD_API_KEY = _AGENT_GUARD_API_KEY or (
+    NVIDIA_API_KEY
+    if AGENT_GUARD_BASE_URL.lower() == NVIDIA_INTEGRATE_BASE_URL
+    else ""
+)
+AGENT_GUARD_TIMEOUT_SECONDS = min(
+    30.0,
+    max(1.0, float(os.getenv("AGENT_GUARD_TIMEOUT_SECONDS", "8"))),
+)
 GEMINI_API_KEY   = os.getenv("GEMINI_API", "")
 GEMINI_MODEL     = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
 DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API", "")

@@ -7,6 +7,11 @@ function getRecordsCacheKey() {
     return [state.currentUser || '', state.userId || '', state.userKey || ''].join('|');
 }
 
+function canonicalizeRecordMode(record) {
+    const mode = record?.mode || record?.status;
+    return mode === 'purchase' ? 'purchase' : 'dispose';
+}
+
 function syncRecordsView() {
     renderRecords();
     updateStats();
@@ -38,8 +43,6 @@ function upsertRecordCache(record) {
         dealtWithMethod: record.disposal_guide || record.dealtWithMethod || record.dealt_with_method || '',
         disposal_guide: record.disposal_guide || record.dealtWithMethod || record.dealt_with_method || '',
         dealtWithDate: record.dealtWithDate || record.dealt_with_date || null,
-        userId: record.userId || state.userId || null,
-        userName: record.userName || state.currentUser || null,
         eco_rate: record.eco_rate ?? 3,
         recycle_rate: record.recycle_rate ?? 4,
         overall_score: record.overall_score ?? 0,
@@ -93,11 +96,7 @@ async function loadRecords({ force = false } = {}) {
         try {
             state.records = [];
             syncRecordsView();
-            const items = await FB.getItems(
-                state.userId || null,
-                (state.userId || state.userKey) ? null : state.currentUser,
-                state.userKey || null,
-            );
+            const items = await FB.getItems();
             if (loadToken !== state.recordsLoadToken || cacheKey !== getRecordsCacheKey()) return state.records;
             state.records = items.map(it => ({
                 id: it.id,
@@ -156,6 +155,7 @@ function renderRecords() {
     empty.classList.add('hidden');
     container.innerHTML = state.records.map(r => {
         const schemaId = r.schema_id || 'food_new';
+        const badgeMode = canonicalizeRecordMode(r);
         const overall = r.overall_score ||
             calcWeighted(r.weighted_scores || { a: 50, b: 50, c: 50, d: 50, e: 50 }, schemaId);
         const grade = getGrade(overall);
@@ -205,7 +205,7 @@ function renderRecords() {
                 <div class="record-card-info">
                     <div class="record-card-name">${esc(r.name)}</div>
                     <div class="record-card-meta">
-                        <span class="record-card-badge record-card-badge--${r.mode}">${r.mode === 'purchase' ? tr('purchaseBadge') : tr('disposeBadge')}</span>
+                        <span class="record-card-badge record-card-badge--${badgeMode}">${badgeMode === 'purchase' ? tr('purchaseBadge') : tr('disposeBadge')}</span>
                         <span class="grade-tag" style="background:${grade.color};font-size:8px">${grade.grade}</span>
                     </div>
                     <div class="record-card-ratings">
@@ -258,6 +258,7 @@ function viewRecordDetail(id) {
     const r = state.records.find(rec => String(rec.id) === String(id));
     if (!r) return;
 
+    const badgeMode = canonicalizeRecordMode(r);
     const grade = getGrade(r.overall_score || 50);
     const photoHtml = r.image_url
         ? `<img src="${esc(r.image_url)}" loading="lazy" decoding="async" style="width:100%;max-height:200px;object-fit:cover;border-radius:12px;margin-bottom:12px" alt="">`
@@ -277,7 +278,7 @@ function viewRecordDetail(id) {
         ${photoHtml}
         <div style="font-size:11px;color:var(--color-gray-500);margin-bottom:8px">${esc(r.description || '')}</div>
         <div style="display:flex;gap:6px;align-items:center;margin-bottom:8px">
-            <span class="record-card-badge record-card-badge--${r.mode}">${r.mode === 'purchase' ? tr('purchaseBadge') : tr('disposeBadge')}</span>
+            <span class="record-card-badge record-card-badge--${badgeMode}">${badgeMode === 'purchase' ? tr('purchaseBadge') : tr('disposeBadge')}</span>
             <span class="grade-tag" style="background:${grade.color}">${grade.grade}</span>
         </div>
         <div style="display:flex;gap:16px;margin-bottom:10px">

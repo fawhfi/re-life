@@ -1,26 +1,49 @@
 """Re-Life auth — email verification, password reset, rate limiting, user helpers."""
 from __future__ import annotations
 
+import base64
 from collections import defaultdict
+from copy import deepcopy
 from datetime import datetime, timedelta, timezone
 from html import escape as html_escape
 import hashlib
 import hmac
-import random
+import json
+import math
+import re
+import secrets
 import time
+from typing import Annotated
+from urllib.parse import urlsplit
 import uuid
 
 import httpx
 from argon2 import PasswordHasher
-from argon2.exceptions import VerificationError, VerifyMismatchError
+from argon2.exceptions import InvalidHashError, VerificationError, VerifyMismatchError
+from pydantic import (
+    AliasChoices,
+    BaseModel,
+    ConfigDict,
+    Field,
+    StrictInt,
+    StrictStr,
+    ValidationError,
+    field_validator,
+    model_validator,
+)
 
 from config import (
+    ALLOW_DEV_AUTH_CODES,
+    AUTH_CODE_MAX_ATTEMPTS,
+    AUTH_CODE_SECRET,
+    IS_DEVELOPMENT,
     REDIS_URL,
     RESEND_API_KEY,
     RESEND_FROM,
     UPSTASH_REDIS_REST_TOKEN,
     UPSTASH_REDIS_REST_URL,
-    VERIFICATION_CODE_EXPIRY,
+    VERIFICATION_CODE_EXPIRY_SECONDS,
+    validate_auth_security_settings,
 )
 from storage import (
     supabase_delete,
@@ -32,6 +55,7 @@ from storage import (
 )
 
 PASSWORD_HASHER = PasswordHasher(time_cost=3, memory_cost=65536, parallelism=1, hash_len=32, salt_len=16)
+DUMMY_PASSWORD_HASH = PASSWORD_HASHER.hash(secrets.token_urlsafe(32))
 
 _pending_verifications: dict[str, dict] = {}
 _rate_limit_store: dict[str, list[float]] = defaultdict(list)
@@ -42,6 +66,203 @@ RESEND_API_URL = "https://api.resend.com/emails"
 RESEND_USER_AGENT = "Re-Life/1.0"
 KV_USER_AGENT = "Re-Life/1.0"
 _redis_client = None
+INT_MAX = 2_147_483_647
+PHOTO_URL_MAX_LENGTH = 1_000_000
+CLAIMED_COUPONS_JSON_MAX_BYTES = 64 * 1024
+SAFE_USER_COLUMNS = (
+    "id,public_id,display_name,email,photo_url,spent_points,earned_points,"
+    "claimed_coupons,email_verified,created_at,updated_at"
+)
+
+
+class AuthDependencyUnavailable(RuntimeError):
+    """A required authentication dependency cannot be used safely."""
+
+
+class EmailDeliveryUnavailable(AuthDependencyUnavailable):
+    """The configured email delivery service is unavailable."""
+
+
+class RateLimitStoreUnavailable(AuthDependencyUnavailable):
+    """No configured durable rate-limit store is currently usable."""
+
+validate_auth_security_settings()
+
+BoundedPoint = Annotated[StrictInt, Field(ge=0, le=INT_MAX)]
+PhotoUrl = Annotated[StrictStr, Field(max_length=PHOTO_URL_MAX_LENGTH)]
+CouponCode = Annotated[StrictStr, Field(min_length=1, max_length=256)]
+CouponId = Annotated[StrictStr, Field(max_length=128)]
+CouponLabel = Annotated[StrictStr, Field(max_length=256)]
+CouponImage = Annotated[StrictStr, Field(max_length=64)]
+CouponDescription = Annotated[StrictStr, Field(max_length=4_096)]
+APPROVED_AVATAR_EMOJIS = frozenset({
+    "👤", "🌿", "♻️", "🌱", "🍃", "🌳", "💚", "🌍", "🪴", "🐼",
+    "🐨", "🦊", "🐸", "🌺", "🍀", "🌊", "🔥", "⭐", "🌈", "🦋", "🐝",
+})
+COUPON_CODE_PATTERN = re.compile(r"\A[A-Z0-9]+(?:-[A-Z0-9]+)*\Z")
+DATA_IMAGE_PATTERN = re.compile(
+    r"\Adata:image/(?:png|jpeg|webp|gif);base64,([A-Za-z0-9+/]+={0,2})\Z"
+)
+UNSAFE_COUPON_TEXT_PATTERN = re.compile(
+    r"[<>`] | on[a-z]+\s*= | javascript\s*:",
+    re.IGNORECASE | re.VERBOSE,
+)
+REGISTRATION_EMAIL_PATTERN = re.compile(r"\A[^@\s]+@[^@\s]+\.[^@\s]+\Z")
+
+
+def sanitize_photo_url(value) -> str | None:
+    """Return an approved avatar value, or None for invalid legacy data."""
+    if value is None:
+        return None
+    if not isinstance(value, str) or len(value) > PHOTO_URL_MAX_LENGTH:
+        return None
+    if value in APPROVED_AVATAR_EMOJIS:
+        return value
+    if value.startswith("https://"):
+        if len(value) > 2_048 or any(char in value for char in "\"'<>`\\"):
+            return None
+        if any(ord(char) < 32 or char.isspace() for char in value):
+            return None
+        try:
+            parsed = urlsplit(value)
+            hostname = parsed.hostname
+            _port = parsed.port
+        except ValueError:
+            return None
+        if (
+            parsed.scheme != "https"
+            or not hostname
+            or parsed.username is not None
+            or parsed.password is not None
+        ):
+            return None
+        return value
+    match = DATA_IMAGE_PATTERN.fullmatch(value)
+    if not match:
+        return None
+    try:
+        decoded = base64.b64decode(match.group(1), validate=True)
+    except (ValueError, base64.binascii.Error):
+        return None
+    return value if decoded else None
+
+
+def _validate_coupon_text(value: str | None) -> str | None:
+    if value is None:
+        return None
+    if UNSAFE_COUPON_TEXT_PATTERN.search(value):
+        raise ValueError("unsafe coupon text")
+    return value
+
+
+class ClaimedCouponUpdate(BaseModel):
+    """Validated stored shape for a claimed reward coupon."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    code: CouponCode
+    id: CouponId = None
+    title: CouponLabel = None
+    provider: CouponLabel = None
+    cost: BoundedPoint = None
+    image: CouponImage = None
+    category: CouponLabel = None
+    description: CouponDescription = None
+    claimedDate: CouponLabel = None
+    expiry: CouponLabel = None
+
+    @field_validator("code")
+    @classmethod
+    def validate_code(cls, value: str) -> str:
+        if not COUPON_CODE_PATTERN.fullmatch(value):
+            raise ValueError("invalid coupon code")
+        return value
+
+    @field_validator(
+        "id",
+        "title",
+        "provider",
+        "image",
+        "category",
+        "description",
+        "claimedDate",
+        "expiry",
+    )
+    @classmethod
+    def validate_text_fields(cls, value: str | None) -> str | None:
+        return _validate_coupon_text(value)
+
+
+class CurrentAccountUpdate(BaseModel):
+    """Strict allowlisted update accepted for the current session account."""
+
+    model_config = ConfigDict(extra="ignore", populate_by_name=True)
+
+    photo_url: PhotoUrl | None = Field(
+        default=None,
+        validation_alias=AliasChoices("photo_url", "photoUrl"),
+    )
+    spent_points: BoundedPoint = Field(
+        default=None,
+        validation_alias=AliasChoices("spent_points", "spentPoints"),
+    )
+    earned_points: BoundedPoint = Field(
+        default=None,
+        validation_alias=AliasChoices("earned_points", "earnedPoints"),
+    )
+    claimed_coupons: Annotated[
+        list[ClaimedCouponUpdate],
+        Field(max_length=100),
+    ] = Field(
+        default=None,
+        validation_alias=AliasChoices("claimed_coupons", "claimedCoupons"),
+    )
+
+    @field_validator("photo_url")
+    @classmethod
+    def validate_photo_url(cls, value: str | None) -> str | None:
+        sanitized = sanitize_photo_url(value)
+        if value is not None and sanitized is None:
+            raise ValueError("invalid avatar")
+        return sanitized
+
+    @model_validator(mode="after")
+    def validate_claimed_coupon_bytes(self):
+        if "claimed_coupons" not in self.model_fields_set:
+            return self
+        compact_json = json.dumps(
+            [
+                coupon.model_dump(exclude_unset=True)
+                for coupon in self.claimed_coupons
+            ],
+            ensure_ascii=False,
+            separators=(",", ":"),
+        ).encode("utf-8")
+        if len(compact_json) > CLAIMED_COUPONS_JSON_MAX_BYTES:
+            raise ValueError("claimed coupons exceed the storage size limit")
+        return self
+
+
+def _normalize_claimed_coupons(value) -> list[dict]:
+    normalized: list[dict] = []
+    for item in _safe_list(value):
+        if len(normalized) >= 100:
+            break
+        try:
+            coupon = ClaimedCouponUpdate.model_validate(item)
+        except ValidationError:
+            continue
+        payload = coupon.model_dump(exclude_unset=True)
+        candidate = normalized + [payload]
+        compact_size = len(json.dumps(
+            candidate,
+            ensure_ascii=False,
+            separators=(",", ":"),
+        ).encode("utf-8"))
+        if compact_size > CLAIMED_COUPONS_JSON_MAX_BYTES:
+            continue
+        normalized.append(payload)
+    return normalized
 
 
 def _utc_now() -> datetime:
@@ -67,16 +288,59 @@ def _safe_list(value) -> list:
 
 
 def _code_digest(purpose: str, email: str, code: str) -> str:
-    payload = f"{purpose}:{email}:{code}".encode("utf-8")
-    return hashlib.sha256(payload).hexdigest()
+    if not AUTH_CODE_SECRET:
+        raise RuntimeError("AUTH_CODE_SECRET is required")
+    normalized_email = (email or "").strip().lower()
+    payload = f"{purpose}:{normalized_email}:{code}".encode("utf-8")
+    return hmac.new(
+        AUTH_CODE_SECRET.encode("utf-8"),
+        payload,
+        hashlib.sha256,
+    ).hexdigest()
 
 
-def _normalize_user_row(row: dict | None) -> dict | None:
+def _generate_code() -> str:
+    return str(100_000 + secrets.randbelow(900_000))
+
+
+def _effective_auth_code_max_attempts() -> int:
+    return min(5, max(1, int(AUTH_CODE_MAX_ATTEMPTS)))
+
+
+def _expiry_timestamp(value) -> float | None:
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, (int, float)):
+        timestamp = float(value)
+    elif isinstance(value, str) and value:
+        try:
+            parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        except (TypeError, ValueError, OverflowError):
+            return None
+        if parsed.tzinfo is None:
+            return None
+        try:
+            timestamp = parsed.timestamp()
+        except (OverflowError, OSError, ValueError):
+            return None
+    else:
+        return None
+    return timestamp if math.isfinite(timestamp) else None
+
+
+def normalize_user_row(row: dict | None) -> dict | None:
+    """Return the public user API shape without sensitive fields such as password_hash.
+
+    Mutable public values are copied so callers cannot mutate the stored user row.
+    """
     if not row:
         return None
-    claimed = _safe_list(row.get("claimed_coupons") or row.get("claimedCoupons"))
+    claimed = _normalize_claimed_coupons(
+        row.get("claimed_coupons") or row.get("claimedCoupons")
+    )
     display_name = row.get("display_name") or row.get("displayName") or ""
     public_id = row.get("public_id") or row.get("userId") or row.get("_key")
+    photo_url = sanitize_photo_url(row.get("photo_url") or row.get("photoUrl"))
     result = {
         "id": row.get("id"),
         "public_id": public_id,
@@ -85,8 +349,8 @@ def _normalize_user_row(row: dict | None) -> dict | None:
         "displayName": display_name,
         "display_name": display_name,
         "email": row.get("email"),
-        "photoUrl": row.get("photo_url") or row.get("photoUrl"),
-        "photo_url": row.get("photo_url") or row.get("photoUrl"),
+        "photoUrl": photo_url,
+        "photo_url": photo_url,
         "spent_points": int(row.get("spent_points") or row.get("spentPoints") or 0),
         "spentPoints": int(row.get("spent_points") or row.get("spentPoints") or 0),
         "earned_points": int(row.get("earned_points") or row.get("earnedPoints") or 0),
@@ -168,11 +432,12 @@ async def _resolve_user_row(identifier) -> dict | None:
 def _memory_store_code(purpose: str, email: str, code: str, *, user_id: int | None = None) -> dict:
     key = f"{purpose}:{email}"
     row = {
+        "id": uuid.uuid4().hex,
         "purpose": purpose,
         "email": email,
         "user_id": user_id,
         "code_hash": _code_digest(purpose, email, code),
-        "expires_at": _utc_now().timestamp() + VERIFICATION_CODE_EXPIRY,
+        "expires_at": _utc_now().timestamp() + VERIFICATION_CODE_EXPIRY_SECONDS,
         "attempts": 0,
         "consumed_at": None,
     }
@@ -184,24 +449,52 @@ def _memory_get_code(purpose: str, email: str) -> dict | None:
     return _pending_verifications.get(f"{purpose}:{email}")
 
 
-async def _store_code_row(purpose: str, email: str, code: str, *, user_id: int | None = None) -> None:
+def _valid_code_row_id(row_id) -> bool:
+    return (
+        not isinstance(row_id, bool)
+        and isinstance(row_id, (int, str))
+        and bool(str(row_id).strip())
+    )
+
+
+async def _store_code_row(
+    purpose: str,
+    email: str,
+    code: str,
+    *,
+    user_id: int | None = None,
+) -> dict:
     if supabase_enabled():
         await supabase_delete("auth_codes", filters={"purpose": purpose, "email": email})
-        await supabase_insert(
+        inserted = await supabase_insert(
             "auth_codes",
             {
                 "purpose": purpose,
                 "email": email,
                 "user_id": user_id,
                 "code_hash": _code_digest(purpose, email, code),
-                "expires_at": _utc_iso(VERIFICATION_CODE_EXPIRY),
+                "expires_at": _utc_iso(VERIFICATION_CODE_EXPIRY_SECONDS),
                 "attempts": 0,
                 "consumed_at": None,
             },
-            returning=False,
+            returning=True,
         )
-        return
-    _memory_store_code(purpose, email, code, user_id=user_id)
+        if (
+            not isinstance(inserted, list)
+            or len(inserted) != 1
+            or not isinstance(inserted[0], dict)
+        ):
+            raise AuthDependencyUnavailable(
+                "Authentication code storage did not return a row handle"
+        )
+        row = inserted[0]
+        row_id = row.get("id")
+        if not _valid_code_row_id(row_id):
+            raise AuthDependencyUnavailable(
+                "Authentication code storage returned an invalid row handle"
+            )
+        return row
+    return _memory_store_code(purpose, email, code, user_id=user_id)
 
 
 async def _fetch_code_row(purpose: str, email: str) -> dict | None:
@@ -213,19 +506,103 @@ async def _fetch_code_row(purpose: str, email: str) -> dict | None:
     return _memory_get_code(purpose, email)
 
 
-async def _delete_code_row(purpose: str, email: str) -> None:
+async def _delete_code_row_if_current(
+    purpose: str,
+    email: str,
+    row_id,
+) -> None:
+    if not _valid_code_row_id(row_id):
+        raise AuthDependencyUnavailable(
+            "Authentication code cleanup requires a valid row handle"
+        )
     if supabase_enabled():
-        await supabase_delete("auth_codes", filters={"purpose": purpose, "email": email})
+        await supabase_delete(
+            "auth_codes",
+            filters={"id": row_id, "purpose": purpose, "email": email},
+            returning=True,
+        )
         return
-    _pending_verifications.pop(f"{purpose}:{email}", None)
+    key = f"{purpose}:{email}"
+    current = _pending_verifications.get(key)
+    if isinstance(current, dict) and current.get("id") == row_id:
+        _pending_verifications.pop(key, None)
+
+
+async def consume_code(purpose: str, email: str, code: str) -> bool:
+    """Atomically consume one valid verification or reset code."""
+    if not all(isinstance(value, str) for value in (purpose, email, code)):
+        return False
+    purpose = purpose.strip().lower()
+    email = email.strip().lower()
+    code = code.strip()
+    if purpose not in {"verify", "reset"} or not email:
+        return False
+    if not re.fullmatch(r"[0-9]{6}", code):
+        return False
+
+    row = await _fetch_code_row(purpose, email)
+    if not isinstance(row, dict):
+        return False
+    if row.get("purpose") != purpose:
+        return False
+    row_email = row.get("email")
+    if not isinstance(row_email, str) or row_email.strip().lower() != email:
+        return False
+    if "consumed_at" not in row or row.get("consumed_at") is not None:
+        return False
+
+    expires_at = _expiry_timestamp(row.get("expires_at"))
+    if expires_at is None or time.time() >= expires_at:
+        return False
+
+    attempts = row.get("attempts")
+    max_attempts = _effective_auth_code_max_attempts()
+    if (
+        isinstance(attempts, bool)
+        or not isinstance(attempts, int)
+        or attempts < 0
+        or attempts >= max_attempts
+    ):
+        return False
+
+    stored_digest = row.get("code_hash")
+    if not isinstance(stored_digest, str):
+        return False
+    try:
+        valid = hmac.compare_digest(
+            stored_digest,
+            _code_digest(purpose, email, code),
+        )
+    except (TypeError, ValueError):
+        return False
+
+    next_attempts = attempts + 1
+    values = {"attempts": next_attempts}
+    if valid or next_attempts >= max_attempts:
+        values["consumed_at"] = _utc_iso()
+
+    if supabase_enabled():
+        row_id = row.get("id")
+        if row_id is None or isinstance(row_id, bool):
+            return False
+        updated = await supabase_update(
+            "auth_codes",
+            values,
+            filters={"id": row_id, "attempts": attempts},
+            returning=True,
+        )
+        return valid and bool(updated)
+
+    row.update(values)
+    return valid
 
 
 async def _send_code_email(email: str, subject: str, intro: str, code: str) -> bool:
     if not RESEND_API_KEY:
-        print("[Resend] RESEND_API_KEY missing; email not sent, returning dev_code fallback")
-        return False
+        raise EmailDeliveryUnavailable("Email delivery is unavailable")
 
-    text = f"{intro}\n\nVerification code: {code}\n\nThis code expires in 5 minutes."
+    expiry_minutes = max(1, math.ceil(VERIFICATION_CODE_EXPIRY_SECONDS / 60))
+    text = f"{intro}\n\nVerification code: {code}\n\nThis code expires in {expiry_minutes} minutes."
     html = (
         '<!doctype html><html><body style="margin:0;padding:0;background:#f6f9f6;'
         'font-family:Arial,Helvetica,sans-serif;color:#0f172a;">'
@@ -235,7 +612,7 @@ async def _send_code_email(email: str, subject: str, intro: str, code: str) -> b
         f'<div style="display:inline-block;padding:14px 20px;border-radius:12px;background:#e8f5ec;'
         'font-size:28px;font-weight:700;letter-spacing:6px;color:#0f172a;">'
         f'{html_escape(code)}</div>'
-        '<div style="font-size:13px;line-height:1.5;margin:18px 0 0;color:#64748b;">This code expires in 5 minutes.</div>'
+        f'<div style="font-size:13px;line-height:1.5;margin:18px 0 0;color:#64748b;">This code expires in {expiry_minutes} minutes.</div>'
         '</div></body></html>'
     )
     payload = {"from": RESEND_FROM, "to": [email], "subject": subject, "text": text, "html": html}
@@ -248,12 +625,51 @@ async def _send_code_email(email: str, subject: str, intro: str, code: str) -> b
         async with httpx.AsyncClient(timeout=httpx.Timeout(10.0, connect=5.0)) as client:
             response = await client.post(RESEND_API_URL, headers=headers, json=payload)
         if response.status_code >= 400:
-            print(f"[Resend] Email send failed: {response.status_code} {response.text[:200]}")
-            return False
+            raise EmailDeliveryUnavailable("Email delivery is unavailable")
         return True
-    except Exception as e:
-        print(f"[Resend] Email send failed: {e}")
-        return False
+    except EmailDeliveryUnavailable:
+        raise
+    except Exception as exc:
+        raise EmailDeliveryUnavailable("Email delivery is unavailable") from exc
+
+
+async def _deliver_stored_code(
+    purpose: str,
+    email: str,
+    subject: str,
+    intro: str,
+    code: str,
+    row_id,
+) -> str | None:
+    delivery_cause = None
+    try:
+        delivered = await _send_code_email(email, subject, intro, code)
+    except EmailDeliveryUnavailable as exc:
+        delivery_error = exc
+    except Exception as exc:
+        delivery_error = EmailDeliveryUnavailable(
+            "Email delivery is unavailable"
+        )
+        delivery_cause = exc
+    else:
+        if delivered:
+            return None
+        delivery_error = EmailDeliveryUnavailable(
+            "Email delivery is unavailable"
+        )
+
+    if IS_DEVELOPMENT and ALLOW_DEV_AUTH_CODES:
+        return code
+
+    try:
+        await _delete_code_row_if_current(purpose, email, row_id)
+    except Exception as exc:
+        raise AuthDependencyUnavailable(
+            "Authentication code storage is unavailable"
+        ) from exc
+    if delivery_cause is not None:
+        raise delivery_error from delivery_cause
+    raise delivery_error
 
 
 async def _kv_command(*parts):
@@ -303,107 +719,134 @@ async def _redis_rate_count(key: str, window_sec: int) -> int:
 
 # ── Rate Limiter ────────────────────────────────────────────────────────────
 
-async def check_rate_limit(request, max_requests: int = 5, window_sec: int = 60):
-    from fastapi import HTTPException
+def _safe_rate_limit_key(key: str) -> str:
+    return (
+        key.replace(":", "_")
+        .replace("/", "_")
+        .replace(".", "_")
+        .replace("|", "_")
+    )
 
+
+def _rate_limit_keys(request, subject: str = "") -> list[str]:
     ip = request.headers.get("x-forwarded-for", "").split(",")[0].strip()
     if not ip:
         ip = request.client.host if request.client else "unknown"
     ua = (request.headers.get("user-agent", "") or "")[:64]
-    fingerprint = f"{ip}|{ua}"
     route = request.url.path
-    key = f"rl:{fingerprint}:{route}"
-    safe_key = key.replace(":", "_").replace("/", "_").replace(".", "_").replace("|", "_")
+    keys = [_safe_rate_limit_key(f"rl:{ip}|{ua}:{route}")]
+
+    normalized_subject = subject.strip().lower() if isinstance(subject, str) else ""
+    if normalized_subject:
+        subject_hash = hashlib.sha256(normalized_subject.encode("utf-8")).hexdigest()
+        keys.append(_safe_rate_limit_key(f"rl:subject:{route}:{subject_hash}"))
+    return keys
+
+
+async def _kv_rate_count(key: str, window_sec: int) -> int:
+    created = await _kv_command("SET", key, "1", "EX", str(window_sec), "NX")
+    if created == "OK":
+        return 1
+    return int(await _kv_command("INCR", key) or 0)
+
+
+async def _enforce_rate_limit_counts(
+    keys: list[str],
+    max_requests: int,
+    counter,
+) -> None:
+    from fastapi import HTTPException
+
+    for key in keys:
+        count = await counter(key)
+        if count > max_requests:
+            raise HTTPException(status_code=429, detail="Too many requests — slow down")
+
+
+async def check_rate_limit(
+    request,
+    max_requests: int = 5,
+    window_sec: int = 60,
+    subject: str = "",
+):
+    from fastapi import HTTPException
+
+    keys = _rate_limit_keys(request, subject)
+    backend_errors: list[Exception] = []
 
     if UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN:
         try:
-            created = await _kv_command("SET", safe_key, "1", "EX", str(window_sec), "NX")
-            if created == "OK":
-                return
-            count = int(await _kv_command("INCR", safe_key) or 0)
-            if count > max_requests:
-                raise HTTPException(status_code=429, detail="Too many requests — slow down")
+            await _enforce_rate_limit_counts(
+                keys,
+                max_requests,
+                lambda key: _kv_rate_count(key, window_sec),
+            )
             return
         except HTTPException:
             raise
-        except Exception as e:
-            print(f"[RateLimit] KV fallback triggered: {e}")
+        except Exception as exc:
+            backend_errors.append(exc)
 
     if REDIS_URL:
         try:
-            count = await _redis_rate_count(safe_key, window_sec)
-            if count > max_requests:
-                raise HTTPException(status_code=429, detail="Too many requests — slow down")
+            await _enforce_rate_limit_counts(
+                keys,
+                max_requests,
+                lambda key: _redis_rate_count(key, window_sec),
+            )
             return
         except HTTPException:
             raise
-        except Exception as e:
-            print(f"[RateLimit] Redis fallback triggered: {e}")
+        except Exception as exc:
+            backend_errors.append(exc)
+
+    if not IS_DEVELOPMENT:
+        cause = backend_errors[-1] if backend_errors else None
+        raise RateLimitStoreUnavailable(
+            "Durable rate-limit storage is unavailable"
+        ) from cause
 
     now = time.time()
     cutoff = now - window_sec
-    _rate_limit_store[key] = [t for t in _rate_limit_store.get(key, []) if t > cutoff]
-    if len(_rate_limit_store[key]) >= max_requests:
-        raise HTTPException(status_code=429, detail="Too many requests — slow down")
-    _rate_limit_store[key].append(now)
+    for key in keys:
+        _rate_limit_store[key] = [
+            timestamp
+            for timestamp in _rate_limit_store.get(key, [])
+            if timestamp > cutoff
+        ]
+        if len(_rate_limit_store[key]) >= max_requests:
+            raise HTTPException(status_code=429, detail="Too many requests — slow down")
+        _rate_limit_store[key].append(now)
 
 
 # ── Email verification ──────────────────────────────────────────────────────
 
 async def send_verification_code(email: str) -> str | None:
-    """Generate + send code. Returns dev_code if email delivery is unavailable, None if sent."""
+    """Generate and send a code, exposing it only in explicitly enabled development."""
     email = (email or "").strip().lower()
-    code = str(random.randint(100000, 999999))
-    await _store_code_row("verify", email, code)
+    code = _generate_code()
+    try:
+        stored_row = await _store_code_row("verify", email, code)
+    except Exception as exc:
+        raise AuthDependencyUnavailable(
+            "Authentication code storage is unavailable"
+        ) from exc
 
-    if await _send_code_email(
+    return await _deliver_stored_code(
+        "verify",
         email,
         "Re-Life — Email Verification Code",
         "Your Re-Life email verification code is ready.",
         code,
-    ):
-        return None
-    return code
+        stored_row["id"],
+    )
 
 
 async def verify_code(email: str, code: str) -> bool:
     """Check verification code. Returns True if valid."""
     email = (email or "").strip().lower()
     code = (code or "").strip()
-    row = await _fetch_code_row("verify", email)
-    if not row:
-        return False
-    if row.get("consumed_at"):
-        await _delete_code_row("verify", email)
-        return False
-
-    expires_at = row.get("expires_at")
-    if isinstance(expires_at, str):
-        try:
-            expires_at = datetime.fromisoformat(expires_at.replace("Z", "+00:00")).timestamp()
-        except Exception:
-            expires_at = 0
-    if expires_at and time.time() > float(expires_at):
-        await _delete_code_row("verify", email)
-        return False
-
-    ok = False
-    stored = row.get("code_hash", "")
-    try:
-        ok = hmac.compare_digest(stored, _code_digest("verify", email, code))
-    except Exception:
-        ok = False
-
-    if ok:
-        await _delete_code_row("verify", email)
-        return True
-
-    if supabase_enabled():
-        attempts = int(row.get("attempts") or 0) + 1
-        await supabase_update("auth_codes", {"attempts": attempts}, filters={"purpose": "verify", "email": email})
-    else:
-        row["attempts"] = int(row.get("attempts") or 0) + 1
-    return False
+    return await consume_code("verify", email, code)
 
 
 # ── User helpers ────────────────────────────────────────────────────────────
@@ -411,54 +854,81 @@ async def verify_code(email: str, code: str) -> bool:
 async def get_user_by_email(email: str) -> dict | None:
     email = (email or "").strip().lower()
     if supabase_enabled():
-        return _normalize_user_row(await supabase_select_one("app_users", filters={"email": email}))
+        return normalize_user_row(await supabase_select_one("app_users", filters={"email": email}))
     for row in _memory_users_by_id.values():
         if row.get("email") == email:
-            return _normalize_user_row(row)
+            return normalize_user_row(row)
     return None
 
 
 async def get_user_by_name(display_name: str) -> dict | None:
     display_name = (display_name or "").strip()
     if supabase_enabled():
-        return _normalize_user_row(
+        return normalize_user_row(
             await supabase_select_one("app_users", filters={"display_name": display_name})
         )
     for row in _memory_users_by_id.values():
         if row.get("display_name") == display_name:
-            return _normalize_user_row(row)
+            return normalize_user_row(row)
     return None
 
 
 async def get_user_by_id(identifier) -> dict | None:
     row = await _resolve_user_row(identifier)
-    return _normalize_user_row(row)
+    return normalize_user_row(row)
+
+
+async def get_user_by_internal_id(user_id: int) -> dict | None:
+    """Return one safe user by internal app_users id without external-id fallback."""
+    internal_id = int(user_id)
+    if supabase_enabled():
+        row = await supabase_select_one(
+            "app_users",
+            columns=SAFE_USER_COLUMNS,
+            filters={"id": internal_id},
+        )
+    else:
+        row = _memory_users_by_id.get(internal_id)
+    return normalize_user_row(row)
 
 
 async def get_all_users() -> list[dict]:
     if supabase_enabled():
         rows = await supabase_select(
             "app_users",
-            columns="id,public_id,display_name,email,photo_url,spent_points,earned_points,claimed_coupons,email_verified,created_at,updated_at",
+            columns=SAFE_USER_COLUMNS,
             order="created_at.desc",
         )
-        return [_normalize_user_row(row) for row in rows or []]
+        return [normalize_user_row(row) for row in rows or []]
     rows = sorted(_memory_users_by_id.values(), key=lambda item: item.get("created_at", ""), reverse=True)
-    return [_normalize_user_row(row) for row in rows]
+    return [normalize_user_row(row) for row in rows]
 
 
-async def create_user(display_name: str, password: str, email: str | None = None) -> dict:
+async def create_user(
+    display_name: str,
+    password: str,
+    email: str,
+    *,
+    verification_code: str,
+) -> dict:
     display_name = (display_name or "").strip()
-    email = (email or "").strip().lower() or None
-    if not display_name:
-        raise ValueError("USERNAME_REQUIRED")
-    if len(password or "") < 4:
+    email = (email or "").strip().lower()
+    verification_code = (verification_code or "").strip()
+    if len(display_name) < 2:
+        raise ValueError("USERNAME_TOO_SHORT")
+    if not email:
+        raise ValueError("EMAIL_REQUIRED")
+    if len(email) > 320 or not REGISTRATION_EMAIL_PATTERN.fullmatch(email):
+        raise ValueError("INVALID_EMAIL")
+    if len(password or "") < 8:
         raise ValueError("PASSWORD_TOO_SHORT")
 
     if await get_user_by_name(display_name):
         raise ValueError("USERNAME_TAKEN")
-    if email and await get_user_by_email(email):
+    if await get_user_by_email(email):
         raise ValueError("EMAIL_TAKEN")
+    if not await consume_code("verify", email, verification_code):
+        raise ValueError("INVALID_OR_EXPIRED_CODE")
 
     password_hash = PASSWORD_HASHER.hash(password)
     payload = {
@@ -469,12 +939,12 @@ async def create_user(display_name: str, password: str, email: str | None = None
         "spent_points": 0,
         "earned_points": 0,
         "claimed_coupons": [],
-        "email_verified": bool(email),
+        "email_verified": True,
     }
 
     if supabase_enabled():
         rows = await supabase_insert("app_users", payload)
-        user = _normalize_user_row(rows[0] if rows else None)
+        user = normalize_user_row(rows[0] if rows else None)
         if not user:
             raise RuntimeError("CREATE_USER_FAILED")
         return user
@@ -488,60 +958,83 @@ async def create_user(display_name: str, password: str, email: str | None = None
             "spent_points": 0,
             "earned_points": 0,
             "claimed_coupons": [],
-            "email_verified": bool(email),
+            "email_verified": True,
         }
     )
-    return _normalize_user_row(row)
+    return normalize_user_row(row)
 
 
 async def login_user(display_name: str, password: str) -> dict:
     display_name = (display_name or "").strip()
-    user = await get_user_by_name(display_name)
-    if not user:
-        raise ValueError("USER_NOT_FOUND")
+    if supabase_enabled():
+        row = await supabase_select_one(
+            "app_users",
+            filters={"display_name": display_name},
+        )
+    else:
+        row = next(
+            (
+                candidate
+                for candidate in _memory_users_by_id.values()
+                if candidate.get("display_name") == display_name
+            ),
+            None,
+        )
 
-    row = await _resolve_user_row(user["id"] or user["public_id"])
-    stored_hash = (row or {}).get("password_hash") if row else None
-    if not stored_hash:
-        raise ValueError("WRONG_PASSWORD")
+    stored_hash = row.get("password_hash") if isinstance(row, dict) else None
+    candidate_hash = stored_hash if isinstance(stored_hash, str) and stored_hash else DUMMY_PASSWORD_HASH
+    verified = False
     try:
-        if not PASSWORD_HASHER.verify(stored_hash, password):
-            raise ValueError("WRONG_PASSWORD")
-    except (VerifyMismatchError, VerificationError):
-        raise ValueError("WRONG_PASSWORD")
-    return user
+        verified = bool(PASSWORD_HASHER.verify(candidate_hash, password))
+    except (VerifyMismatchError, VerificationError, InvalidHashError):
+        verified = False
+
+    if not isinstance(row, dict) or not verified:
+        raise ValueError("INVALID_CREDENTIALS")
+
+    if PASSWORD_HASHER.check_needs_rehash(candidate_hash):
+        password_hash = PASSWORD_HASHER.hash(password)
+        if supabase_enabled():
+            updated_rows = await supabase_update(
+                "app_users",
+                {"password_hash": password_hash},
+                filters={"id": row.get("id")},
+                returning=True,
+            )
+            if not updated_rows or not isinstance(updated_rows[0], dict):
+                raise RuntimeError("PASSWORD_REHASH_FAILED")
+            row = updated_rows[0]
+        else:
+            row["password_hash"] = password_hash
+            row["updated_at"] = _utc_iso()
+
+    return normalize_user_row(row)
 
 
-async def save_user_data(identifier, data: dict) -> bool:
-    fallback_name = (data or {}).get("_fallbackName") or ""
-    row = await _resolve_user_row(identifier)
-    if not row and fallback_name:
-        row = await _resolve_user_row(fallback_name)
-    if not row:
-        return False
-
-    update_payload: dict[str, object] = {}
-    if "photoUrl" in data or "photo_url" in data:
-        update_payload["photo_url"] = data.get("photoUrl", data.get("photo_url"))
-    if "spent_points" in data or "spentPoints" in data:
-        update_payload["spent_points"] = int(data.get("spent_points", data.get("spentPoints", 0)) or 0)
-    if "earned_points" in data or "earnedPoints" in data:
-        update_payload["earned_points"] = int(data.get("earned_points", data.get("earnedPoints", 0)) or 0)
-    if "claimed_coupons" in data or "claimedCoupons" in data:
-        update_payload["claimed_coupons"] = _safe_list(data.get("claimed_coupons", data.get("claimedCoupons")))
+async def save_user_data(user_id: int, data: dict) -> bool:
+    validated = CurrentAccountUpdate.model_validate(
+        data if data is not None else {}
+    )
+    update_payload = validated.model_dump(exclude_unset=True)
+    user_id = int(user_id)
 
     if not update_payload:
-        return True
+        return await get_user_by_internal_id(user_id) is not None
 
     if supabase_enabled():
-        await supabase_update("app_users", update_payload, filters={"id": row["id"]})
-        return True
+        updated_rows = await supabase_update(
+            "app_users",
+            update_payload,
+            filters={"id": user_id},
+            returning=True,
+        )
+        return bool(updated_rows)
 
-    memory_row = _memory_find_user(row["id"] or row["public_id"])
-    if not memory_row:
+    row = _memory_users_by_id.get(user_id)
+    if not row:
         return False
-    memory_row.update(update_payload)
-    memory_row["updated_at"] = _utc_iso()
+    row.update(update_payload)
+    row["updated_at"] = _utc_iso()
     return True
 
 
@@ -549,62 +1042,55 @@ async def save_user_data(identifier, data: dict) -> bool:
 
 async def send_reset_code(email: str) -> str | None:
     email = (email or "").strip().lower()
-    user = await get_user_by_email(email)
-    if not user:
-        return None
+    try:
+        user = await get_user_by_email(email)
+    except Exception as exc:
+        raise AuthDependencyUnavailable(
+            "Authentication account storage is unavailable"
+        ) from exc
+    code = _generate_code()
+    user_id = user.get("id") if user else None
+    try:
+        stored_row = await _store_code_row(
+            "reset",
+            email,
+            code,
+            user_id=user_id,
+        )
+    except Exception as exc:
+        raise AuthDependencyUnavailable(
+            "Authentication code storage is unavailable"
+        ) from exc
 
-    code = str(random.randint(100000, 999999))
-    await _store_code_row("reset", email, code, user_id=user.get("id"))
-
-    if await _send_code_email(
+    return await _deliver_stored_code(
+        "reset",
         email,
-        "Re-Life — Password Reset Code",
-        "Your Re-Life password reset code is ready.",
+        "Re-Life — Password Reset Request",
+        (
+            "If this email is registered with Re-Life, use the code below "
+            "to continue the password reset request."
+        ),
         code,
-    ):
-        return None
-    return code
+        stored_row["id"],
+    )
 
 
 async def verify_reset_code(email: str, code: str) -> dict | None:
     email = (email or "").strip().lower()
     code = (code or "").strip()
     row = await _fetch_code_row("reset", email)
-    if not row:
+    user_id = row.get("user_id") if isinstance(row, dict) else None
+    if not await consume_code("reset", email, code):
         return None
-    if row.get("consumed_at"):
-        await _delete_code_row("reset", email)
+    if user_id is None or isinstance(user_id, bool):
         return None
-
-    expires_at = row.get("expires_at")
-    if isinstance(expires_at, str):
-        try:
-            expires_at = datetime.fromisoformat(expires_at.replace("Z", "+00:00")).timestamp()
-        except Exception:
-            expires_at = 0
-    if expires_at and time.time() > float(expires_at):
-        await _delete_code_row("reset", email)
-        return None
-
-    ok = False
     try:
-        ok = hmac.compare_digest(row.get("code_hash", ""), _code_digest("reset", email, code))
-    except Exception:
-        ok = False
-
-    if not ok:
-        if supabase_enabled():
-            attempts = int(row.get("attempts") or 0) + 1
-            await supabase_update("auth_codes", {"attempts": attempts}, filters={"purpose": "reset", "email": email})
-        else:
-            row["attempts"] = int(row.get("attempts") or 0) + 1
+        user = await get_user_by_internal_id(int(user_id))
+    except (TypeError, ValueError):
         return None
-
-    await _delete_code_row("reset", email)
-    user_id = row.get("user_id")
-    if user_id:
-        return await get_user_by_id(user_id)
-    return await get_user_by_email(email)
+    if not user or (user.get("email") or "").strip().lower() != email:
+        return None
+    return user
 
 
 async def update_password(email: str, new_password: str) -> bool:
@@ -618,8 +1104,13 @@ async def update_password(email: str, new_password: str) -> bool:
 
     password_hash = PASSWORD_HASHER.hash(new_password)
     if supabase_enabled():
-        await supabase_update("app_users", {"password_hash": password_hash}, filters={"id": user["id"]})
-        return True
+        updated = await supabase_update(
+            "app_users",
+            {"password_hash": password_hash},
+            filters={"id": user["id"]},
+            returning=True,
+        )
+        return bool(updated)
 
     row = _memory_find_user(user["id"] or user["public_id"])
     if not row:

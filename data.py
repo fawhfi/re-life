@@ -10,7 +10,6 @@ import uuid
 
 import httpx
 
-from auth import get_user_by_id, get_user_by_name
 from config import SERPAPI_KEY, SUPABASE_STORAGE_BUCKET, SUPABASE_URL
 from scoring import CRITERIA_LABELS, HK_DISPOSAL, REWARDS_CATALOG, SCHEMA_WEIGHTS, calc_weighted, get_grade
 from storage import (
@@ -40,7 +39,15 @@ _memory_news_cache: dict[str, dict] = {}
 _memory_records_by_id: dict[int, dict] = {}
 _memory_record_seq = 1
 NEWS_CACHE_KEY = "hk_green_news"
+POSTGRES_BIGINT_MAX = 9_223_372_036_854_775_807
+_CANONICAL_POSITIVE_DECIMAL_RE = re.compile(r"[1-9][0-9]*\Z")
 _DATA_URL_RE = re.compile(r"^data:(?P<mime>[-\w.+/]+);base64,(?P<data>.+)$", re.DOTALL)
+_RECORD_MODES = frozenset({"dispose", "purchase"})
+
+
+def canonicalize_record_mode(value) -> str:
+    """Return the only record modes safe for storage and presentation."""
+    return value if isinstance(value, str) and value in _RECORD_MODES else "dispose"
 
 
 def _parse_iso(value) -> float:
@@ -73,7 +80,7 @@ def _normalize_record_row(row: dict | None, user_name: str | None = None) -> dic
     return {
         "id": row.get("id"),
         "name": row.get("name") or "Scanned Item",
-        "status": row.get("mode") or row.get("status") or "dispose",
+        "status": canonicalize_record_mode(row.get("mode") or row.get("status")),
         "createdAt": row.get("created_at") or row.get("createdAt"),
         "description": row.get("description") or "",
         "photoUrl": photo_url,
@@ -124,13 +131,43 @@ def _image_data_url(contents: bytes, mime: str) -> str:
     return f"data:{mime or 'image/jpeg'};base64,{b64}"
 
 
-async def persist_record_image(contents: bytes, filename: str, content_type: str | None = None) -> str:
+def _canonicalize_positive_bigint(value, *, field_name: str) -> int:
+    if isinstance(value, bool):
+        raise ValueError(f"Invalid {field_name}")
+    if isinstance(value, int):
+        canonical = value
+    elif isinstance(value, str) and _CANONICAL_POSITIVE_DECIMAL_RE.fullmatch(value):
+        canonical = int(value)
+    else:
+        raise ValueError(f"Invalid {field_name}")
+    if canonical <= 0 or canonical > POSTGRES_BIGINT_MAX:
+        raise ValueError(f"Invalid {field_name}")
+    return canonical
+
+
+def canonicalize_owner_id(value) -> int:
+    """Return a strict positive PostgreSQL bigint owner identifier."""
+    return _canonicalize_positive_bigint(value, field_name="owner id")
+
+
+def _canonicalize_record_id(value) -> int:
+    return _canonicalize_positive_bigint(value, field_name="record id")
+
+
+async def persist_record_image(
+    contents: bytes,
+    filename: str,
+    content_type: str | None = None,
+    *,
+    owner_key,
+) -> str:
+    canonical_owner_key = canonicalize_owner_id(owner_key)
     mime = (content_type or "").split(";", 1)[0].lower() or "image/jpeg"
     if not (supabase_enabled() and SUPABASE_STORAGE_BUCKET and SUPABASE_URL):
         return _image_data_url(contents, mime)
 
     ext = _image_extension_for_mime(mime)
-    path = f"scan-records/{uuid.uuid4()}{ext}"
+    path = f"scan-records/{canonical_owner_key}/{uuid.uuid4()}{ext}"
     await supabase_storage_upload(
         SUPABASE_STORAGE_BUCKET,
         path,
@@ -141,7 +178,8 @@ async def persist_record_image(contents: bytes, filename: str, content_type: str
     return supabase_storage_signed_url(bucket, path)
 
 
-async def _persist_record_image_url(image_url: str | None) -> str:
+async def _persist_record_image_url(image_url: str | None, *, owner_id) -> str:
+    canonical_owner_id = canonicalize_owner_id(owner_id)
     if not image_url or not isinstance(image_url, str):
         return ""
     match = _DATA_URL_RE.match(image_url.strip())
@@ -157,21 +195,12 @@ async def _persist_record_image_url(image_url: str | None) -> str:
         return image_url
 
     ext = _image_extension_for_mime(mime)
-    return await persist_record_image(contents, f"record{ext}", mime)
-
-
-async def _resolve_user_id(user_id=None, display_name=None, user_key=None) -> dict | None:
-    if user_id is not None:
-        user = await get_user_by_id(user_id)
-        if user:
-            return user
-    if user_key is not None and user_key != user_id:
-        user = await get_user_by_id(user_key)
-        if user:
-            return user
-    if display_name:
-        return await get_user_by_name(display_name)
-    return None
+    return await persist_record_image(
+        contents,
+        f"record{ext}",
+        mime,
+        owner_key=canonical_owner_id,
+    )
 
 
 async def get_news_cached(db_get=None, db_put=None) -> list[dict]:
@@ -248,15 +277,15 @@ async def get_news_cached(db_get=None, db_put=None) -> list[dict]:
         return _FALLBACK_NEWS
 
 
-async def add_item(item: dict) -> dict:
-    owner = await _resolve_user_id(item.get("userId"), item.get("userName"), item.get("userKey"))
-    if not owner:
-        raise ValueError("Login required to save records")
-    owner_id = owner["id"]
-    image_url = await _persist_record_image_url(item.get("image_url") or item.get("photoUrl") or "")
+async def add_item(item: dict, *, owner_id) -> dict:
+    canonical_owner_id = canonicalize_owner_id(owner_id)
+    image_url = await _persist_record_image_url(
+        item.get("image_url") or item.get("photoUrl") or "",
+        owner_id=canonical_owner_id,
+    )
     record = {
-        "user_id": owner_id,
-        "mode": item.get("mode") or item.get("status") or "dispose",
+        "user_id": canonical_owner_id,
+        "mode": canonicalize_record_mode(item.get("mode") or item.get("status")),
         "name": item.get("name") or "Scanned Item",
         "description": item.get("description") or "",
         "image_url": image_url,
@@ -300,53 +329,76 @@ async def add_item(item: dict) -> dict:
             },
         )
         row = rows[0] if rows else None
-        return {"id": row.get("id") if row else None}
+        try:
+            inserted_id = _canonicalize_record_id(
+                row.get("id") if isinstance(row, dict) else None
+            )
+        except ValueError as exc:
+            raise RuntimeError(
+                "Record insert did not return a valid record id"
+            ) from exc
+        return {"id": inserted_id}
 
     row = _memory_store_record(record)
     return {"id": row["id"]}
 
 
-async def get_items(user_id=None, display_name=None, user_key=None) -> list[dict]:
-    if not user_id and not display_name and not user_key:
-        return []
-
-    owner = await _resolve_user_id(user_id, display_name, user_key)
-    if not owner:
-        return []
+async def get_items(*, owner_id) -> list[dict]:
+    canonical_owner_id = canonicalize_owner_id(owner_id)
 
     if supabase_enabled():
         rows = await supabase_select(
             "scan_records",
             order="created_at.desc",
-            filters={"user_id": owner["id"]},
+            filters={"user_id": canonical_owner_id},
         )
-        return [
-            _normalize_record_row(row, owner.get("displayName"))
-            for row in rows or []
-        ]
+        return [_normalize_record_row(row) for row in rows or []]
 
     rows = [
         row for row in _memory_records_by_id.values()
-        if int(row.get("user_id") or 0) == int(owner["id"])
+        if int(row.get("user_id") or 0) == canonical_owner_id
     ]
     rows.sort(key=lambda row: row.get("created_at", ""), reverse=True)
-    return [_normalize_record_row(row, owner.get("displayName")) for row in rows]
+    return [_normalize_record_row(row) for row in rows]
 
 
-async def delete_item(item_id) -> None:
+async def delete_item(item_id, *, owner_id) -> bool:
+    canonical_owner_id = canonicalize_owner_id(owner_id)
+    try:
+        canonical_record_id = _canonicalize_record_id(item_id)
+    except ValueError:
+        return False
+
     if supabase_enabled():
-        await supabase_delete("scan_records", filters={"id": item_id})
-        return
-    _memory_records_by_id.pop(int(item_id), None)
+        rows = await supabase_delete(
+            "scan_records",
+            filters={"id": canonical_record_id, "user_id": canonical_owner_id},
+            returning=True,
+        )
+        return bool(rows)
+
+    row = _memory_records_by_id.get(canonical_record_id)
+    if not row:
+        return False
+    try:
+        stored_owner_id = int(row.get("user_id"))
+    except (TypeError, ValueError):
+        return False
+    if stored_owner_id != canonical_owner_id:
+        return False
+    _memory_records_by_id.pop(canonical_record_id, None)
+    return True
 
 
-async def clear_all_items(user_id=None, display_name=None, user_key=None) -> None:
-    owner = await _resolve_user_id(user_id, display_name, user_key)
-    if not owner:
-        return
+async def clear_all_items(*, owner_id) -> None:
+    canonical_owner_id = canonicalize_owner_id(owner_id)
     if supabase_enabled():
-        await supabase_delete("scan_records", filters={"user_id": owner["id"]})
+        await supabase_delete("scan_records", filters={"user_id": canonical_owner_id})
         return
-    doomed = [rid for rid, row in _memory_records_by_id.items() if int(row.get("user_id") or 0) == int(owner["id"])]
+    doomed = [
+        rid
+        for rid, row in _memory_records_by_id.items()
+        if int(row.get("user_id") or 0) == canonical_owner_id
+    ]
     for rid in doomed:
         _memory_records_by_id.pop(rid, None)

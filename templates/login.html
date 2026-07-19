@@ -194,17 +194,12 @@ async function handleLogin(e) {
     }
     btn.textContent = '...';
     try {
-        const user = await window.FB.loginUser(username, password);
-        localStorage.setItem('RE_LIFE_CURRENT_USER', user.displayName);
-        localStorage.setItem('RE_LIFE_CURRENT_USER_ID', String(user.id || user.public_id || ''));
-        localStorage.setItem('RE_LIFE_CURRENT_USER_KEY', String(user.public_id || user.userId || ''));
-        localStorage.setItem('RE_LIFE_USER_AVATAR', user.photoUrl || '👤');
+        await window.FB.loginUser(username, password);
         window.location.replace('/');
     } catch (err) {
-        if (err.message === 'USER_NOT_FOUND') {
-            errorEl.textContent = loginText('User not found. Please register first.', '用户不存在，请先注册。', '用戶不存在，請先註冊。');
-        } else if (err.message === 'WRONG_PASSWORD') {
-            errorEl.textContent = loginText('Wrong password.', '密码错误。', '密碼錯誤。');
+        const errorCode = err.payload?.error;
+        if (errorCode === 'INVALID_CREDENTIALS') {
+            errorEl.textContent = loginText('Invalid username or password.', '用户名或密码无效。', '用戶名或密碼無效。');
         } else {
             errorEl.textContent = loginText('Login failed. Try again.', '登录失败，请重试。', '登入失敗，請重試。');
         }

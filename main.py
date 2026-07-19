@@ -1,43 +1,161 @@
 """Re-Life API — FastAPI entry point."""
-from fastapi import FastAPI, File, UploadFile, Form, Request
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
-from fastapi.middleware.cors import CORSMiddleware
-from starlette.middleware.base import BaseHTTPMiddleware
-from dotenv import load_dotenv
-from io import BytesIO
-import os, random, uuid
 from pathlib import Path
+from dotenv import load_dotenv
+
+root_dir = Path(__file__).parent
+load_dotenv(root_dir / ".env")
+
+from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, StreamingResponse
+from fastapi.middleware.cors import CORSMiddleware
+from starlette.datastructures import UploadFile as StarletteUploadFile
+from starlette.middleware.base import BaseHTTPMiddleware
+from io import BytesIO
+import json
+import os, random, re, uuid
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field, StrictStr, ValidationError, field_validator
 
 from auth import (
+    AuthDependencyUnavailable,
+    CurrentAccountUpdate,
     check_rate_limit,
     create_user,
-    get_all_users,
-    get_user_by_email,
-    get_user_by_id,
-    get_user_by_name,
+    get_user_by_internal_id,
     login_user,
+    normalize_user_row,
     save_user_data,
     send_reset_code,
     send_verification_code,
     update_password,
-    verify_code,
     verify_reset_code,
 )
-from config import ALLOWED_IMAGE_TYPES, MAX_UPLOAD_BYTES, SUPABASE_STORAGE_BUCKET, get_public_config
-from data import add_item, clear_all_items, delete_item, get_items, get_news_cached, persist_record_image
+from config import (
+    ALLOWED_IMAGE_TYPES,
+    ALLOW_DEV_AUTH_CODES,
+    IS_DEVELOPMENT,
+    MAX_UPLOAD_BYTES,
+    SESSION_COOKIE_NAME,
+    SUPABASE_STORAGE_BUCKET,
+    get_public_config,
+)
+from data import (
+    add_item,
+    canonicalize_owner_id,
+    clear_all_items,
+    delete_item,
+    get_items,
+    get_news_cached,
+    persist_record_image,
+)
 from models import ai_analyze, local_scan_response
 from recycling_points import find_nearby_recycling_points
 from scan_service import analyze_scan_image, enrich_scan_result, normalize_scan_payload, parse_bool
 from scoring import CRITERIA_LABELS, REWARDS_CATALOG, SCHEMA_WEIGHTS
+from sessions import (
+    SecurityStoreUnavailable,
+    SessionMiddleware,
+    clear_session_cookie,
+    create_session,
+    optional_current_user,
+    require_current_user,
+    revoke_all_user_sessions,
+    revoke_session,
+    set_session_cookie,
+)
 from storage import supabase_storage_download, verify_supabase_storage_signature
 from weather import get_header_weather
 
-root_dir = Path(__file__).parent
-if os.path.exists(root_dir / ".env"):
-    load_dotenv()
-
 app = FastAPI(title="Re-Life API")
+CURRENT_ACCOUNT_UPDATE_BODY_MAX_BYTES = 1_258_292
+CURRENT_ACCOUNT_UPDATE_MAX_TOP_LEVEL_KEYS = 32
+CURRENT_ACCOUNT_UPDATE_MAX_VALIDATION_ERRORS = 20
+CLAIMED_COUPON_INPUT_FIELDS = frozenset({
+    "code",
+    "id",
+    "title",
+    "provider",
+    "cost",
+    "image",
+    "category",
+    "description",
+    "claimedDate",
+    "expiry",
+})
+INVALID_ACCOUNT_UPDATE_SHAPE_DETAIL = [{
+    "type": "invalid_account_update_shape",
+    "loc": ["body"],
+    "msg": "INVALID_ACCOUNT_UPDATE_SHAPE",
+}]
+FORGED_RECORD_IDENTITY_FIELDS = frozenset({
+    "user_id",
+    "userId",
+    "userName",
+    "user_key",
+    "userKey",
+    "display_name",
+})
+MULTIPART_BODY_OVERHEAD_BYTES = 256 * 1024
+MAX_MULTIPART_REQUEST_BYTES = MAX_UPLOAD_BYTES + MULTIPART_BODY_OVERHEAD_BYTES
+UPLOAD_READ_CHUNK_BYTES = 64 * 1024
+
+
+@app.exception_handler(AuthDependencyUnavailable)
+async def auth_dependency_unavailable_handler(
+    request: Request,
+    _exc: AuthDependencyUnavailable,
+):
+    response = JSONResponse(
+        {"error": "AUTH_SERVICE_UNAVAILABLE"},
+        status_code=503,
+    )
+    if request.url.path == "/api/reset-password":
+        clear_session_cookie(response)
+    return response
+
+
+class RegistrationRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    display_name: StrictStr = Field(
+        min_length=2,
+        validation_alias=AliasChoices("display_name", "displayName"),
+    )
+    email: StrictStr = Field(min_length=3, max_length=320)
+    password: StrictStr = Field(min_length=8)
+    verification_code: StrictStr = Field(
+        pattern=r"^[0-9]{6}$",
+        validation_alias=AliasChoices("verification_code", "code"),
+    )
+
+    @field_validator("display_name", "email", "verification_code", mode="before")
+    @classmethod
+    def strip_registration_values(cls, value):
+        return value.strip() if isinstance(value, str) else value
+
+    @field_validator("email")
+    @classmethod
+    def normalize_registration_email(cls, value: str) -> str:
+        normalized = value.lower()
+        if not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", normalized):
+            raise ValueError("INVALID_EMAIL")
+        return normalized
+
+
+class MultipartBodyTooLarge(Exception):
+    pass
+
+
+class InvalidMultipartForm(Exception):
+    pass
+
+
+class ImageFileTooLarge(Exception):
+    pass
+
+
+class InvalidImageFile(Exception):
+    pass
 
 # ── CORS ────────────────────────────────────────────────────────────────────
 app.add_middleware(CORSMiddleware,
@@ -48,6 +166,8 @@ app.add_middleware(CORSMiddleware,
         "http://127.0.0.1:5173",
     ],
     allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"], allow_headers=["*"])
+
+app.add_middleware(SessionMiddleware)
 
 # ── Security Headers ────────────────────────────────────────────────────────
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
@@ -68,6 +188,105 @@ app.mount("/static", StaticFiles(directory=root_dir / "static"), name="static")
 
 def _page(path: str) -> str:
     return (root_dir / "templates" / path).read_text(encoding="utf-8")
+
+
+def _request_ip(request: Request) -> str:
+    return request.client.host if request.client else ""
+
+
+def _normalized_rate_subject(value) -> str:
+    return value.strip().lower() if isinstance(value, str) else ""
+
+
+def _session_owner_id(user: dict) -> int:
+    try:
+        return canonicalize_owner_id(user.get("id"))
+    except (AttributeError, ValueError) as exc:
+        raise HTTPException(
+            status_code=401,
+            detail="AUTHENTICATION_REQUIRED",
+        ) from exc
+
+
+def _install_multipart_receive_limit(request: Request) -> None:
+    content_length = request.headers.get("content-length")
+    if content_length:
+        try:
+            declared_length = int(content_length)
+        except ValueError:
+            declared_length = None
+        if (
+            declared_length is not None
+            and declared_length > MAX_MULTIPART_REQUEST_BYTES
+        ):
+            raise MultipartBodyTooLarge
+
+    original_receive = request._receive
+    received_bytes = 0
+
+    async def bounded_receive():
+        nonlocal received_bytes
+        message = await original_receive()
+        if message.get("type") == "http.request":
+            received_bytes += len(message.get("body", b""))
+            if received_bytes > MAX_MULTIPART_REQUEST_BYTES:
+                raise MultipartBodyTooLarge
+        return message
+
+    request._receive = bounded_receive
+
+
+def _matches_declared_image_type(contents: bytes, content_type: str) -> bool:
+    if content_type == "image/jpeg":
+        return contents.startswith(b"\xff\xd8\xff")
+    if content_type == "image/png":
+        return contents.startswith(b"\x89PNG\r\n\x1a\n")
+    if content_type == "image/webp":
+        return (
+            len(contents) >= 12
+            and contents.startswith(b"RIFF")
+            and contents[8:12] == b"WEBP"
+        )
+    return False
+
+
+async def _read_bounded_validated_image(
+    request: Request,
+) -> tuple[object, StarletteUploadFile, bytes, str]:
+    _install_multipart_receive_limit(request)
+    try:
+        form = await request.form()
+    except MultipartBodyTooLarge:
+        raise
+    except Exception as exc:
+        raise InvalidMultipartForm from exc
+
+    file = form.get("file")
+    if not isinstance(file, StarletteUploadFile):
+        raise InvalidImageFile
+    content_type = file.content_type
+    if not content_type or content_type not in ALLOWED_IMAGE_TYPES:
+        raise InvalidImageFile
+
+    contents = bytearray()
+    try:
+        while True:
+            remaining = MAX_UPLOAD_BYTES - len(contents)
+            chunk = await file.read(min(UPLOAD_READ_CHUNK_BYTES, remaining + 1))
+            if not chunk:
+                break
+            contents.extend(chunk)
+            if len(contents) > MAX_UPLOAD_BYTES:
+                raise ImageFileTooLarge
+    except ImageFileTooLarge:
+        raise
+    except Exception as exc:
+        raise InvalidImageFile from exc
+
+    image_bytes = bytes(contents)
+    if not _matches_declared_image_type(image_bytes, content_type):
+        raise InvalidImageFile
+    return form, file, image_bytes, content_type
 
 
 @app.get("/api/storage/{bucket}/{object_path:path}")
@@ -109,6 +328,8 @@ async def weather_header(request: Request, lat: float | None = None, lon: float 
 @app.get("/", response_class=HTMLResponse)
 async def root(request: Request):
     await check_rate_limit(request, 60, 60)
+    if not optional_current_user(request):
+        return RedirectResponse("/login", status_code=303)
     return HTMLResponse(_page("index.html"))
 
 @app.get("/login", response_class=HTMLResponse)
@@ -125,12 +346,27 @@ async def register(request: Request):
 
 @app.post("/api/auth/register")
 async def auth_register(request: Request, data: dict):
-    await check_rate_limit(request, 5, 60)
-    display_name = (data.get("display_name") or data.get("displayName") or "").strip()
-    email = (data.get("email") or "").strip().lower()
-    password = data.get("password") or ""
+    request.state.suppress_session_refresh = True
+    await check_rate_limit(
+        request,
+        5,
+        60,
+        subject=_normalized_rate_subject(data.get("email")),
+    )
     try:
-        user = await create_user(display_name, password, email or None)
+        registration = RegistrationRequest.model_validate(data)
+    except ValidationError:
+        return JSONResponse(
+            {"detail": "INVALID_REGISTRATION_INPUT"},
+            status_code=422,
+        )
+    try:
+        user = await create_user(
+            registration.display_name,
+            registration.password,
+            registration.email,
+            verification_code=registration.verification_code,
+        )
     except ValueError as e:
         return JSONResponse({"error": str(e)}, 400)
     return {"ok": True, "user": user}
@@ -138,173 +374,321 @@ async def auth_register(request: Request, data: dict):
 
 @app.post("/api/auth/login")
 async def auth_login(request: Request, data: dict):
-    await check_rate_limit(request, 5, 60)
+    request.state.suppress_session_refresh = True
+    rate_subject = data.get("display_name") or data.get("displayName")
+    await check_rate_limit(
+        request,
+        5,
+        60,
+        subject=_normalized_rate_subject(rate_subject),
+    )
     display_name = (data.get("display_name") or data.get("displayName") or "").strip()
     password = data.get("password") or ""
     try:
         user = await login_user(display_name, password)
+        token = await create_session(
+            user,
+            user_agent=request.headers.get("user-agent", ""),
+            request_ip=_request_ip(request),
+        )
+    except SecurityStoreUnavailable:
+        return JSONResponse({"error": "AUTH_SERVICE_UNAVAILABLE"}, 503)
     except ValueError as e:
-        return JSONResponse({"error": str(e)}, 400)
-    return {"ok": True, "user": user}
+        if str(e) == "INVALID_CREDENTIALS":
+            return JSONResponse({"error": "INVALID_CREDENTIALS"}, 401)
+        raise
+    response = JSONResponse({"ok": True, "user": normalize_user_row(user)})
+    set_session_cookie(response, token)
+    return response
 
 
-@app.get("/api/users")
-async def list_users(request: Request):
-    await check_rate_limit(request, 60, 60)
-    return await get_all_users()
+@app.get("/api/auth/me")
+async def auth_me(user: dict = Depends(require_current_user)):
+    return {"ok": True, "user": normalize_user_row(user)}
 
 
-@app.get("/api/users/by-name/{display_name}")
-async def user_by_name(request: Request, display_name: str):
-    await check_rate_limit(request, 60, 60)
-    user = await get_user_by_name(display_name)
-    if not user:
-        return JSONResponse({"error": "USER_NOT_FOUND"}, 404)
-    return user
+@app.post("/api/auth/logout")
+async def auth_logout(request: Request):
+    token = request.cookies.get(SESSION_COOKIE_NAME)
+    request.state.suppress_session_refresh = True
+    try:
+        await revoke_session(token)
+    except SecurityStoreUnavailable:
+        response = JSONResponse(
+            {"error": "AUTH_SERVICE_UNAVAILABLE"},
+            status_code=503,
+        )
+    else:
+        response = JSONResponse({"ok": True})
+    clear_session_cookie(response)
+    return response
 
 
-@app.get("/api/users/by-email/{email}")
-async def user_by_email(request: Request, email: str):
-    await check_rate_limit(request, 60, 60)
-    user = await get_user_by_email(email)
-    if not user:
-        return JSONResponse({"error": "USER_NOT_FOUND"}, 404)
-    return user
+@app.get("/api/users/me")
+async def current_user(user: dict = Depends(require_current_user)):
+    return normalize_user_row(user)
 
 
-@app.get("/api/users/by-id/{identifier}")
-async def user_by_id(request: Request, identifier: str):
-    await check_rate_limit(request, 60, 60)
-    user = await get_user_by_id(identifier)
-    if not user:
-        return JSONResponse({"error": "USER_NOT_FOUND"}, 404)
-    return user
+def _has_invalid_account_update_shape(raw_data) -> bool:
+    if not isinstance(raw_data, dict):
+        return False
+    if len(raw_data) > CURRENT_ACCOUNT_UPDATE_MAX_TOP_LEVEL_KEYS:
+        return True
+    for alias in ("claimed_coupons", "claimedCoupons"):
+        coupons = raw_data.get(alias)
+        if not isinstance(coupons, list):
+            continue
+        if len(coupons) > 100:
+            return True
+        for coupon in coupons:
+            if not isinstance(coupon, dict):
+                continue
+            if (
+                len(coupon) > len(CLAIMED_COUPON_INPUT_FIELDS)
+                or not coupon.keys() <= CLAIMED_COUPON_INPUT_FIELDS
+            ):
+                return True
+    return False
 
 
-@app.patch("/api/users/{identifier}")
-async def update_user(request: Request, identifier: str, data: dict):
+@app.patch("/api/users/me")
+async def update_current_user(
+    request: Request,
+    user: dict = Depends(require_current_user),
+):
     await check_rate_limit(request, 30, 60)
-    if not await save_user_data(identifier, data):
+
+    content_length = request.headers.get("content-length")
+    if content_length:
+        try:
+            declared_length = int(content_length)
+        except ValueError:
+            return JSONResponse({"error": "INVALID_CONTENT_LENGTH"}, 400)
+        if declared_length < 0:
+            return JSONResponse({"error": "INVALID_CONTENT_LENGTH"}, 400)
+        if declared_length > CURRENT_ACCOUNT_UPDATE_BODY_MAX_BYTES:
+            return JSONResponse({"error": "PAYLOAD_TOO_LARGE"}, 413)
+
+    body = bytearray()
+    async for chunk in request.stream():
+        if len(body) + len(chunk) > CURRENT_ACCOUNT_UPDATE_BODY_MAX_BYTES:
+            return JSONResponse({"error": "PAYLOAD_TOO_LARGE"}, 413)
+        body.extend(chunk)
+
+    try:
+        raw_data = json.loads(body)
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        return JSONResponse({"error": "INVALID_JSON"}, 400)
+
+    if _has_invalid_account_update_shape(raw_data):
+        return JSONResponse({"detail": INVALID_ACCOUNT_UPDATE_SHAPE_DETAIL}, 422)
+
+    try:
+        data = CurrentAccountUpdate.model_validate(raw_data)
+    except ValidationError as exc:
+        errors = exc.errors(
+            include_url=False,
+            include_context=False,
+            include_input=False,
+        )
+        detail = [
+            {
+                "type": error["type"],
+                "loc": [
+                    "body",
+                    *[
+                        part
+                        if not isinstance(part, str) or (
+                            len(part) <= 64
+                            and all(ord(char) >= 32 for char in part)
+                        )
+                        else "<field>"
+                        for part in error["loc"]
+                    ],
+                ],
+                "msg": error["msg"][:256],
+            }
+            for error in errors[:CURRENT_ACCOUNT_UPDATE_MAX_VALIDATION_ERRORS]
+        ]
+        if len(errors) > CURRENT_ACCOUNT_UPDATE_MAX_VALIDATION_ERRORS:
+            detail.append({
+                "type": "too_many_validation_errors",
+                "loc": ["body"],
+                "msg": "TOO_MANY_VALIDATION_ERRORS",
+            })
+        return JSONResponse({"detail": detail}, 422)
+
+    user_id = int(user["id"])
+    update_data = data.model_dump(exclude_unset=True)
+    if not await save_user_data(user_id, update_data):
         return JSONResponse({"error": "USER_NOT_FOUND"}, 404)
-    user = await get_user_by_id(identifier)
-    return {"ok": True, "user": user}
+    refreshed_user = await get_user_by_internal_id(user_id)
+    if not refreshed_user:
+        return JSONResponse({"error": "USER_NOT_FOUND"}, 404)
+    return {"ok": True, "user": refreshed_user}
 
 
 @app.get("/api/records")
-async def list_records(request: Request, user_id: str | None = None, display_name: str | None = None, user_key: str | None = None):
+async def list_records(
+    request: Request,
+    user: dict = Depends(require_current_user),
+):
+    owner_id = _session_owner_id(user)
     await check_rate_limit(request, 60, 60)
-    return await get_items(user_id, display_name, user_key)
+    return await get_items(owner_id=owner_id)
 
 
 @app.post("/api/records/image")
-async def upload_record_image(request: Request, file: UploadFile = File(...),
-                              user_id: str | None = Form(None), display_name: str | None = Form(None),
-                              user_key: str | None = Form(None)):
+async def upload_record_image(
+    request: Request,
+    user: dict = Depends(require_current_user),
+):
+    owner_id = _session_owner_id(user)
     await check_rate_limit(request, 30, 60)
-    owner = await get_user_by_id(user_id) if user_id else None
-    if not owner and user_key and user_key != user_id:
-        owner = await get_user_by_id(user_key)
-    if not owner and display_name:
-        owner = await get_user_by_name(display_name)
-    if not owner:
-        return JSONResponse({"error": "Login required to save records"}, 401)
-    if file.content_type and file.content_type not in ALLOWED_IMAGE_TYPES:
-        return JSONResponse({"error": "Only JPEG, PNG, WebP allowed"}, 400)
-
-    contents = await file.read()
-    if len(contents) > MAX_UPLOAD_BYTES:
-        return JSONResponse({"error": f"File too large (max {MAX_UPLOAD_BYTES // (1024*1024)} MB)"}, 413)
+    try:
+        _form, file, contents, content_type = await _read_bounded_validated_image(request)
+    except (MultipartBodyTooLarge, ImageFileTooLarge):
+        return JSONResponse({"error": "File too large"}, 413)
+    except InvalidMultipartForm:
+        return JSONResponse({"error": "Invalid upload form"}, 400)
+    except InvalidImageFile:
+        return JSONResponse({"error": "Invalid image file"}, 400)
 
     try:
-        image_url = await persist_record_image(contents, file.filename or "scan-record.jpg", file.content_type or "image/jpeg")
+        image_url = await persist_record_image(
+            contents,
+            file.filename or "scan-record.jpg",
+            content_type,
+            owner_key=owner_id,
+        )
     except Exception:
         return JSONResponse({"error": "Image upload failed"}, 502)
     return JSONResponse({"image_url": image_url})
 
 
 @app.post("/api/records")
-async def create_record(request: Request, data: dict):
+async def create_record(
+    request: Request,
+    data: dict,
+    user: dict = Depends(require_current_user),
+):
+    owner_id = _session_owner_id(user)
     await check_rate_limit(request, 30, 60)
+    record_data = {
+        key: value
+        for key, value in (data or {}).items()
+        if key not in FORGED_RECORD_IDENTITY_FIELDS
+    }
     try:
-        result = await add_item(data or {})
+        result = await add_item(record_data, owner_id=owner_id)
     except ValueError as e:
         return JSONResponse({"error": str(e)}, 400)
+    except Exception:
+        return JSONResponse({"error": "Record save failed"}, 502)
     return {"ok": True, **result}
 
 
 @app.delete("/api/records")
-async def clear_records(request: Request, user_id: str | None = None, display_name: str | None = None, user_key: str | None = None):
+async def clear_records(
+    request: Request,
+    user: dict = Depends(require_current_user),
+):
+    owner_id = _session_owner_id(user)
     await check_rate_limit(request, 30, 60)
-    await clear_all_items(user_id, display_name, user_key)
+    await clear_all_items(owner_id=owner_id)
     return {"ok": True}
 
 
 @app.delete("/api/records/{item_id}")
-async def delete_record(request: Request, item_id: str):
+async def delete_record(
+    request: Request,
+    item_id: str,
+    user: dict = Depends(require_current_user),
+):
+    owner_id = _session_owner_id(user)
     await check_rate_limit(request, 30, 60)
-    await delete_item(item_id)
+    if not await delete_item(item_id, owner_id=owner_id):
+        return JSONResponse({"error": "Record not found"}, 404)
     return {"ok": True}
 
 # ── Auth endpoints ──────────────────────────────────────────────────────────
 
 @app.post("/api/send-verification")
 async def send_verification(request: Request, data: dict):
-    await check_rate_limit(request, 5, 60)
-    email = (data.get("email") or "").strip().lower()
+    email = _normalized_rate_subject(data.get("email"))
+    await check_rate_limit(request, 5, 60, subject=email)
     if not email or "@" not in email:
         return JSONResponse({"error": "Valid email required"}, 400)
     dev_code = await send_verification_code(email)
-    return JSONResponse({"ok": True, **({"dev_code": dev_code} if dev_code else {})})
-
-@app.post("/api/verify-code")
-async def verify_code_endpoint(request: Request, data: dict):
-    await check_rate_limit(request, 5, 60)
-    email = (data.get("email") or "").strip().lower()
-    code  = (data.get("code") or "").strip()
-    if not email or not code:
-        return JSONResponse({"error": "Email and code required"}, 400)
-    ok = await verify_code(email, code)
-    return JSONResponse({"ok": True, "email": email} if ok else ({"error": "Invalid or expired code"}, 400))
+    include_dev_code = IS_DEVELOPMENT and ALLOW_DEV_AUTH_CODES and dev_code
+    return JSONResponse(
+        {
+            "ok": True,
+            **({"dev_code": dev_code} if include_dev_code else {}),
+        }
+    )
 
 @app.post("/api/forgot-password")
 async def forgot_password(request: Request, data: dict):
-    await check_rate_limit(request, 3, 120)
-    email = (data.get("email") or "").strip().lower()
-    if not email: return JSONResponse({"error": "Email required"}, 400)
-    user = await get_user_by_email(email)
-    if not user:
-        # Return success to prevent user enumeration
-        return JSONResponse({"ok": True})
-    dev_code = await send_reset_code(email)
-    return JSONResponse({"ok": True, **({"dev_code": dev_code} if dev_code else {})})
+    email = _normalized_rate_subject(data.get("email"))
+    await check_rate_limit(request, 3, 120, subject=email)
+    if not email:
+        return JSONResponse({"error": "Email required"}, 400)
+    try:
+        await send_reset_code(email)
+    except AuthDependencyUnavailable:
+        pass
+    return JSONResponse({"ok": True})
 
 @app.post("/api/reset-password")
 async def reset_password(request: Request, data: dict):
-    await check_rate_limit(request, 5, 60)
-    email = (data.get("email") or "").strip().lower()
-    code  = (data.get("code") or "").strip()
+    request.state.suppress_session_refresh = True
+    email = _normalized_rate_subject(data.get("email"))
+    await check_rate_limit(request, 5, 60, subject=email)
+    code = (data.get("code") or "").strip()
     password = data.get("password", "")
     if not email or not code or len(password) < 8:
         return JSONResponse({"error": "Email, code, and new password (8+ chars) required"}, 400)
-    user = await verify_reset_code(email, code)
-    if not user:
-        return JSONResponse({"error": "Invalid or expired code"}, 400)
-    if not await update_password(email, password):
-        return JSONResponse({"error": "Failed to update password"}, 500)
-    return JSONResponse({"ok": True, "displayName": user.get("displayName", ""), "email": email})
+    try:
+        user = await verify_reset_code(email, code)
+        if not user:
+            return JSONResponse({"error": "Invalid or expired code"}, 400)
+        user_id = canonicalize_owner_id(user.get("id"))
+        await revoke_all_user_sessions(user_id)
+        if not await update_password(email, password):
+            raise AuthDependencyUnavailable("Password update failed")
+    except Exception:
+        response = JSONResponse({"error": "AUTH_SERVICE_UNAVAILABLE"}, 503)
+        clear_session_cookie(response)
+        return response
+    response = JSONResponse({"ok": True})
+    clear_session_cookie(response)
+    return response
 
 # ── Scan endpoints ──────────────────────────────────────────────────────────
 
 @app.post("/api/scan/ai")
-async def scan_item_ai(request: Request, file: UploadFile = File(...), mode: str = Form("dispose"),
-                       item_type: str = Form("food"), item_state: str = Form("new"), debug: str = Form("false"),
-                       prompt: str = Form(""), lang: str = Form("en")):
+async def scan_item_ai(
+    request: Request,
+    user: dict = Depends(require_current_user),
+):
+    _session_owner_id(user)
     await check_rate_limit(request, 15, 60)
-    if file.content_type and file.content_type not in ALLOWED_IMAGE_TYPES:
-        return JSONResponse({"error": "Only JPEG, PNG, WebP allowed"}, 400)
-    contents = await file.read()
-    if len(contents) > MAX_UPLOAD_BYTES:
-        return JSONResponse({"error": f"File too large (max {MAX_UPLOAD_BYTES // (1024*1024)} MB)"}, 413)
+    try:
+        form, file, contents, _content_type = await _read_bounded_validated_image(request)
+    except (MultipartBodyTooLarge, ImageFileTooLarge):
+        return JSONResponse({"error": "File too large"}, 413)
+    except InvalidMultipartForm:
+        return JSONResponse({"error": "Invalid upload form"}, 400)
+    except InvalidImageFile:
+        return JSONResponse({"error": "Invalid image file"}, 400)
+
+    mode = str(form.get("mode") or "dispose")
+    item_type = str(form.get("item_type") or "food")
+    item_state = str(form.get("item_state") or "new")
+    debug = str(form.get("debug") or "false")
+    prompt = str(form.get("prompt") or "")
+    lang = str(form.get("lang") or "en")
     sid = f"{item_type}_{item_state}"
     try:
         ai = await analyze_scan_image(
@@ -360,7 +744,12 @@ async def nearby_recycling_points(request: Request, lat: float, lon: float, mate
 
 
 @app.post("/api/rewards/redeem")
-async def redeem(request: Request, data: dict):
+async def redeem(
+    request: Request,
+    data: dict,
+    user: dict = Depends(require_current_user),
+):
+    _session_owner_id(user)
     await check_rate_limit(request, 30, 60)
     reward = next((r for r in REWARDS_CATALOG if r["id"] == data.get("reward_id")), None)
     if not reward: return JSONResponse({"error": "Not found"}, 404)

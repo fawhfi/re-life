@@ -254,6 +254,18 @@ function getWeatherSubtitle(model) {
     return baseLocation;
 }
 
+function formatWeatherUpdatedAt(value) {
+    if (!value) return '--';
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) return String(value);
+    return new Intl.DateTimeFormat(getWeatherLanguage() === 'zh' ? 'zh-HK' : 'en-HK', {
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+    }).format(parsed);
+}
+
 function renderWeatherDetails() {
     const model = getWeatherDetailModel();
     const titleEl = document.getElementById('weather-detail-title');
@@ -261,6 +273,8 @@ function renderWeatherDetails() {
     const emojiEl = document.getElementById('weather-detail-emoji');
     const tempEl = document.getElementById('weather-detail-temp');
     const locationEl = document.getElementById('weather-detail-location');
+    const updatedEl = document.getElementById('weather-detail-updated');
+    const sourceEl = document.getElementById('weather-detail-source');
     const warningEl = document.getElementById('weather-detail-warning');
     const warningIconEl = document.getElementById('weather-detail-warning-icon');
     const warningTitleEl = document.getElementById('weather-detail-warning-title');
@@ -278,6 +292,8 @@ function renderWeatherDetails() {
     renderWeatherIcon(emojiEl, model, '🌤️');
     if (tempEl) tempEl.textContent = Number.isFinite(model.temperature) ? `${Math.round(model.temperature)}°C` : '--°C';
     if (locationEl) locationEl.textContent = localizeWeatherLocation(model.location);
+    if (updatedEl) updatedEl.textContent = formatWeatherUpdatedAt(model.updated_at);
+    if (sourceEl) sourceEl.textContent = model.source || '--';
     if (warningEl) warningEl.classList.toggle('hidden', !warning);
     if (warningIconEl) renderWeatherIcon(warningIconEl, model.warning, model.warning?.emoji || '⚠️');
     if (warningTitleEl) warningTitleEl.textContent = warning?.title || '';

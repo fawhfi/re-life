@@ -21,8 +21,8 @@
   <link
     href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,700;9..40,900&display=swap"
     rel="stylesheet">
-  <link rel="stylesheet" href="/static/style.css">
-  <link rel="stylesheet" href="/static/css/theme.css">
+  <link rel="stylesheet" href="/static/style.css?v=20260719-agent3">
+  <link rel="stylesheet" href="/static/css/theme.css?v=20260719-agent3">
   <link rel="icon" type="image/png" href="/static/assets/favicon.png">
 </head>
 
@@ -270,6 +270,27 @@
         </div>
       </section>
 
+      <!-- TAB: Agent -->
+      <section id="tab-agent" class="tab">
+        <div class="agent-shell" aria-labelledby="agent-title">
+          <div class="agent-header">
+            <div>
+              <h2 class="agent-title" id="agent-title">ReAgent</h2>
+              <div class="agent-status" id="agent-status" aria-live="polite">Ready</div>
+            </div>
+            <button type="button" class="agent-icon-btn" id="agent-new-conversation"
+              onclick="resetAgentConversation()" aria-label="New conversation" title="New conversation">↻</button>
+          </div>
+          <div class="agent-messages" id="agent-messages" role="log" aria-live="polite" aria-relevant="additions"></div>
+          <div class="agent-tool-status hidden" id="agent-tool-status" role="status"></div>
+          <form class="agent-composer" id="agent-form" onsubmit="handleAgentSubmit(event)">
+            <textarea id="agent-input" class="agent-input" rows="1" maxlength="2000"
+              placeholder="Ask about recycling..." aria-label="Message ReAgent"></textarea>
+            <button type="submit" class="agent-send" id="agent-send" aria-label="Send message" title="Send">↑</button>
+          </form>
+        </div>
+      </section>
+
       <!-- TAB: More -->
       <section id="tab-more" class="tab">
         <div class="more-section">
@@ -338,6 +359,8 @@
       <button id="nav-rewards" class="nav-btn" data-tab="rewards" onclick="navigateTo('rewards')"><span
           class="nav-btn-icon"><img src="/static/assets/Reward.png" alt="Rewards"
             style="width:100%;height:100%;object-fit:contain"></span><span id="nav-lbl-rewards">Rewards</span></button>
+      <button id="nav-agent" class="nav-btn" data-tab="agent" onclick="navigateTo('agent')"><span
+          class="nav-btn-icon agent-nav-symbol" aria-hidden="true">✦</span><span id="nav-lbl-agent">Agent</span></button>
       <button id="nav-more" class="nav-btn" data-tab="more" onclick="navigateTo('more')"><span class="nav-btn-icon"><img
             src="/static/assets/More.png" alt="More" style="width:100%;height:100%;object-fit:contain"></span><span
           id="nav-lbl-more">More</span></button>
@@ -369,6 +392,28 @@
       </div>
     </div>
   </div>
+
+  <dialog id="agent-consent-dialog" class="agent-dialog" aria-labelledby="agent-consent-title">
+    <form method="dialog">
+      <h2 id="agent-consent-title">Use ReAgent?</h2>
+      <p id="agent-consent-body">Your messages will be processed by the AI provider configured by this service. ReAgent only reads account data after a separate approval.</p>
+      <div class="agent-dialog-actions">
+        <button type="submit" class="btn btn--outline" id="agent-consent-cancel" value="cancel">Cancel</button>
+        <button type="submit" class="btn btn--primary" id="agent-consent-allow" value="allow">Allow</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="agent-records-dialog" class="agent-dialog" aria-labelledby="agent-records-title">
+    <form method="dialog">
+      <h2 id="agent-records-title">Share recent records?</h2>
+      <p id="agent-records-body">Allow this Agent run to read a short summary of your recent recycling records.</p>
+      <div class="agent-dialog-actions">
+        <button type="submit" class="btn btn--outline" id="agent-records-deny" value="deny">Deny</button>
+        <button type="submit" class="btn btn--primary" id="agent-records-allow" value="allow">Allow once</button>
+      </div>
+    </form>
+  </dialog>
 
   <!-- ═══ WEATHER DETAILS ═══ -->
   <div id="weather-overlay" class="weather-overlay" aria-hidden="true" onclick="closeWeatherDetails()">
@@ -421,14 +466,15 @@
   <div id="toast-container" class="toast-container" role="status" aria-live="polite"></div>
 
   <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
-  <script src="/static/js/camera.js"></script>
-  <script type="module" src="/static/supabase.js"></script>
-  <script src="/static/js/i18n.js"></script>
-  <script src="/static/js/utils.js"></script>
-  <script src="/static/app.js"></script>
-  <script src="/static/js/app-weather.js"></script>
-  <script src="/static/js/app-recycling.js"></script>
-  <script src="/static/js/app-records.js"></script>
+  <script src="/static/js/camera.js?v=20260719-agent3"></script>
+  <script type="module" src="/static/supabase.js?v=20260719-agent3"></script>
+  <script src="/static/js/i18n.js?v=20260719-agent3"></script>
+  <script src="/static/js/utils.js?v=20260719-agent3"></script>
+  <script src="/static/app.js?v=20260719-agent3"></script>
+  <script src="/static/js/app-weather.js?v=20260719-agent3"></script>
+  <script src="/static/js/app-agent.js?v=20260719-agent3"></script>
+  <script src="/static/js/app-recycling.js?v=20260719-agent3"></script>
+  <script src="/static/js/app-records.js?v=20260719-agent3"></script>
 </body>
 
 </html>

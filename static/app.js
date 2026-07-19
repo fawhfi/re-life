@@ -773,7 +773,7 @@ function initNavDrag() {
 
 let _tabTween = null;
 
-const TAB_ORDER = ['home', 'record', 'rewards', 'more'];
+const TAB_ORDER = ['home', 'record', 'rewards', 'agent', 'more'];
 
 function getTabDirection(nextName) {
     const currentIndex = TAB_ORDER.indexOf(state.activeTab);
@@ -2127,6 +2127,7 @@ function updateAllLabels() {
         'nav-lbl-home': 'navHome',
         'nav-lbl-record': 'navRecord',
         'nav-lbl-rewards': 'navRewards',
+        'nav-lbl-agent': 'navAgent',
         'nav-lbl-more': 'navMore',
     };
 
@@ -2158,6 +2159,7 @@ function updateAllLabels() {
     const sndLabel = document.getElementById('sound-label');
     if (sndLabel) sndLabel.textContent = soundOn ? tr('soundOn') : tr('soundOff');
     document.getElementById('clear-btn').textContent = tr('clearAll');
+    if (typeof refreshAgentLanguage === 'function') refreshAgentLanguage();
     updateHeaderUI();
 }
 

@@ -4,6 +4,7 @@
    ═══════════════════════════════════════════════════════════════════════ */
 
 const I18N = (() => {
+    const ASSET_SUFFIX = '.json?v=20260719-agent3';
     let _strings = {};       // current language strings
     let _currentLang = 'en';
     let _loaded = false;
@@ -34,7 +35,7 @@ const I18N = (() => {
         lang = normalizeLang(lang);
         if (_loaded && lang === _currentLang) return;
         // Try localStorage cache first
-        const cacheKey = `I18N_CACHE_${lang}`;
+        const cacheKey = `I18N_CACHE_20260719_AGENT3_${lang}`;
         try {
             const cached = localStorage.getItem(cacheKey);
             if (cached) {
@@ -42,7 +43,7 @@ const I18N = (() => {
                 _currentLang = lang;
                 _loaded = true;
                 // Refresh cache in background
-                fetch(`/static/i18n/${lang}.json`).then(r => r.json()).then(data => {
+                fetch(`/static/i18n/${lang}${ASSET_SUFFIX}`).then(r => r.json()).then(data => {
                     _strings = data;
                     localStorage.setItem(cacheKey, JSON.stringify(data));
                 }).catch(() => {});
@@ -50,7 +51,7 @@ const I18N = (() => {
             }
         } catch {}
         try {
-            const res = await fetch(`/static/i18n/${lang}.json`);
+            const res = await fetch(`/static/i18n/${lang}${ASSET_SUFFIX}`);
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
             _strings = await res.json();
             _currentLang = lang;
@@ -60,7 +61,7 @@ const I18N = (() => {
             console.error(`[I18N] Failed to load ${lang}:`, e);
             if (lang !== 'en') {
                 try {
-                    const res = await fetch('/static/i18n/en.json');
+                    const res = await fetch(`/static/i18n/en${ASSET_SUFFIX}`);
                     _strings = await res.json();
                     _currentLang = 'en';
                     _loaded = true;

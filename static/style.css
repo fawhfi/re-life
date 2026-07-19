@@ -388,6 +388,230 @@ body {
     width: auto;
 }
 
+/* ── Re-Life Agent ─────────────────────────────────────────────────── */
+#tab-agent {
+    min-height: min(620px, calc(100dvh - 215px));
+}
+
+.agent-shell {
+    min-height: min(620px, calc(100dvh - 215px));
+    height: min(680px, calc(100dvh - 215px));
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr) auto auto;
+    overflow: hidden;
+    background: rgba(255, 255, 255, 0.88);
+    border: 1px solid rgba(25, 60, 38, 0.12);
+    border-radius: 8px;
+    box-shadow: var(--shadow-sm);
+}
+
+.agent-header {
+    min-height: 64px;
+    padding: 12px 14px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    border-bottom: 1px solid var(--color-gray-100);
+}
+
+.agent-title {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 800;
+    color: var(--color-gray-800);
+    letter-spacing: 0;
+}
+
+.agent-status {
+    margin-top: 2px;
+    font-size: 11px;
+    color: var(--color-gray-500);
+}
+
+.agent-icon-btn,
+.agent-send {
+    width: 40px;
+    height: 40px;
+    flex: 0 0 40px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--color-gray-200);
+    border-radius: 50%;
+    background: var(--color-white);
+    color: var(--color-gray-700);
+    font: inherit;
+    font-size: 20px;
+    cursor: pointer;
+}
+
+.agent-icon-btn:focus-visible,
+.agent-send:focus-visible,
+.agent-input:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+}
+
+.agent-messages {
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    scrollbar-width: thin;
+}
+
+.agent-message {
+    width: fit-content;
+    max-width: 86%;
+    padding: 9px 11px;
+    border-radius: 8px;
+    font-size: 13px;
+    line-height: 1.45;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+.agent-message--assistant {
+    align-self: flex-start;
+    background: var(--color-gray-100);
+    color: var(--color-gray-800);
+}
+
+.agent-message--user {
+    align-self: flex-end;
+    background: var(--color-primary);
+    color: #fff;
+}
+
+.agent-tool-status {
+    min-height: 28px;
+    padding: 6px 14px;
+    border-top: 1px solid var(--color-gray-100);
+    color: var(--color-gray-500);
+    font-size: 11px;
+}
+
+.agent-composer {
+    min-height: 60px;
+    padding: 9px;
+    display: flex;
+    align-items: flex-end;
+    gap: 8px;
+    border-top: 1px solid var(--color-gray-100);
+    background: rgba(255, 255, 255, 0.92);
+}
+
+.agent-input {
+    width: 100%;
+    min-height: 40px;
+    max-height: 120px;
+    resize: none;
+    padding: 10px 12px;
+    border: 1px solid var(--color-gray-200);
+    border-radius: 8px;
+    background: var(--color-white);
+    color: var(--color-gray-800);
+    font: inherit;
+    font-size: 13px;
+    line-height: 1.35;
+}
+
+.agent-send {
+    border-color: var(--color-primary);
+    background: var(--color-primary);
+    color: #fff;
+}
+
+.agent-send:disabled {
+    cursor: wait;
+    opacity: 0.55;
+}
+
+.agent-points {
+    display: grid;
+    gap: 8px;
+}
+
+.agent-point {
+    padding: 10px;
+    border: 1px solid var(--color-gray-200);
+    border-radius: 8px;
+    background: var(--color-white);
+}
+
+.agent-point-name {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--color-gray-800);
+}
+
+.agent-point-meta {
+    margin-top: 3px;
+    font-size: 10px;
+    color: var(--color-gray-500);
+}
+
+.agent-point a {
+    display: inline-block;
+    margin-top: 7px;
+    color: var(--color-primary);
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.agent-nav-symbol {
+    font-size: 21px;
+    line-height: 1;
+    color: currentColor;
+}
+
+.agent-dialog {
+    width: min(360px, calc(100% - 32px));
+    padding: 18px;
+    border: 1px solid var(--color-gray-200);
+    border-radius: 8px;
+    background: var(--color-white);
+    color: var(--color-gray-800);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.24);
+}
+
+.agent-dialog::backdrop {
+    background: rgba(8, 12, 9, 0.58);
+    backdrop-filter: blur(4px);
+}
+
+.agent-dialog h2 {
+    margin: 0 0 8px;
+    font-size: 17px;
+    letter-spacing: 0;
+}
+
+.agent-dialog p {
+    margin: 0;
+    color: var(--color-gray-600);
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+.agent-dialog-actions {
+    margin-top: 18px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+}
+
+@media (max-height: 700px) {
+    #tab-agent,
+    .agent-shell {
+        min-height: 420px;
+        height: calc(100dvh - 205px);
+    }
+}
+
 /* ── Card ──────────────────────────────────────────────────────────── */
 .card {
     background: var(--color-white);

@@ -16,3 +16,5 @@ scripts
 docs
 output
 .worktrees/
+tests/*
+!tests/test_agent.py

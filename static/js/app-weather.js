@@ -42,16 +42,15 @@ async function resolveWeatherCoordinates(forcePrompt = false) {
         return null;
     }
 
-    if (!forcePrompt && navigator.permissions && navigator.permissions.query) {
+    if (!forcePrompt) {
+        if (!navigator.permissions?.query) return null;
         try {
             const permission = await navigator.permissions.query({ name: 'geolocation' });
-            if (permission.state === 'denied') {
+            if (permission.state !== 'granted') {
                 return null;
             }
         } catch (_) {
-            // Some browsers, including iOS Safari variants, do not expose a
-            // usable Permissions API for geolocation. Fall through and ask
-            // the Geolocation API directly so the native prompt can appear.
+            return null;
         }
     }
 

@@ -194,6 +194,7 @@ const state = {
     selectedFileDataUrl: '',
     currentTipIndex: 0,
     tips: [],
+    currentFact: null,
     lang: 'en',
     aiMode: true,
     itemType: 'food',
@@ -273,6 +274,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         I18N.load(state.lang).then(() => {
             updateAllLabels();
             updateWeatherUI();
+            renderFact();
         });
     } else {
         updateAllLabels();
@@ -315,6 +317,7 @@ let cameraAvailable = false;
 async function detectCamera() {
     if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) {
         cameraAvailable = false;
+        updateScanCameraOption();
         return;
     }
     try {
@@ -324,11 +327,7 @@ async function detectCamera() {
         cameraAvailable = false;
     }
 
-    // Show gallery link only when camera is NOT available
-    const galleryLink = document.getElementById('upload-gallery-link');
-    if (galleryLink) {
-        galleryLink.style.display = cameraAvailable ? 'none' : 'inline-block';
-    }
+    updateScanCameraOption();
 }
 
 function startClock() {
@@ -765,6 +764,18 @@ function initNavDrag() {
         const a = navbar.querySelector('.nav-btn.is-active');
         if (a) snapIndicatorTo(a);
     };
+
+    let navResizeFrame = 0;
+    window.addEventListener('resize', () => {
+        if (navResizeFrame) cancelAnimationFrame(navResizeFrame);
+        navResizeFrame = requestAnimationFrame(() => {
+            navResizeFrame = 0;
+            if (isDragging) return;
+            liquidShell.refresh();
+            const active = navbar.querySelector('.nav-btn.is-active');
+            if (active) snapIndicatorTo(active);
+        });
+    });
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -942,6 +953,71 @@ function triggerUpload() {
     document.getElementById('file-input').click();
 }
 
+function triggerGalleryUpload() {
+    document.getElementById('gallery-input').click();
+}
+
+function updateScanCameraOption() {
+    const button = document.getElementById('scan-source-camera');
+    if (!button) return;
+    const supported = Boolean(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+    button.disabled = !supported;
+    button.title = supported ? '' : tr('scanSourceUnavailable');
+}
+
+function openScanSourceDialog() {
+    const dialog = document.getElementById('scan-source-dialog');
+    if (!dialog || typeof dialog.showModal !== 'function') {
+        triggerUpload();
+        return;
+    }
+    updateScanCameraOption();
+    if (!dialog.open) dialog.showModal();
+}
+
+function closeScanSourceDialog() {
+    const dialog = document.getElementById('scan-source-dialog');
+    if (dialog && dialog.open) dialog.close();
+}
+
+function handleScanSourceBackdrop(event) {
+    if (event.target === event.currentTarget) closeScanSourceDialog();
+}
+
+async function openLocalImageFile() {
+    if (typeof window.showOpenFilePicker === 'function') {
+        try {
+            const handles = await window.showOpenFilePicker({
+                multiple: false,
+                types: [{
+                    description: tr('scanImageFiles'),
+                    accept: {
+                        'image/*': ['.avif', '.bmp', '.gif', '.jpeg', '.jpg', '.png', '.webp'],
+                    },
+                }],
+            });
+            if (handles[0]) processFile(await handles[0].getFile());
+            return;
+        } catch (error) {
+            if (error && error.name === 'AbortError') return;
+        }
+    }
+    triggerUpload();
+}
+
+function chooseScanSource(source) {
+    closeScanSourceDialog();
+    if (source === 'camera') {
+        openCamera();
+        return;
+    }
+    if (source === 'gallery') {
+        triggerGalleryUpload();
+        return;
+    }
+    if (source === 'file') openLocalImageFile();
+}
+
 function handleFileSelect(e) {
     const file = e.target.files[0];
     if (file) processFile(file);
@@ -970,7 +1046,7 @@ function setupDragDrop() {
 
 function processFile(file) {
     if (!file.type.startsWith('image/')) {
-        alert('Please select an image file.');
+        alert(tr('scanImageOnly'));
         return;
     }
     state.selectedFile = file;
@@ -1024,6 +1100,7 @@ function clearPreview() {
     preview.classList.remove('is-shown');
     zone.classList.remove('has-image');
     document.getElementById('file-input').value = '';
+    document.getElementById('gallery-input').value = '';
 }
 
 
@@ -1032,11 +1109,7 @@ function clearPreview() {
 // ═══════════════════════════════════════════════════════════════════════
 function zoneTap() {
     if (state.selectedFile) return; // preview is showing, ignore tap
-    if (cameraAvailable) {
-        openCamera();
-    } else {
-        triggerUpload();
-    }
+    openScanSourceDialog();
 }
 
 
@@ -1570,10 +1643,20 @@ async function loadFact() {
     try {
         const res = await fetch('/api/fact');
         const data = await res.json();
-        document.getElementById('fact-text').textContent = data.fact;
+        state.currentFact = data;
+        renderFact();
     } catch (_) {
         /* offline — use default fact from HTML */
     }
+}
+
+function renderFact() {
+    if (!state.currentFact) return;
+    const element = document.getElementById('fact-text');
+    if (!element) return;
+    const key = `facts.${state.currentFact.id}`;
+    const localized = tr(key);
+    element.textContent = localized === key ? (state.currentFact.fact || '') : localized;
 }
 
 
@@ -1585,9 +1668,23 @@ async function loadRewards() {
     try {
         const res = await fetch('/api/rewards');
         state.rewards = await res.json();
+        if (state.activeTab === 'rewards') renderRewards();
     } catch (e) {
         console.error('Failed to load rewards:', e);
     }
+}
+
+function localizeReward(reward) {
+    const prefix = `rewardCatalog.${reward.id}`;
+    const title = tr(`${prefix}.title`);
+    const provider = tr(`${prefix}.provider`);
+    const description = tr(`${prefix}.description`);
+    return {
+        ...reward,
+        title: title === `${prefix}.title` ? (reward.title || '') : title,
+        provider: provider === `${prefix}.provider` ? (reward.provider || '') : provider,
+        description: description === `${prefix}.description` ? (reward.description || '') : description,
+    };
 }
 
 function renderRewards() {
@@ -1620,7 +1717,8 @@ function renderRewards() {
                 <div class="empty-state-hint">${tr('noRewardsHint')}</div>
             </div>`;
     } else {
-        catalogue.innerHTML = state.rewards.map(rw => {
+        catalogue.innerHTML = state.rewards.map(reward => {
+        const rw = localizeReward(reward);
         const canBuy = balance >= rw.cost;
         return `
         <div class="rewards-item">
@@ -1662,6 +1760,7 @@ function renderRewards() {
             </div>`;
     } else {
         const couponButtons = state.claimedCoupons.map(coupon => {
+            const localizedCoupon = localizeReward(coupon);
             const button = document.createElement('button');
             button.type = 'button';
             button.className = 'rewards-coupon';
@@ -1680,7 +1779,7 @@ function renderRewards() {
             title.style.overflow = 'hidden';
             title.style.textOverflow = 'ellipsis';
             title.style.whiteSpace = 'nowrap';
-            title.textContent = coupon.title || '';
+            title.textContent = localizedCoupon.title;
 
             const code = document.createElement('div');
             code.style.fontSize = '8px';
@@ -1718,8 +1817,8 @@ function redeemReward(rewardId) {
             state.claimedCoupons.unshift({
                 ...reward,
                 code: data.coupon.code,
-                claimedDate: 'Just now',
-                expiry: 'Valid 30 days',
+                claimedDate: tr('rewardClaimedNow'),
+                expiry: tr('couponExpiry'),
             });
             showCouponTicket(data.coupon.code);
             renderRewards();
@@ -1769,6 +1868,7 @@ function showConfirm(msg, onConfirm) {
 function showCouponTicket(code) {
     const coupon = state.claimedCoupons.find(c => c.code === code);
     if (!coupon) return;
+    const localizedCoupon = localizeReward(coupon);
     document.getElementById('modal-icon').textContent = '🎫';
     document.getElementById('modal-title').textContent = tr('couponClaimed');
 
@@ -1778,12 +1878,12 @@ function showCouponTicket(code) {
 
     const couponExpiry = document.createElement('div');
     couponExpiry.className = 'coupon-expiry';
-    couponExpiry.textContent = coupon.expiry || '';
+    couponExpiry.textContent = tr('couponExpiry');
 
     const couponTitle = document.createElement('div');
     couponTitle.style.marginTop = '8px';
     couponTitle.style.fontSize = '11px';
-    couponTitle.textContent = coupon.title || '';
+    couponTitle.textContent = localizedCoupon.title;
     document.getElementById('modal-body').replaceChildren(
         couponCode,
         couponExpiry,
@@ -2064,6 +2164,7 @@ async function setLang(lang) {
     syncLanguageControls();
     updateAllLabels();
     updateWeatherUI();
+    renderFact();
     if (state.activeTab === 'record') renderRecords();
     if (state.activeTab === 'rewards') renderRewards();
 }
@@ -2084,6 +2185,10 @@ function updateAllLabels() {
         'lbl-know-more': 'knowMore',
         'lbl-scan-title': 'scanItems',
         'lbl-upload-hint': 'orDrag',
+        'scan-source-title': 'scanSourceTitle',
+        'scan-source-camera-label': 'scanSourceCamera',
+        'scan-source-gallery-label': 'scanSourceGallery',
+        'scan-source-file-label': 'scanSourceFile',
         'lbl-scan-again': 'scanAgain',
         'lbl-add-record': 'addToRecord',
         'lbl-empty-text': 'noRecords',
@@ -2158,6 +2263,12 @@ function updateAllLabels() {
     if (sndIcon) sndIcon.src = soundOn ? '/static/assets/Sound_On.png' : '/static/assets/Sound_Off.png';
     const sndLabel = document.getElementById('sound-label');
     if (sndLabel) sndLabel.textContent = soundOn ? tr('soundOn') : tr('soundOff');
+    const scanSourceClose = document.querySelector('.scan-source-close');
+    if (scanSourceClose) {
+        scanSourceClose.setAttribute('aria-label', tr('closeBtn'));
+        scanSourceClose.title = tr('closeBtn');
+    }
+    updateScanCameraOption();
     document.getElementById('clear-btn').textContent = tr('clearAll');
     if (typeof refreshAgentLanguage === 'function') refreshAgentLanguage();
     updateHeaderUI();

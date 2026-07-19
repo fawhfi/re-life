@@ -21,12 +21,14 @@ from config import (
     SESSION_CLOCK_SKEW_SECONDS,
     SESSION_COOKIE_NAME,
     SESSION_IDLE_SECONDS,
+    SESSION_MAX_PER_USER,
     SESSION_METADATA_HASH_KEY,
     SESSION_TOUCH_INTERVAL_SECONDS,
 )
 from storage import (
     supabase_enabled,
     supabase_insert,
+    supabase_select,
     supabase_select_one,
     supabase_update,
 )
@@ -36,6 +38,9 @@ SAFE_USER_COLUMNS = (
     "claimed_coupons,email_verified,created_at,updated_at"
 )
 SESSION_COLUMNS = "id,user_id,last_seen_at,revoked_at"
+SESSION_MANAGEMENT_COLUMNS = (
+    "id,user_agent,request_ip_hash,created_at"
+)
 
 
 class SecurityStoreUnavailable(RuntimeError):
@@ -182,18 +187,60 @@ async def create_session(
     token = secrets.token_urlsafe(32)
     token_hash = _token_hash(token)
     now = _iso_now()
+    normalized_user_agent = str(user_agent or "")[:256]
+    request_ip_hash = _ip_hash(request_ip)
     row = {
         "user_id": user_id,
         "token_hash": token_hash,
-        "user_agent": str(user_agent or "")[:256],
-        "request_ip_hash": _ip_hash(request_ip),
+        "user_agent": normalized_user_agent,
+        "request_ip_hash": request_ip_hash,
         "last_seen_at": now,
         "revoked_at": None,
     }
 
     if supabase_enabled():
         try:
-            await supabase_insert("app_sessions", row, returning=False)
+            existing_rows = list(
+                await supabase_select(
+                    "app_sessions",
+                    columns=SESSION_MANAGEMENT_COLUMNS,
+                    filters={"user_id": user_id},
+                    order="created_at.asc,id.asc",
+                    limit=SESSION_MAX_PER_USER,
+                )
+                or []
+            )
+            reusable = next(
+                (
+                    existing
+                    for existing in existing_rows
+                    if existing.get("user_agent") == normalized_user_agent
+                    and existing.get("request_ip_hash") == request_ip_hash
+                ),
+                None,
+            )
+            if reusable is None and len(existing_rows) >= SESSION_MAX_PER_USER:
+                reusable = existing_rows[0]
+
+            if reusable is not None:
+                session_id = reusable.get("id")
+                if not session_id:
+                    raise RuntimeError("stored session is missing its id")
+                await supabase_update(
+                    "app_sessions",
+                    {
+                        "token_hash": token_hash,
+                        "user_agent": normalized_user_agent,
+                        "request_ip_hash": request_ip_hash,
+                        "created_at": now,
+                        "last_seen_at": now,
+                        "revoked_at": None,
+                    },
+                    filters={"id": session_id},
+                    returning=False,
+                )
+            else:
+                await supabase_insert("app_sessions", row, returning=False)
         except Exception as exc:
             raise _store_unavailable(exc)
         return token
@@ -201,11 +248,43 @@ async def create_session(
     if not IS_DEVELOPMENT:
         raise _store_unavailable()
 
-    _memory_sessions_by_hash[token_hash] = {
-        "id": str(uuid.uuid4()),
-        "created_at": now,
-        **row,
-    }
+    user_sessions = [
+        (stored_hash, stored)
+        for stored_hash, stored in _memory_sessions_by_hash.items()
+        if stored.get("user_id") == user_id
+    ]
+    reusable_entry = next(
+        (
+            entry
+            for entry in user_sessions
+            if entry[1].get("user_agent") == normalized_user_agent
+            and entry[1].get("request_ip_hash") == request_ip_hash
+        ),
+        None,
+    )
+    if reusable_entry is None and len(user_sessions) >= SESSION_MAX_PER_USER:
+        reusable_entry = min(
+            user_sessions,
+            key=lambda entry: (
+                str(entry[1].get("created_at") or ""),
+                str(entry[1].get("id") or ""),
+            ),
+        )
+
+    if reusable_entry is not None:
+        old_hash, reusable = reusable_entry
+        _memory_sessions_by_hash.pop(old_hash, None)
+        _memory_sessions_by_hash[token_hash] = {
+            **reusable,
+            **row,
+            "created_at": now,
+        }
+    else:
+        _memory_sessions_by_hash[token_hash] = {
+            "id": str(uuid.uuid4()),
+            "created_at": now,
+            **row,
+        }
     return token
 
 

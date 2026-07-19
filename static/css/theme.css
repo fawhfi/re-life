@@ -357,27 +357,35 @@
 /* ── Dark mode: agent ─────────────────────────────────────────────── */
 [data-theme="dark"] .agent-shell,
 [data-theme="midnight"] .agent-shell {
-    background: rgba(16, 24, 18, 0.94);
+    background: var(--color-white);
     border-color: rgba(255, 255, 255, 0.10);
 }
 [data-theme="dark"] .agent-header,
 [data-theme="midnight"] .agent-header,
+[data-theme="dark"] .agent-messages,
+[data-theme="midnight"] .agent-messages,
 [data-theme="dark"] .agent-tool-status,
 [data-theme="midnight"] .agent-tool-status,
 [data-theme="dark"] .agent-composer,
 [data-theme="midnight"] .agent-composer {
     border-color: rgba(255, 255, 255, 0.08);
 }
+[data-theme="dark"] .agent-messages,
+[data-theme="midnight"] .agent-messages {
+    background: var(--color-bg-alt);
+}
 [data-theme="dark"] .agent-composer,
 [data-theme="midnight"] .agent-composer {
-    background: rgba(10, 16, 12, 0.86);
+    background: var(--color-white);
 }
-[data-theme="dark"] .agent-message--assistant,
-[data-theme="midnight"] .agent-message--assistant,
+[data-theme="dark"] .agent-message--assistant .agent-message-bubble,
+[data-theme="midnight"] .agent-message--assistant .agent-message-bubble,
 [data-theme="dark"] .agent-point,
 [data-theme="midnight"] .agent-point,
 [data-theme="dark"] .agent-input,
 [data-theme="midnight"] .agent-input,
+[data-theme="dark"] .agent-suggestion,
+[data-theme="midnight"] .agent-suggestion,
 [data-theme="dark"] .agent-icon-btn,
 [data-theme="midnight"] .agent-icon-btn {
     background: var(--color-gray-100);

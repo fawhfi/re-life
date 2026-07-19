@@ -17,16 +17,49 @@ function setAgentStatus(text, busy = false) {
     agentBusy = busy;
     if (send) send.disabled = busy;
     if (input) input.disabled = busy;
+    document.querySelector('.agent-shell')?.classList.toggle('agent-is-busy', busy);
 }
 
 function appendAgentMessage(role, text) {
     const list = document.getElementById('agent-messages');
     if (!list || !text) return;
+    document.getElementById('agent-welcome')?.remove();
     const row = document.createElement('div');
     row.className = `agent-message agent-message--${role}`;
-    row.textContent = String(text);
+    if (role === 'assistant') {
+        const avatar = document.createElement('span');
+        avatar.className = 'agent-message-avatar';
+        avatar.textContent = 'R';
+        avatar.setAttribute('aria-hidden', 'true');
+        row.appendChild(avatar);
+    }
+    const content = document.createElement('div');
+    content.className = 'agent-message-content';
+    const author = document.createElement('span');
+    author.className = 'agent-message-author';
+    author.textContent = role === 'assistant'
+        ? agentTr('assistantLabel', 'ReAgent')
+        : agentTr('userLabel', 'You');
+    const bubble = document.createElement('div');
+    bubble.className = 'agent-message-bubble';
+    bubble.textContent = String(text);
+    content.append(author, bubble);
+    row.appendChild(content);
     list.appendChild(row);
     list.scrollTop = list.scrollHeight;
+}
+
+function submitAgentSuggestion(kind) {
+    const prompts = {
+        nearby: agentTr('suggestionNearbyPrompt', 'Find recycling points near me.'),
+        sorting: agentTr('suggestionSortingPrompt', 'How should I recycle this item?'),
+        records: agentTr('suggestionRecordsPrompt', 'What have I recycled recently?'),
+    };
+    const input = document.getElementById('agent-input');
+    if (!input || !prompts[kind]) return;
+    input.value = prompts[kind];
+    input.dispatchEvent(new Event('input'));
+    document.getElementById('agent-form')?.requestSubmit();
 }
 
 function safeAgentUrl(value) {
@@ -208,11 +241,14 @@ async function handleAgentSubmit(event) {
         setAgentStatus(agentTr('ready', 'Ready'));
     } catch (error) {
         if (error.code === 'AGENT_DATA_CONSENT_REQUIRED') agentDataConsent = false;
-        const fallback = error.code === 'AGENT_NOT_CONFIGURED'
+        const safetyBlocked = error.code === 'AGENT_SAFETY_BLOCKED';
+        const fallback = safetyBlocked
+            ? agentTr('safetyBlocked', "I can't follow requests that try to change my rules or bypass permissions.")
+            : error.code === 'AGENT_NOT_CONFIGURED'
             ? agentTr('notConfigured', 'Agent is not configured on this server.')
             : agentTr('unavailable', 'Agent is temporarily unavailable.');
         appendAgentMessage('assistant', fallback);
-        setAgentStatus(agentTr('error', 'Unavailable'));
+        setAgentStatus(safetyBlocked ? agentTr('ready', 'Ready') : agentTr('error', 'Unavailable'));
     } finally {
         setAgentStatus(document.getElementById('agent-status')?.textContent || agentTr('ready', 'Ready'), false);
         input?.focus();
@@ -237,8 +273,22 @@ async function resetAgentConversation() {
 function initializeAgentMessages() {
     const list = document.getElementById('agent-messages');
     if (!list) return;
-    list.textContent = '';
-    appendAgentMessage('assistant', agentTr('greeting', 'What would you like to recycle today?'));
+    const template = document.getElementById('agent-welcome-template');
+    list.replaceChildren(template?.content.cloneNode(true) || document.createTextNode(''));
+    refreshAgentWelcomeLanguage();
+}
+
+function refreshAgentWelcomeLanguage() {
+    const labels = {
+        'agent-greeting': agentTr('greeting', 'What can we sort out?'),
+        'agent-suggestion-nearby': agentTr('suggestionNearby', 'Find nearby points'),
+        'agent-suggestion-sorting': agentTr('suggestionSorting', 'Sort an item'),
+        'agent-suggestion-records': agentTr('suggestionRecords', 'Recent scans'),
+    };
+    Object.entries(labels).forEach(([id, value]) => {
+        const element = document.getElementById(id);
+        if (element) element.textContent = value;
+    });
 }
 
 function refreshAgentLanguage() {
@@ -257,6 +307,7 @@ function refreshAgentLanguage() {
         const element = document.getElementById(id);
         if (element) element.textContent = value;
     });
+    refreshAgentWelcomeLanguage();
     const input = document.getElementById('agent-input');
     if (input) {
         input.placeholder = agentTr('placeholder', 'Ask about recycling...');

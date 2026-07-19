@@ -4,7 +4,7 @@
    ═══════════════════════════════════════════════════════════════════════ */
 
 const I18N = (() => {
-    const ASSET_SUFFIX = '.json?v=20260719-agent3';
+    const ASSET_SUFFIX = '.json?v=20260719-agent4';
     let _strings = {};       // current language strings
     let _currentLang = 'en';
     let _loaded = false;
@@ -35,7 +35,7 @@ const I18N = (() => {
         lang = normalizeLang(lang);
         if (_loaded && lang === _currentLang) return;
         // Try localStorage cache first
-        const cacheKey = `I18N_CACHE_20260719_AGENT3_${lang}`;
+        const cacheKey = `I18N_CACHE_20260719_AGENT4_${lang}`;
         try {
             const cached = localStorage.getItem(cacheKey);
             if (cached) {

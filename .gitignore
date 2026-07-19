@@ -18,3 +18,4 @@ output
 .worktrees/
 tests/*
 !tests/test_agent.py
+!tests/test_supabase_migrations.py

@@ -23,6 +23,7 @@ from agent import (
     AgentInputError,
     AgentNotConfigured,
     AgentProtocolError,
+    AgentSafetyViolation,
     AgentSandboxService,
     AgentToolNotAllowed,
 )
@@ -873,6 +874,8 @@ async def agent_messages(
         return JSONResponse({"error": "AGENT_CONVERSATION_NOT_FOUND"}, 404)
     except AgentInputError as exc:
         return JSONResponse({"error": str(exc)}, 400)
+    except AgentSafetyViolation:
+        return JSONResponse({"error": "AGENT_SAFETY_BLOCKED"}, 400)
     except AgentNotConfigured:
         return JSONResponse({"error": "AGENT_NOT_CONFIGURED"}, 503)
     except (AgentProtocolError, AgentToolNotAllowed):

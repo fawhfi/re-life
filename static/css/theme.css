@@ -239,12 +239,6 @@
 [data-theme="dark"] .nav-btn { color: #c8d3ca; }
 [data-theme="dark"] .nav-btn:hover,
 [data-theme="dark"] .nav-btn.is-active { color: #b7f7c7; }
-[data-theme="dark"] .nav-btn-icon img {
-    filter: brightness(0) invert(1);
-    opacity: 0.78;
-}
-[data-theme="dark"] .nav-btn:hover .nav-btn-icon img,
-[data-theme="dark"] .nav-btn.is-active .nav-btn-icon img { opacity: 1; }
 /* End dark navigation contrast */
 [data-theme="dark"] .ai-switch::after { background: #e5e7e5; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3); }
 [data-theme="dark"] .result-card-name,

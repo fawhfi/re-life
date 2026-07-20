@@ -54,6 +54,7 @@ class AgentRunContext:
     guide_lookup: GuideLookup
     account_memory: AgentMemoryState = field(default_factory=AgentMemoryState)
     personal_decision: bool = False
+    force_local: bool = False
     location: tuple[float, float] | None = None
     last_points: list[dict[str, Any]] = field(default_factory=list)
     tool_trace: list[dict[str, str]] = field(default_factory=list)

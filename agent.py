@@ -451,6 +451,7 @@ class AgentSandboxService:
         image_analysis: dict[str, Any] | None = None,
         language: str = "en",
         data_consent: bool = False,
+        force_local: bool = False,
     ) -> dict[str, Any]:
         has_message = message is not None
         has_location_response = location is not None or location_error is not None
@@ -471,7 +472,7 @@ class AgentSandboxService:
             runtime_message = _message_with_image_observations(cleaned_message, image_analysis)
             if _prompt_injection_reason(runtime_message):
                 raise AgentSafetyViolation("Agent input safety guardrail triggered")
-            if self._safety_checker is not None:
+            if self._safety_checker is not None and not force_local:
                 try:
                     safety_result = await self._safety_checker.check(runtime_message)
                 except AgentSafetyUnavailable:
@@ -514,6 +515,7 @@ class AgentSandboxService:
                 guide_lookup=self._guide_lookup,
                 account_memory=account_memory,
                 personal_decision=is_personal_replacement_decision(decision_message),
+                force_local=bool(force_local),
             )
 
             if has_message:
@@ -575,7 +577,7 @@ class AgentSandboxService:
             sandbox.pending_action = outcome.action_type if outcome.pending_state else ""
             sandbox.pending_request_id = outcome.request_id if outcome.pending_state else ""
             memory_saved = False
-            if outcome.status == "completed":
+            if outcome.status == "completed" and not force_local:
                 account_memory, memory_saved = await self._update_memory(
                     sandbox.user_id,
                     account_memory,

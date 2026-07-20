@@ -228,6 +228,7 @@ class AgentMessageRequest(BaseModel):
     image_analysis: AgentImageAnalysisInput | None = None
     language: Literal["en", "zh_simplified", "zh_traditional"] = "en"
     data_consent: bool = False
+    debug: bool = False
 
     @field_validator("message", "conversation_id", "request_id", mode="before")
     @classmethod
@@ -980,6 +981,7 @@ async def agent_messages(
             "request_id": data.request_id,
             "language": data.language,
             "data_consent": data.data_consent,
+            "force_local": data.debug,
         }
         if data.image_analysis is not None:
             respond_args["image_analysis"] = data.image_analysis.model_dump(exclude_none=True)

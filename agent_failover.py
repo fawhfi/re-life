@@ -24,6 +24,8 @@ class FailoverAgentRuntime:
         self._non_failover_errors = non_failover_errors
 
     async def start(self, message: str, *, context: Any, session: Any) -> Any:
+        if bool(getattr(context, "force_local", False)):
+            return await self._fallback.start(message, context=context, session=session)
         try:
             outcome = await self._primary.start(message, context=context, session=session)
             return self._wrap_primary_pending(outcome, message)

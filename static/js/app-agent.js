@@ -185,6 +185,7 @@ async function analyzeAgentAttachment(file) {
     form.append('item_type', 'general');
     form.append('item_state', 'expire');
     form.append('lang', state.lang);
+    if (state.debugMode) form.append('debug', 'true');
     const response = await fetch('/api/scan/ai', {
         method: 'POST',
         credentials: 'same-origin',
@@ -338,7 +339,10 @@ async function sendAgentRequest(body) {
             Accept: 'application/json',
             'Content-Type': 'application/json',
         },
-        body: JSON.stringify(body),
+        body: JSON.stringify({
+            ...body,
+            debug: Boolean(state.debugMode),
+        }),
     });
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) {

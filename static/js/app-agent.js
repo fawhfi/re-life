@@ -228,6 +228,21 @@ function setAgentToolStatus(text) {
     status.classList.toggle('hidden', !text);
 }
 
+async function clearAgentMemory() {
+    if (!window.confirm(agentTr('memoryClearConfirm', 'Clear saved long-term memory and goal plans?'))) return;
+    try {
+        const response = await fetch('/api/agent/memory', {
+            method: 'DELETE',
+            credentials: 'same-origin',
+            headers: { Accept: 'application/json' },
+        });
+        if (!response.ok) throw new Error(`Memory delete failed (${response.status})`);
+        showToast(agentTr('memoryCleared', 'Long-term memory cleared.'), 'success');
+    } catch (_) {
+        showToast(agentTr('memoryClearError', 'Could not clear long-term memory.'), 'warning');
+    }
+}
+
 function requestAgentDialog(dialogId, allowedValue) {
     const dialog = document.getElementById(dialogId);
     if (!dialog || typeof dialog.showModal !== 'function') {
@@ -443,7 +458,7 @@ async function openAgentHistory() {
     }
 }
 
-async function loadAgentConversation(conversationId) {
+async function loadAgentConversation(conversationId, options = {}) {
     try {
         const response = await fetch(`/api/agent/conversations/${encodeURIComponent(conversationId)}`, {
             credentials: 'same-origin',
@@ -461,10 +476,27 @@ async function loadAgentConversation(conversationId) {
         });
         document.getElementById('agent-history-dialog')?.close();
         setAgentStatus(agentTr('ready', 'Ready'));
-        document.getElementById('agent-input')?.focus();
+        if (options.focus !== false) document.getElementById('agent-input')?.focus();
     } catch (_) {
         const list = document.getElementById('agent-history-list');
         if (list) list.textContent = agentTr('historyError', 'Chat history is unavailable.');
+    }
+}
+
+async function restoreLatestAgentConversation() {
+    try {
+        const response = await fetch('/api/agent/conversations', {
+            credentials: 'same-origin',
+            headers: { Accept: 'application/json' },
+        });
+        if (!response.ok) return;
+        const conversations = await response.json();
+        const latestId = Array.isArray(conversations)
+            ? conversations[0]?.conversation_id
+            : null;
+        if (latestId) await loadAgentConversation(latestId, { focus: false });
+    } catch (_) {
+        // Keep the welcome state when history sync is temporarily unavailable.
     }
 }
 
@@ -509,7 +541,8 @@ function refreshAgentLanguage() {
     const labels = {
         'agent-title': agentTr('title', 'ReAgent'),
         'agent-consent-title': agentTr('consentTitle', 'Use ReAgent?'),
-        'agent-consent-body': agentTr('consentBody', 'Your messages and attached photos may be processed by the AI and safety providers configured by this service. ReAgent only reads account data after a separate approval.'),
+        'agent-consent-body': agentTr('consentBody', 'Your messages and attached photos may be processed by the AI and safety providers configured by this service. Chat history, a compact long-term memory, and goal plans are stored with your account so ReAgent can continue across devices. ReAgent only reads other account data after a separate approval.'),
+        'agent-clear-memory': agentTr('memoryClear', 'Clear ReAgent memory'),
         'agent-consent-cancel': agentTr('cancel', 'Cancel'),
         'agent-consent-allow': agentTr('allow', 'Allow'),
         'agent-location-title': agentTr('locationTitle', 'Share your location?'),
@@ -568,6 +601,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!document.getElementById('tab-agent')) return;
     initializeAgentMessages();
     refreshAgentLanguage();
+    restoreLatestAgentConversation();
     const input = document.getElementById('agent-input');
     input?.addEventListener('input', () => {
         input.style.height = 'auto';

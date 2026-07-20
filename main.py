@@ -27,6 +27,9 @@ from agent import (
     AgentSafetyUnavailable,
     AgentSandboxService,
     AgentToolNotAllowed,
+    OpenAIAgentMemorySummarizer,
+    SupabaseAgentConversationStore,
+    SupabaseAgentMemoryStore,
 )
 
 from auth import (
@@ -356,6 +359,9 @@ agent_service = AgentSandboxService(
     weather_lookup=get_header_weather,
     records_lookup=_agent_recent_records,
     guide_lookup=_agent_recycling_guide,
+    conversation_store=SupabaseAgentConversationStore(),
+    memory_store=SupabaseAgentMemoryStore(),
+    memory_summarizer=OpenAIAgentMemorySummarizer(),
 )
 
 
@@ -946,6 +952,27 @@ async def list_agent_conversations(
     owner_id = _session_owner_id(user)
     await check_rate_limit(request, 30, 60, subject=f"agent:{owner_id}")
     return await agent_service.list_conversations(owner_id)
+
+
+@app.get("/api/agent/memory")
+async def get_agent_memory(
+    request: Request,
+    user: dict = Depends(require_current_user),
+):
+    owner_id = _session_owner_id(user)
+    await check_rate_limit(request, 30, 60, subject=f"agent:{owner_id}")
+    return await agent_service.get_memory(owner_id)
+
+
+@app.delete("/api/agent/memory")
+async def delete_agent_memory(
+    request: Request,
+    user: dict = Depends(require_current_user),
+):
+    owner_id = _session_owner_id(user)
+    await check_rate_limit(request, 10, 60, subject=f"agent:{owner_id}")
+    await agent_service.clear_memory(owner_id)
+    return {"ok": True}
 
 
 @app.get("/api/agent/conversations/{conversation_id}")

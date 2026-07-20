@@ -54,6 +54,7 @@ NVIDIA_MODEL     = os.getenv("NVIDIA_MODEL", "nvidia/nemotron-3-nano-omni-30b-a3
 OPENAI_API_KEY   = os.getenv("OPENAI_API_KEY", os.getenv("OPENAI_API", ""))
 OPENAI_MODEL     = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
 AGENT_MODEL      = os.getenv("AGENT_MODEL", "gpt-5.6").strip() or "gpt-5.6"
+AGENT_MEMORY_MODEL = os.getenv("AGENT_MEMORY_MODEL", AGENT_MODEL).strip() or AGENT_MODEL
 AGENT_BASE_URL   = os.getenv("AGENT_BASE_URL", "").strip()
 _AGENT_API_KEY   = os.getenv("AGENT_API_KEY", "").strip()
 # Never forward an OpenAI key to a third-party endpoint by implicit fallback.

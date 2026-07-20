@@ -371,6 +371,8 @@
               <button class="btn btn--outline btn--full btn--small" onclick="openPolicy()"><img
                   src="/static/assets/Policy.png" alt="Policy" class="btn-icon"><span
                   id="lbl-policy">Policy</span></button>
+              <button type="button" class="btn btn--outline btn--full btn--small"
+                id="agent-clear-memory" onclick="clearAgentMemory()">Clear ReAgent memory</button>
               <button class="btn btn--outline btn--full btn--small" id="debug-btn" onclick="toggleDebug()"><span
                   id="debug-label">🔧 Debug Mode: OFF</span></button>
               <button class="btn btn--danger btn--full btn--small" id="logout-btn" onclick="handleLogout()"
@@ -470,7 +472,7 @@
   <dialog id="agent-consent-dialog" class="agent-dialog" aria-labelledby="agent-consent-title">
     <form method="dialog">
       <h2 id="agent-consent-title">Use ReAgent?</h2>
-      <p id="agent-consent-body">Your messages and attached photos may be processed by the AI and safety providers configured by this service. ReAgent only reads account data after a separate approval.</p>
+      <p id="agent-consent-body">Your messages and attached photos may be processed by the AI and safety providers configured by this service. Chat history, a compact long-term memory, and goal plans are stored with your account so ReAgent can continue across devices. ReAgent only reads other account data after a separate approval.</p>
       <div class="agent-dialog-actions">
         <button type="submit" class="btn btn--outline" id="agent-consent-cancel" value="cancel">Cancel</button>
         <button type="submit" class="btn btn--primary" id="agent-consent-allow" value="allow">Allow</button>
@@ -564,11 +566,11 @@
   <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
   <script src="/static/js/camera.js?v=20260719-scan1"></script>
   <script type="module" src="/static/supabase.js?v=20260719-agent6"></script>
-  <script src="/static/js/i18n.js?v=20260719-scan1"></script>
+  <script src="/static/js/i18n.js?v=20260720-memory2"></script>
   <script src="/static/js/utils.js?v=20260719-agent6"></script>
   <script src="/static/app.js?v=20260719-scan1"></script>
   <script src="/static/js/app-weather.js?v=20260719-agent6"></script>
-  <script src="/static/js/app-agent.js?v=20260719-attach1"></script>
+  <script src="/static/js/app-agent.js?v=20260720-memory2"></script>
   <script src="/static/js/app-recycling.js?v=20260719-agent6"></script>
   <script src="/static/js/app-records.js?v=20260719-agent6"></script>
 </body>

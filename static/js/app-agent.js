@@ -5,6 +5,7 @@ let agentDataConsent = false;
 let agentBusy = false;
 let agentAttachment = null;
 let agentAttachmentDataUrl = '';
+let agentItemContext = null;
 const AGENT_ATTACHMENT_MAX_BYTES = 10 * 1024 * 1024;
 const AGENT_ATTACHMENT_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
 
@@ -110,6 +111,71 @@ function handleAgentAttachment(event) {
         document.getElementById('agent-attachment-preview')?.classList.remove('hidden');
     };
     reader.readAsDataURL(file);
+}
+
+function boundedAgentItemContext(item) {
+    if (!item || typeof item !== 'object') return null;
+    const fields = ['name', 'brand', 'category', 'material', 'waste_type', 'description'];
+    const context = {};
+    fields.forEach(key => {
+        const value = String(item[key] || '').trim();
+        if (value) context[key] = value.slice(0, key === 'description' ? 800 : 160);
+    });
+    return Object.keys(context).length ? context : null;
+}
+
+function clearAgentItemContext() {
+    agentItemContext = null;
+    document.getElementById('agent-item-context')?.classList.add('hidden');
+    const label = document.getElementById('agent-item-context-label');
+    if (label) label.textContent = '';
+}
+
+function refreshAgentItemContextLanguage() {
+    const remove = document.getElementById('agent-item-context-remove');
+    if (remove) {
+        const label = agentTr('removeItemContext', 'Remove item context');
+        remove.setAttribute('aria-label', label);
+        remove.title = label;
+    }
+    if (!agentItemContext) return;
+    const itemName = agentItemContext.name || agentTr('itemFallback', 'this item');
+    const contextLabel = document.getElementById('agent-item-context-label');
+    if (contextLabel) {
+        contextLabel.textContent = agentTr('itemContextLabel', 'Item context: {item}')
+            .replace('{item}', itemName);
+    }
+}
+
+function openAgentForItem(item) {
+    const context = boundedAgentItemContext(item);
+    if (!context) return;
+    agentItemContext = context;
+    document.getElementById('modal-overlay')?.classList.remove('is-shown');
+    navigateTo('agent');
+
+    const itemName = context.name || agentTr('itemFallback', 'this item');
+    const prompt = agentTr(
+        'decisionPrompt',
+        'Should I keep, repair, or replace {item}? Check relevant records with my permission.'
+    ).replace('{item}', itemName);
+    const input = document.getElementById('agent-input');
+    if (input) {
+        input.value = prompt;
+        input.dispatchEvent(new Event('input'));
+        input.focus();
+    }
+    refreshAgentItemContextLanguage();
+    document.getElementById('agent-item-context')?.classList.remove('hidden');
+}
+
+function openAgentForCurrentScan() {
+    openAgentForItem(state.lastScanResult);
+}
+
+function openAgentForRecord(recordId) {
+    const record = state.records.find(item => String(item.id) === String(recordId));
+    openAgentForItem(record);
 }
 
 async function analyzeAgentAttachment(file) {
@@ -341,7 +407,8 @@ async function handleAgentSubmit(event) {
     const typedMessage = String(input?.value || '').trim();
     const attachedFile = agentAttachment;
     const attachedDataUrl = agentAttachmentDataUrl;
-    if (!typedMessage && !attachedFile) return;
+    let itemContext = agentItemContext ? { ...agentItemContext } : null;
+    if (!typedMessage && !attachedFile && !itemContext) return;
     if (!await ensureAgentConsent()) {
         setAgentStatus(agentTr('consentDeclined', 'Permission not granted.'));
         return;
@@ -352,19 +419,22 @@ async function handleAgentSubmit(event) {
     input.value = '';
     input.style.height = '';
     clearAgentAttachment();
+    clearAgentItemContext();
     setAgentStatus(agentTr('working', 'Working...'), true);
     try {
-        let imageAnalysis = null;
         if (attachedFile) {
             setAgentToolStatus(agentTr('analyzingPhoto', 'Analyzing photo...'));
-            imageAnalysis = await analyzeAgentAttachment(attachedFile);
+            itemContext = {
+                ...(itemContext || {}),
+                ...await analyzeAgentAttachment(attachedFile),
+            };
         }
         const payload = await sendAgentRequest({
             message,
             conversation_id: agentConversationId,
             language: state.lang,
             data_consent: agentDataConsent,
-            ...(imageAnalysis ? { image_analysis: imageAnalysis } : {}),
+            ...(itemContext ? { image_analysis: itemContext } : {}),
         });
         await processAgentPayload(payload);
         setAgentStatus(agentTr('ready', 'Ready'));
@@ -397,6 +467,7 @@ async function resetAgentConversation() {
     agentConversationId = null;
     agentDataConsent = false;
     clearAgentAttachment();
+    clearAgentItemContext();
     initializeAgentMessages();
     setAgentStatus(agentTr('ready', 'Ready'));
     document.getElementById('agent-input')?.focus();
@@ -541,7 +612,8 @@ function refreshAgentLanguage() {
     const labels = {
         'agent-title': agentTr('title', 'ReAgent'),
         'agent-consent-title': agentTr('consentTitle', 'Use ReAgent?'),
-        'agent-consent-body': agentTr('consentBody', 'Your messages and attached photos may be processed by the AI and safety providers configured by this service. Chat history, a compact long-term memory, and goal plans are stored with your account so ReAgent can continue across devices. ReAgent only reads other account data after a separate approval.'),
+        'agent-consent-body': agentTr('consentBody', 'Your messages, attached photos, and selected item context may be processed by the AI and safety providers configured by this service. Chat history, a compact long-term memory, and goal plans are stored with your account so ReAgent can continue across devices. ReAgent only reads other account data after a separate approval.'),
+        'ask-reagent-scan': agentTr('askAboutItem', 'Ask ReAgent'),
         'agent-clear-memory': agentTr('memoryClear', 'Clear ReAgent memory'),
         'agent-consent-cancel': agentTr('cancel', 'Cancel'),
         'agent-consent-allow': agentTr('allow', 'Allow'),
@@ -550,8 +622,8 @@ function refreshAgentLanguage() {
         'agent-location-deny': agentTr('locationDeny', 'Not now'),
         'agent-location-allow': agentTr('locationAllowOnce', 'Share once'),
         'agent-history-title': agentTr('historyTitle', 'Chat history'),
-        'agent-records-title': agentTr('recordsTitle', 'Share recent records?'),
-        'agent-records-body': agentTr('recordsBody', 'Allow this Agent run to read a short summary of your recent recycling records.'),
+        'agent-records-title': agentTr('recordsTitle', 'Share relevant records?'),
+        'agent-records-body': agentTr('recordsBody', 'Allow this ReAgent run to read a bounded summary of relevant recycling records for this request.'),
         'agent-records-deny': agentTr('deny', 'Deny'),
         'agent-records-allow': agentTr('allowOnce', 'Allow once'),
     };
@@ -595,6 +667,7 @@ function refreshAgentLanguage() {
         historyClose.setAttribute('aria-label', agentTr('close', 'Close'));
         historyClose.title = agentTr('close', 'Close');
     }
+    refreshAgentItemContextLanguage();
 }
 
 document.addEventListener('DOMContentLoaded', () => {

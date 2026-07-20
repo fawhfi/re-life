@@ -40,7 +40,7 @@ CLASSIFIER_MATERIAL_MAP = {
     "organic": {"material": "compostable", "standard_type": "food",    "eco_rate": 5, "recycle_rate": 4, "description": "Organic / food waste — compostable."},
     "paper":   {"material": "paper",       "standard_type": "general", "eco_rate": 5, "recycle_rate": 5, "description": "Paper / cardboard — biodegradable."},
     "plastic": {"material": "plastic",     "standard_type": "general", "eco_rate": 2, "recycle_rate": 3, "description": "Plastic container — limited recyclability."},
-    "ewaste":  {"material": "plastic",     "standard_type": "general", "eco_rate": 2, "recycle_rate": 3, "description": "Electronic waste — contains hazardous materials."},
+    "ewaste":  {"material": "ewaste",      "standard_type": "general", "eco_rate": 2, "recycle_rate": 4, "description": "Electronic waste — contains hazardous materials."},
 }
 
 

@@ -65,6 +65,7 @@ if AGENT_API_MODE not in {"auto", "responses", "chat_completions"}:
         "Invalid AGENT_API_MODE; expected 'auto', 'responses', or 'chat_completions'"
     )
 AGENT_SESSION_TTL_SECONDS = max(300, int(os.getenv("AGENT_SESSION_TTL_SECONDS", "1800")))
+AGENT_LOCAL_FALLBACK_ENABLED = _env_bool("AGENT_LOCAL_FALLBACK_ENABLED", True)
 NVIDIA_INTEGRATE_BASE_URL = "https://integrate.api.nvidia.com/v1"
 AGENT_GUARD_MODEL = os.getenv("AGENT_GUARD_MODEL", "").strip()
 AGENT_GUARD_BASE_URL = (

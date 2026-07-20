@@ -318,8 +318,69 @@ def _session_owner_id(user: dict) -> int:
         ) from exc
 
 
-async def _agent_recent_records(*, user_id: int, limit: int) -> list[dict]:
+_AGENT_RECORD_QUERY_ALIASES = {
+    "phone": {"phone", "smartphone", "mobile", "iphone", "android", "handset", "手機", "手机", "電話", "电话"},
+    "computer": {"computer", "laptop", "notebook", "macbook", "pc", "電腦", "电脑", "筆電", "笔电"},
+    "tablet": {"tablet", "ipad", "平板"},
+    "headphones": {"headphone", "headphones", "earbuds", "airpods", "耳機", "耳机"},
+    "television": {"tv", "television", "smart tv", "電視", "电视"},
+    "washing_machine": {"washing machine", "washer", "laundry machine", "洗衣機", "洗衣机"},
+    "refrigerator": {"refrigerator", "fridge", "freezer", "雪櫃", "雪柜", "冰箱"},
+    "air_conditioner": {"air conditioner", "air conditioning", "冷氣機", "冷气机", "空調", "空调"},
+    "camera": {"camera", "digital camera", "相機", "相机"},
+    "watch": {"watch", "smartwatch", "smart watch", "手錶", "手表", "智能手錶", "智能手表"},
+    "shoes": {"shoe", "shoes", "sneaker", "sneakers", "trainer", "trainers", "footwear", "鞋", "鞋子"},
+    "furniture": {"furniture", "sofa", "couch", "chair", "table", "家具", "沙發", "沙发", "椅", "桌"},
+    "bicycle": {"bicycle", "bike", "cycle", "單車", "单车", "自行車", "自行车"},
+    "printer": {"printer", "印表機", "打印機", "打印机"},
+    "vacuum": {"vacuum", "vacuum cleaner", "hoover", "吸塵機", "吸尘器"},
+}
+_AGENT_RECORD_QUERY_STOPWORDS = {
+    "a", "an", "another", "current", "my", "new", "old", "the", "this",
+}
+
+
+def _agent_record_query_terms(query: str) -> set[str]:
+    normalized = re.sub(r"\s+", " ", str(query or "").strip().lower())[:80]
+    terms = {
+        token
+        for token in re.findall(r"[\w\-]+", normalized, flags=re.UNICODE)
+        if len(token) > 1 and token not in _AGENT_RECORD_QUERY_STOPWORDS
+    }
+    for aliases in _AGENT_RECORD_QUERY_ALIASES.values():
+        if any(alias in normalized for alias in aliases):
+            terms.update(aliases)
+    return terms
+
+
+async def _agent_recent_records(
+    *,
+    user_id: int,
+    limit: int,
+    query: str = "",
+) -> list[dict]:
     records = await get_items(owner_id=user_id)
+    terms = _agent_record_query_terms(query)
+    if terms:
+        searchable_fields = (
+            "name",
+            "brand",
+            "category",
+            "material",
+            "description",
+            "dealtWithMethod",
+        )
+        records = [
+            record
+            for record in records
+            if any(
+                term in " ".join(
+                    str(record.get(field) or "").lower()
+                    for field in searchable_fields
+                )
+                for term in terms
+            )
+        ]
     return records[: max(1, min(10, int(limit)))]
 
 

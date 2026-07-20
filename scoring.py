@@ -20,6 +20,7 @@ HK_DISPOSAL = {
     "paper": {"type": "Paper / Cardboard", "method": "Keep dry, no grease, flatten", "location": "Blue paper recycling bins"},
     "metal": {"type": "Metal Cans", "method": "Rinse clean, flatten", "location": "Metal recycling bins"},
     "glass": {"type": "Glass Bottles", "method": "Rinse clean, remove caps", "location": "Government glass recycling points"},
+    "ewaste": {"type": "Electronic waste", "method": "Keep batteries safe and separate when practical; use an approved e-waste channel", "location": "GREEN@COMMUNITY or an approved e-waste collection point"},
     "compostable": {"type": "Compostable", "method": "Do NOT place in regular recycling", "location": "Industrial/home composting programs"},
     "wood": {"type": "Wood / Bulky Waste", "method": "Remove metal fittings, compress", "location": "LCSD collection points or private recyclers"},
 }

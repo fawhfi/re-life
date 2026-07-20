@@ -7,7 +7,7 @@ from pathlib import Path
 
 import numpy as np
 import onnxruntime as ort
-from PIL import Image
+from PIL import Image, ImageOps
 
 from .constants import IMG_SIZE, MEAN, STD
 from .knowledge import grounded_response_for, response_satisfies_prompt
@@ -34,13 +34,15 @@ def _session_options() -> ort.SessionOptions:
     options.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
     options.execution_mode = ort.ExecutionMode.ORT_SEQUENTIAL
     cpu_count = os.cpu_count() or 1
-    default_threads = max(1, min(4, cpu_count))
+    default_threads = max(1, min(2, cpu_count))
     options.intra_op_num_threads = int(os.getenv("REL_ORT_INTRA_OP_THREADS", default_threads))
     options.inter_op_num_threads = int(os.getenv("REL_ORT_INTER_OP_THREADS", 1))
+    options.enable_mem_pattern = False
+    options.enable_cpu_mem_arena = False
     return options
 
 
-@lru_cache(maxsize=4)
+@lru_cache(maxsize=1)
 def _load_session(model_path: str):
     session = ort.InferenceSession(
         model_path,
@@ -77,19 +79,24 @@ def _resolve_model_path(model_path: str | Path) -> Path:
     raise FileNotFoundError(f"Model file not found. Searched: {searched}")
 
 
-def _prepare_image(image_input: str | Path | bytes | bytearray) -> np.ndarray:
+def prepare_image(image_input: str | Path | bytes | bytearray) -> np.ndarray:
+    """Load an image in its display orientation and normalize it for ONNX."""
     if isinstance(image_input, (bytes, bytearray)):
         source = BytesIO(image_input)
     else:
         source = image_input
 
     with Image.open(source) as image:
-        resized = image.convert("RGB").resize((IMG_SIZE, IMG_SIZE), Image.BILINEAR)
+        oriented = ImageOps.exif_transpose(image)
+        resized = oriented.convert("RGB").resize((IMG_SIZE, IMG_SIZE), Image.BILINEAR)
         array = np.asarray(resized, dtype=np.float32) / 255.0
 
     array = (array - _MEAN) / _STD
     array = np.transpose(array, (2, 0, 1))[None, ...]
     return np.ascontiguousarray(array, dtype=np.float32)
+
+
+_prepare_image = prepare_image
 
 
 def _softmax(logits: np.ndarray) -> np.ndarray:
@@ -106,7 +113,7 @@ def predict_image(
 ):
     model_file = _resolve_model_path(model_path)
     session, input_name, output_name = _load_session(str(model_file.resolve()))
-    image_tensor = _prepare_image(image_path)
+    image_tensor = prepare_image(image_path)
 
     logits = session.run([output_name], {input_name: image_tensor})[0]
     probabilities = _softmax(logits)[0]

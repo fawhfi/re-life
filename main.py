@@ -27,6 +27,9 @@ from agent import (
     AgentSafetyUnavailable,
     AgentSandboxService,
     AgentToolNotAllowed,
+    OpenAIAgentMemorySummarizer,
+    SupabaseAgentConversationStore,
+    SupabaseAgentMemoryStore,
 )
 
 from auth import (
@@ -225,6 +228,7 @@ class AgentMessageRequest(BaseModel):
     image_analysis: AgentImageAnalysisInput | None = None
     language: Literal["en", "zh_simplified", "zh_traditional"] = "en"
     data_consent: bool = False
+    debug: bool = False
 
     @field_validator("message", "conversation_id", "request_id", mode="before")
     @classmethod
@@ -315,8 +319,69 @@ def _session_owner_id(user: dict) -> int:
         ) from exc
 
 
-async def _agent_recent_records(*, user_id: int, limit: int) -> list[dict]:
+_AGENT_RECORD_QUERY_ALIASES = {
+    "phone": {"phone", "smartphone", "mobile", "iphone", "android", "handset", "手機", "手机", "電話", "电话"},
+    "computer": {"computer", "laptop", "notebook", "macbook", "pc", "電腦", "电脑", "筆電", "笔电"},
+    "tablet": {"tablet", "ipad", "平板"},
+    "headphones": {"headphone", "headphones", "earbuds", "airpods", "耳機", "耳机"},
+    "television": {"tv", "television", "smart tv", "電視", "电视"},
+    "washing_machine": {"washing machine", "washer", "laundry machine", "洗衣機", "洗衣机"},
+    "refrigerator": {"refrigerator", "fridge", "freezer", "雪櫃", "雪柜", "冰箱"},
+    "air_conditioner": {"air conditioner", "air conditioning", "冷氣機", "冷气机", "空調", "空调"},
+    "camera": {"camera", "digital camera", "相機", "相机"},
+    "watch": {"watch", "smartwatch", "smart watch", "手錶", "手表", "智能手錶", "智能手表"},
+    "shoes": {"shoe", "shoes", "sneaker", "sneakers", "trainer", "trainers", "footwear", "鞋", "鞋子"},
+    "furniture": {"furniture", "sofa", "couch", "chair", "table", "家具", "沙發", "沙发", "椅", "桌"},
+    "bicycle": {"bicycle", "bike", "cycle", "單車", "单车", "自行車", "自行车"},
+    "printer": {"printer", "印表機", "打印機", "打印机"},
+    "vacuum": {"vacuum", "vacuum cleaner", "hoover", "吸塵機", "吸尘器"},
+}
+_AGENT_RECORD_QUERY_STOPWORDS = {
+    "a", "an", "another", "current", "my", "new", "old", "the", "this",
+}
+
+
+def _agent_record_query_terms(query: str) -> set[str]:
+    normalized = re.sub(r"\s+", " ", str(query or "").strip().lower())[:80]
+    terms = {
+        token
+        for token in re.findall(r"[\w\-]+", normalized, flags=re.UNICODE)
+        if len(token) > 1 and token not in _AGENT_RECORD_QUERY_STOPWORDS
+    }
+    for aliases in _AGENT_RECORD_QUERY_ALIASES.values():
+        if any(alias in normalized for alias in aliases):
+            terms.update(aliases)
+    return terms
+
+
+async def _agent_recent_records(
+    *,
+    user_id: int,
+    limit: int,
+    query: str = "",
+) -> list[dict]:
     records = await get_items(owner_id=user_id)
+    terms = _agent_record_query_terms(query)
+    if terms:
+        searchable_fields = (
+            "name",
+            "brand",
+            "category",
+            "material",
+            "description",
+            "dealtWithMethod",
+        )
+        records = [
+            record
+            for record in records
+            if any(
+                term in " ".join(
+                    str(record.get(field) or "").lower()
+                    for field in searchable_fields
+                )
+                for term in terms
+            )
+        ]
     return records[: max(1, min(10, int(limit)))]
 
 
@@ -356,6 +421,9 @@ agent_service = AgentSandboxService(
     weather_lookup=get_header_weather,
     records_lookup=_agent_recent_records,
     guide_lookup=_agent_recycling_guide,
+    conversation_store=SupabaseAgentConversationStore(),
+    memory_store=SupabaseAgentMemoryStore(),
+    memory_summarizer=OpenAIAgentMemorySummarizer(),
 )
 
 
@@ -913,6 +981,7 @@ async def agent_messages(
             "request_id": data.request_id,
             "language": data.language,
             "data_consent": data.data_consent,
+            "force_local": data.debug,
         }
         if data.image_analysis is not None:
             respond_args["image_analysis"] = data.image_analysis.model_dump(exclude_none=True)
@@ -946,6 +1015,27 @@ async def list_agent_conversations(
     owner_id = _session_owner_id(user)
     await check_rate_limit(request, 30, 60, subject=f"agent:{owner_id}")
     return await agent_service.list_conversations(owner_id)
+
+
+@app.get("/api/agent/memory")
+async def get_agent_memory(
+    request: Request,
+    user: dict = Depends(require_current_user),
+):
+    owner_id = _session_owner_id(user)
+    await check_rate_limit(request, 30, 60, subject=f"agent:{owner_id}")
+    return await agent_service.get_memory(owner_id)
+
+
+@app.delete("/api/agent/memory")
+async def delete_agent_memory(
+    request: Request,
+    user: dict = Depends(require_current_user),
+):
+    owner_id = _session_owner_id(user)
+    await check_rate_limit(request, 10, 60, subject=f"agent:{owner_id}")
+    await agent_service.clear_memory(owner_id)
+    return {"ok": True}
 
 
 @app.get("/api/agent/conversations/{conversation_id}")

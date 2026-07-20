@@ -54,6 +54,7 @@ NVIDIA_MODEL     = os.getenv("NVIDIA_MODEL", "nvidia/nemotron-3-nano-omni-30b-a3
 OPENAI_API_KEY   = os.getenv("OPENAI_API_KEY", os.getenv("OPENAI_API", ""))
 OPENAI_MODEL     = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
 AGENT_MODEL      = os.getenv("AGENT_MODEL", "gpt-5.6").strip() or "gpt-5.6"
+AGENT_MEMORY_MODEL = os.getenv("AGENT_MEMORY_MODEL", AGENT_MODEL).strip() or AGENT_MODEL
 AGENT_BASE_URL   = os.getenv("AGENT_BASE_URL", "").strip()
 _AGENT_API_KEY   = os.getenv("AGENT_API_KEY", "").strip()
 # Never forward an OpenAI key to a third-party endpoint by implicit fallback.
@@ -64,6 +65,7 @@ if AGENT_API_MODE not in {"auto", "responses", "chat_completions"}:
         "Invalid AGENT_API_MODE; expected 'auto', 'responses', or 'chat_completions'"
     )
 AGENT_SESSION_TTL_SECONDS = max(300, int(os.getenv("AGENT_SESSION_TTL_SECONDS", "1800")))
+AGENT_LOCAL_FALLBACK_ENABLED = _env_bool("AGENT_LOCAL_FALLBACK_ENABLED", True)
 NVIDIA_INTEGRATE_BASE_URL = "https://integrate.api.nvidia.com/v1"
 AGENT_GUARD_MODEL = os.getenv("AGENT_GUARD_MODEL", "").strip()
 AGENT_GUARD_BASE_URL = (

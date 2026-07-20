@@ -228,6 +228,7 @@ function renderRecords() {
             </div>
             <div class="record-card-actions">
                 <button class="btn btn--outline btn--small" onclick="event.stopPropagation();viewRecordDetail('${r.id}')">🔍 Details</button>
+                <button class="btn btn--outline btn--small" onclick="event.stopPropagation();openAgentForRecord('${r.id}')"><span aria-hidden="true">✦</span> ${agentTr('askAboutItem', 'Ask ReAgent')}</button>
                 <button class="btn btn--danger" onclick="event.stopPropagation();deleteRecord('${r.id}')">🗑️</button>
             </div>
         </div>`;
@@ -291,6 +292,7 @@ function viewRecordDetail(id) {
     `;
     document.getElementById('modal-actions').innerHTML = `
         <button class="btn btn--outline btn--full" onclick="closeModal()">${tr('closeBtn')}</button>
+        <button class="btn btn--outline btn--full" onclick="openAgentForRecord('${r.id}')"><span aria-hidden="true">✦</span> ${agentTr('askAboutItem', 'Ask ReAgent')}</button>
         <button class="btn btn--danger" onclick="closeModal();deleteRecord('${r.id}')">🗑️ ${tr('clearAll') || 'Delete'}</button>
     `;
     document.getElementById('modal-overlay').classList.add('is-shown');

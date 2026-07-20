@@ -1,0 +1,64 @@
+{
+  "model": "reagent_intent.onnx",
+  "architecture": "byte_transformer_encoder",
+  "labels": [
+    "guidance",
+    "nearby",
+    "weather",
+    "records",
+    "decision",
+    "general"
+  ],
+  "max_bytes": 192,
+  "config": {
+    "d_model": 160,
+    "num_heads": 8,
+    "num_layers": 10,
+    "ff_dim": 512,
+    "dropout": 0.1,
+    "max_bytes": 192,
+    "content_bytes": 96
+  },
+  "dataset": "reagent_intents.jsonl",
+  "dataset_version": 1,
+  "dataset_sha256": "99993cfcd7223f3cedc14b16d33343905cc90cc1e21a95d7ac36e08d1a6346c2",
+  "validation_accuracy": 0.625,
+  "test_accuracy": 0.5,
+  "split_counts": {
+    "train": 268,
+    "validation": 24,
+    "test": 24
+  },
+  "training_intent_counts": {
+    "guidance": 26,
+    "nearby": 26,
+    "weather": 80,
+    "records": 26,
+    "decision": 26,
+    "general": 84
+  },
+  "training_source_counts": {
+    "project": 124,
+    "AmazonScience/massive": 104,
+    "clinc/clinc_oos": 40
+  },
+  "augmented_intent_counts": {
+    "guidance": 78,
+    "nearby": 78,
+    "weather": 100,
+    "records": 78,
+    "decision": 78,
+    "general": 104
+  },
+  "training_examples": 516,
+  "reviewed_training_examples": 268,
+  "validation_examples": 24,
+  "test_examples": 24,
+  "epochs_trained": 37,
+  "pretraining_epochs": 37,
+  "fine_tune_epochs": 0,
+  "seed": 29,
+  "learning_rate": 0.001,
+  "training_device": "cuda",
+  "training_device_name": "AMD Radeon RX 9070 XT"
+}

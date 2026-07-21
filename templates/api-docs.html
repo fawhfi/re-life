@@ -1,0 +1,618 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Learn how to call the Re-Life Data API and read regional recycling totals.">
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='30' fill='%23164d36'/%3E%3Ctext x='32' y='43' text-anchor='middle' font-size='38' fill='%23c8ed63'%3E↻%3C/text%3E%3C/svg%3E">
+    <title>Re-Life Data API · Usage guide</title>
+    <script>
+        (() => {
+            try {
+                const savedTheme = localStorage.getItem("relife-docs-theme");
+                const systemTheme = matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+                document.documentElement.dataset.theme = savedTheme === "dark" || savedTheme === "light"
+                    ? savedTheme
+                    : systemTheme;
+            } catch (_) {
+                document.documentElement.dataset.theme = "dark";
+            }
+        })();
+    </script>
+    <style>
+        :root {
+            color-scheme: light;
+            --paper: #f4f1e8;
+            --paper-raised: #fffdf7;
+            --ink: #14251d;
+            --ink-muted: #617067;
+            --forest: #164d36;
+            --moss: #4f7d62;
+            --lime: #c8ed63;
+            --line: #cbd2c8;
+            --code: #10251c;
+            --code-ink: #e6f7e8;
+            --danger: #9a3c2f;
+            --accent-text: #164d36;
+            --grid: rgba(22, 77, 54, .045);
+            --soft-line: rgba(20, 37, 29, .17);
+            --topbar: rgba(244, 241, 232, .91);
+            --row: rgba(255, 253, 247, .72);
+            --note: rgba(200, 237, 99, .18);
+            --on-forest: #fffdf7;
+            --shadow: 0 18px 60px rgba(20, 37, 29, .09);
+            --display: Georgia, "Times New Roman", serif;
+            --body: "Trebuchet MS", "Segoe UI", sans-serif;
+            --mono: "Cascadia Code", "SFMono-Regular", Consolas, monospace;
+        }
+
+        :root[data-theme="dark"] {
+            color-scheme: dark;
+            --paper: #0c1210;
+            --paper-raised: #151d19;
+            --ink: #edf4ef;
+            --ink-muted: #a7b4ab;
+            --forest: #236b4b;
+            --moss: #96c2a5;
+            --lime: #c8ed63;
+            --line: #35433a;
+            --code: #07100c;
+            --code-ink: #e6f7e8;
+            --danger: #ff8e7c;
+            --accent-text: #9fd4b2;
+            --grid: rgba(200, 237, 99, .035);
+            --soft-line: rgba(237, 244, 239, .15);
+            --topbar: rgba(12, 18, 16, .9);
+            --row: rgba(21, 29, 25, .82);
+            --note: rgba(200, 237, 99, .09);
+            --on-forest: #f7fbf8;
+            --shadow: 0 18px 60px rgba(0, 0, 0, .35);
+        }
+
+        * { box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
+        body {
+            margin: 0;
+            min-width: 320px;
+            color: var(--ink);
+            background:
+                linear-gradient(var(--grid) 1px, transparent 1px),
+                linear-gradient(90deg, var(--grid) 1px, transparent 1px),
+                var(--paper);
+            background-size: 32px 32px;
+            font-family: var(--body);
+            line-height: 1.65;
+        }
+
+        a { color: inherit; }
+        button { font: inherit; }
+        code, pre { font-family: var(--mono); }
+        code { font-size: .9em; }
+
+        .topbar {
+            position: sticky;
+            z-index: 20;
+            top: 0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            min-height: 64px;
+            padding: 0 5vw;
+            border-bottom: 1px solid var(--soft-line);
+            background: var(--topbar);
+            backdrop-filter: blur(14px);
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-weight: 800;
+            letter-spacing: 0;
+            text-decoration: none;
+        }
+
+        .brand-mark {
+            display: grid;
+            width: 34px;
+            height: 34px;
+            place-items: center;
+            border-radius: 50%;
+            color: var(--lime);
+            background: var(--forest);
+            font-size: 19px;
+        }
+
+        .theme-toggle {
+            display: grid;
+            width: 40px;
+            height: 40px;
+            padding: 0;
+            place-items: center;
+            border: 1px solid var(--line);
+            border-radius: 50%;
+            color: var(--ink);
+            background: var(--paper-raised);
+            cursor: pointer;
+            font-size: 19px;
+        }
+        .theme-toggle:hover { color: var(--lime); border-color: var(--moss); background: var(--forest); }
+        .theme-toggle:focus-visible { outline: 3px solid var(--lime); outline-offset: 3px; }
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+
+        .layout {
+            display: grid;
+            grid-template-columns: minmax(190px, 240px) minmax(0, 860px);
+            gap: clamp(30px, 5vw, 78px);
+            width: min(1180px, 92vw);
+            margin: 0 auto;
+            padding: 70px 0 100px;
+        }
+
+        .sidebar { position: relative; }
+        .sidebar-inner { position: sticky; top: 96px; }
+        .eyebrow {
+            margin: 0 0 10px;
+            color: var(--moss);
+            font-size: 11px;
+            font-weight: 900;
+            letter-spacing: .16em;
+            text-transform: uppercase;
+        }
+        .contents { margin: 0; padding: 0; list-style: none; }
+        .contents li { border-bottom: 1px solid var(--soft-line); }
+        .contents a {
+            display: block;
+            padding: 11px 0;
+            color: var(--ink-muted);
+            font-size: 14px;
+            font-weight: 700;
+            text-decoration: none;
+        }
+        .contents a:hover { color: var(--accent-text); transform: translateX(3px); }
+
+        .hero {
+            position: relative;
+            overflow: hidden;
+            padding: clamp(32px, 6vw, 70px);
+            border: 1px solid var(--soft-line);
+            border-radius: 3px;
+            background: var(--paper-raised);
+            box-shadow: var(--shadow);
+        }
+        .hero::after {
+            position: absolute;
+            right: -70px;
+            bottom: -100px;
+            width: 260px;
+            height: 260px;
+            border: 42px solid var(--lime);
+            border-radius: 50%;
+            content: "";
+            opacity: .48;
+        }
+        .version {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 22px;
+            padding: 5px 10px;
+            border: 1px solid var(--line);
+            border-radius: 999px;
+            color: var(--accent-text);
+            font-family: var(--mono);
+            font-size: 12px;
+            font-weight: 700;
+        }
+        .version::before {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: #2b9b61;
+            content: "";
+            box-shadow: 0 0 0 4px rgba(43, 155, 97, .13);
+        }
+        h1, h2, h3 { font-family: var(--display); }
+        h1 {
+            position: relative;
+            z-index: 1;
+            max-width: 640px;
+            margin: 0;
+            font-size: clamp(45px, 8vw, 82px);
+            font-weight: 400;
+            letter-spacing: 0;
+            line-height: .96;
+        }
+        .lede {
+            position: relative;
+            z-index: 1;
+            max-width: 630px;
+            margin: 28px 0 0;
+            color: var(--ink-muted);
+            font-size: clamp(17px, 2vw, 20px);
+        }
+
+        section { scroll-margin-top: 92px; margin-top: 74px; }
+        section > h2 {
+            margin: 0 0 14px;
+            font-size: clamp(31px, 5vw, 47px);
+            font-weight: 400;
+            letter-spacing: 0;
+            line-height: 1.08;
+        }
+        .section-intro { max-width: 720px; margin: 0 0 27px; color: var(--ink-muted); }
+
+        .endpoint {
+            display: grid;
+            grid-template-columns: auto minmax(0, 1fr) auto;
+            align-items: center;
+            gap: 16px;
+            padding: 18px 20px;
+            border: 1px solid var(--line);
+            background: var(--paper-raised);
+        }
+        .method {
+            padding: 6px 9px;
+            border-radius: 2px;
+            color: var(--lime);
+            background: var(--forest);
+            font-family: var(--mono);
+            font-size: 12px;
+            font-weight: 900;
+        }
+        .endpoint-path { overflow-x: auto; font-family: var(--mono); font-size: 15px; font-weight: 700; }
+        .copy-button, .try-button {
+            min-height: 40px;
+            padding: 0 14px;
+            border: 1px solid var(--forest);
+            border-radius: 2px;
+            color: var(--accent-text);
+            background: transparent;
+            font-size: 13px;
+            font-weight: 800;
+            cursor: pointer;
+        }
+        .copy-button:hover, .try-button:hover { color: var(--on-forest); background: var(--forest); }
+        .copy-button:focus-visible, .try-button:focus-visible, a:focus-visible { outline: 3px solid var(--lime); outline-offset: 3px; }
+
+        .note {
+            display: grid;
+            grid-template-columns: 5px 1fr;
+            gap: 16px;
+            margin-top: 20px;
+            padding: 16px 18px;
+            background: var(--note);
+        }
+        .note::before { background: var(--moss); content: ""; }
+        .note p { margin: 0; font-size: 14px; }
+
+        .tabs { display: flex; gap: 6px; margin: 26px 0 0; padding: 0; list-style: none; }
+        .tab-button {
+            padding: 9px 14px;
+            border: 1px solid var(--line);
+            border-bottom: 0;
+            color: var(--ink-muted);
+            background: transparent;
+            font-size: 13px;
+            font-weight: 800;
+            cursor: pointer;
+        }
+        .tab-button[aria-selected="true"] { color: var(--lime); border-color: var(--code); background: var(--code); }
+        .code-shell { position: relative; background: var(--code); }
+        pre {
+            overflow-x: auto;
+            min-height: 118px;
+            margin: 0;
+            padding: 24px;
+            color: var(--code-ink);
+            font-size: 13px;
+            line-height: 1.7;
+            white-space: pre;
+        }
+        .code-copy { position: absolute; top: 12px; right: 12px; color: var(--code-ink); border-color: rgba(230, 247, 232, .45); background: var(--code); }
+
+        .try-panel {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 18px;
+            align-items: center;
+            padding: 22px;
+            border: 1px solid var(--line);
+            background: var(--paper-raised);
+        }
+        .try-panel h3 { margin: 0 0 3px; font-size: 22px; }
+        .try-panel p { margin: 0; color: var(--ink-muted); font-size: 14px; }
+        .try-button { color: var(--lime); border-color: var(--forest); background: var(--forest); }
+        .try-button[aria-busy="true"] { cursor: wait; opacity: .65; }
+        #try-output { display: none; margin-top: 0; }
+        #try-output.is-visible { display: block; }
+
+        .schema-grid, .error-list { display: grid; gap: 12px; }
+        .schema-row {
+            display: grid;
+            grid-template-columns: minmax(130px, .7fr) minmax(105px, .55fr) minmax(0, 2fr);
+            gap: 18px;
+            align-items: baseline;
+            padding: 17px 18px;
+            border: 1px solid var(--line);
+            background: var(--row);
+        }
+        .field { color: var(--accent-text); font-family: var(--mono); font-weight: 800; }
+        .type { color: var(--moss); font-family: var(--mono); font-size: 12px; }
+        .description { color: var(--ink-muted); font-size: 14px; }
+
+        .error-row {
+            display: grid;
+            grid-template-columns: 58px minmax(190px, 1fr) minmax(0, 2fr);
+            gap: 16px;
+            padding: 16px 18px;
+            border-left: 3px solid var(--danger);
+            background: var(--paper-raised);
+        }
+        .status { color: var(--danger); font-family: var(--mono); font-weight: 900; }
+        .error-code { font-family: var(--mono); font-size: 13px; font-weight: 700; overflow-wrap: anywhere; }
+
+        footer { margin-top: 70px; padding-top: 20px; border-top: 1px solid var(--line); color: var(--ink-muted); font-size: 13px; }
+
+        @media (max-width: 760px) {
+            .topbar { padding: 0 20px; }
+            .layout { display: block; width: min(92vw, 680px); padding-top: 34px; }
+            .sidebar { display: none; }
+            .hero { padding: 34px 26px 70px; }
+            .endpoint { grid-template-columns: auto minmax(0, 1fr); }
+            .endpoint > .copy-button { grid-column: 1 / -1; }
+            .schema-row { grid-template-columns: 1fr auto; gap: 8px 14px; }
+            .schema-row .description { grid-column: 1 / -1; }
+            .error-row { grid-template-columns: 48px minmax(0, 1fr); }
+            .error-row .description { grid-column: 1 / -1; }
+            .try-panel { grid-template-columns: 1fr; }
+            .try-button { width: 100%; }
+            section { margin-top: 56px; }
+        }
+
+        @media (prefers-reduced-motion: no-preference) {
+            .hero, section { animation: rise .55s both; }
+            section:nth-of-type(2) { animation-delay: .06s; }
+            section:nth-of-type(3) { animation-delay: .12s; }
+            @keyframes rise { from { opacity: 0; transform: translateY(12px); } }
+            .contents a, .copy-button, .try-button, .theme-toggle { transition: .18s ease; }
+        }
+    </style>
+</head>
+<body>
+    <header class="topbar">
+        <a class="brand" href="/" aria-label="Re-Life home">
+            <span class="brand-mark" aria-hidden="true">↻</span>
+            <span>Re-Life / Developers</span>
+        </a>
+        <button id="theme-toggle" class="theme-toggle" type="button" aria-pressed="false">
+            <span class="theme-icon" aria-hidden="true">☾</span>
+            <span class="sr-only">Switch color theme</span>
+        </button>
+    </header>
+
+    <div class="layout">
+        <aside class="sidebar" aria-label="On this page">
+            <div class="sidebar-inner">
+                <p class="eyebrow">On this page</p>
+                <ol class="contents">
+                    <li><a href="#quick-start">Quick start</a></li>
+                    <li><a href="#examples">Code examples</a></li>
+                    <li><a href="#response">Response format</a></li>
+                    <li><a href="#errors">Errors</a></li>
+                </ol>
+            </div>
+        </aside>
+
+        <main>
+            <div class="hero">
+                <span class="version">Public API · v1</span>
+                <h1>Re-Life<br>Data API</h1>
+                <p class="lede">Read the latest published, pre-sorted recycling amount for each region with one public JSON request.</p>
+            </div>
+
+            <section id="quick-start">
+                <p class="eyebrow">01 / Quick start</p>
+                <h2>One endpoint. No input.</h2>
+                <p class="section-intro">Send a <strong>GET</strong> request and accept JSON. Authentication is not required for this public aggregate dataset.</p>
+                <div class="endpoint" aria-label="GET /api/data">
+                    <span class="method">GET</span>
+                    <span class="endpoint-path" id="endpoint-url">https://relifeapp.com/api/data</span>
+                    <button class="copy-button" type="button" data-copy-target="endpoint-url">Copy URL</button>
+                </div>
+                <div class="note">
+                    <p><strong>No query parameters or request body.</strong> Location, GPS, IP address, region filters and custom sorting are intentionally rejected. The response always contains the complete published dataset in database order.</p>
+                </div>
+            </section>
+
+            <section id="examples">
+                <p class="eyebrow">02 / Code examples</p>
+                <h2>Call it from anywhere.</h2>
+                <p class="section-intro">Choose your environment. Every example requests exactly the same JSON resource.</p>
+                <div class="tabs" role="tablist" aria-label="Code language">
+                    <button class="tab-button" type="button" role="tab" aria-selected="true" aria-controls="example-code" data-language="curl">curl</button>
+                    <button class="tab-button" type="button" role="tab" aria-selected="false" aria-controls="example-code" data-language="javascript">JavaScript</button>
+                    <button class="tab-button" type="button" role="tab" aria-selected="false" aria-controls="example-code" data-language="python">Python</button>
+                </div>
+                <div class="code-shell">
+                    <pre id="example-code" role="tabpanel"><code></code></pre>
+                    <button class="copy-button code-copy" type="button" data-copy-target="example-code">Copy</button>
+                </div>
+                <div class="try-panel">
+                    <div>
+                        <h3>Try the live endpoint</h3>
+                        <p>Run a request against this server and inspect the HTTP status and JSON response.</p>
+                    </div>
+                    <button id="try-request" class="try-button" type="button">Send GET request</button>
+                </div>
+                <div class="code-shell">
+                    <pre id="try-output" aria-live="polite"><code>Response will appear here.</code></pre>
+                </div>
+            </section>
+
+            <section id="response">
+                <p class="eyebrow">03 / Response format</p>
+                <h2>A stable JSON contract.</h2>
+                <p class="section-intro">A successful request returns HTTP <strong>200</strong>. Amounts are expressed in tonnes and records are already ordered from highest to lowest recycled amount.</p>
+                <div class="code-shell">
+                    <pre><code>{
+  "data": [
+    {
+      "region": "Region A",
+      "recycled_amount": 12540.5
+    },
+    {
+      "region": "Region B",
+      "recycled_amount": 9031.0
+    }
+  ],
+  "meta": {
+    "period": "2025",
+    "unit": "tonnes",
+    "source": "Published source name",
+    "source_url": "https://data.example.org/dataset",
+    "sorted_by": "recycled_amount",
+    "sort_order": "descending",
+    "record_count": 2
+  }
+}</code></pre>
+                </div>
+
+                <div class="schema-grid" style="margin-top: 20px">
+                    <div class="schema-row"><span class="field">data[].region</span><span class="type">string</span><span class="description">Public region name.</span></div>
+                    <div class="schema-row"><span class="field">data[].recycled_amount</span><span class="type">number</span><span class="description">Non-negative recycled amount for the region.</span></div>
+                    <div class="schema-row"><span class="field">meta.period</span><span class="type">string</span><span class="description">Reporting period shared by the whole dataset.</span></div>
+                    <div class="schema-row"><span class="field">meta.unit</span><span class="type">"tonnes"</span><span class="description">Measurement unit for every amount.</span></div>
+                    <div class="schema-row"><span class="field">meta.source_url</span><span class="type">HTTPS URL</span><span class="description">Public provenance for the published dataset.</span></div>
+                    <div class="schema-row"><span class="field">meta.record_count</span><span class="type">integer</span><span class="description">Number of records returned in <code>data</code>.</span></div>
+                </div>
+            </section>
+
+            <section id="errors">
+                <p class="eyebrow">04 / Errors</p>
+                <h2>Predictable failure modes.</h2>
+                <p class="section-intro">Errors are JSON objects with a stable machine-readable <code>error</code> value.</p>
+                <div class="error-list">
+                    <div class="error-row"><span class="status">400</span><span class="error-code">DATA_REQUEST_INPUT_NOT_ALLOWED</span><span class="description">The request included a query string or body.</span></div>
+                    <div class="error-row"><span class="status">406</span><span class="error-code">JSON_RESPONSE_REQUIRED</span><span class="description">The <code>Accept</code> header explicitly rejects JSON.</span></div>
+                    <div class="error-row"><span class="status">429</span><span class="error-code">Rate limit</span><span class="description">Too many requests were sent in a short period.</span></div>
+                    <div class="error-row"><span class="status">503</span><span class="error-code">DATASET_UNAVAILABLE</span><span class="description">No validated published dataset is currently available. Retry after the indicated interval.</span></div>
+                </div>
+            </section>
+
+            <footer>Re-Life Data API · Public regional aggregates only · No user or device data is returned.</footer>
+        </main>
+    </div>
+
+    <script>
+        (() => {
+            const endpoint = "https://relifeapp.com/api/data";
+            const examples = {
+                curl: `curl --request GET \
+  --url "${endpoint}" \
+  --header "Accept: application/json"`,
+                javascript: `const response = await fetch("${endpoint}", {
+  method: "GET",
+  headers: { Accept: "application/json" }
+});
+
+if (!response.ok) throw new Error("HTTP " + response.status);
+const payload = await response.json();
+console.log(payload.data);`,
+                python: `import requests
+
+response = requests.get(
+    "${endpoint}",
+    headers={"Accept": "application/json"},
+    timeout=10,
+)
+response.raise_for_status()
+payload = response.json()
+print(payload["data"])`,
+            };
+
+            const endpointNode = document.getElementById("endpoint-url");
+            const exampleNode = document.querySelector("#example-code code");
+            endpointNode.textContent = endpoint;
+            exampleNode.textContent = examples.curl;
+
+            const themeToggle = document.getElementById("theme-toggle");
+            const themeIcon = themeToggle.querySelector(".theme-icon");
+            const updateThemeControl = () => {
+                const isDark = document.documentElement.dataset.theme === "dark";
+                const label = isDark ? "Switch to light mode" : "Switch to dark mode";
+                themeToggle.setAttribute("aria-pressed", String(isDark));
+                themeToggle.setAttribute("aria-label", label);
+                themeToggle.title = label;
+                themeIcon.textContent = isDark ? "☀" : "☾";
+            };
+            updateThemeControl();
+            themeToggle.addEventListener("click", () => {
+                const nextTheme = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
+                document.documentElement.dataset.theme = nextTheme;
+                try {
+                    localStorage.setItem("relife-docs-theme", nextTheme);
+                } catch (_) {
+                    // The selected theme still applies for this page when storage is unavailable.
+                }
+                updateThemeControl();
+            });
+
+            document.querySelectorAll(".tab-button").forEach((button) => {
+                button.addEventListener("click", () => {
+                    document.querySelectorAll(".tab-button").forEach((item) => {
+                        item.setAttribute("aria-selected", String(item === button));
+                    });
+                    exampleNode.textContent = examples[button.dataset.language];
+                });
+            });
+
+            document.querySelectorAll("[data-copy-target]").forEach((button) => {
+                button.addEventListener("click", async () => {
+                    const target = document.getElementById(button.dataset.copyTarget);
+                    const original = button.textContent;
+                    try {
+                        await navigator.clipboard.writeText(target.textContent);
+                        button.textContent = "Copied";
+                    } catch (_) {
+                        button.textContent = "Copy failed";
+                    }
+                    window.setTimeout(() => { button.textContent = original; }, 1400);
+                });
+            });
+
+            const tryButton = document.getElementById("try-request");
+            const output = document.getElementById("try-output");
+            const outputCode = output.querySelector("code");
+            tryButton.addEventListener("click", async () => {
+                tryButton.setAttribute("aria-busy", "true");
+                tryButton.textContent = "Requesting…";
+                output.classList.add("is-visible");
+                outputCode.textContent = "Waiting for response…";
+                try {
+                    const response = await fetch("/api/data", {
+                        headers: { Accept: "application/json" },
+                    });
+                    const body = await response.json();
+                    outputCode.textContent = `HTTP ${response.status} ${response.statusText}\n\n${JSON.stringify(body, null, 2)}`;
+                } catch (_) {
+                    outputCode.textContent = "Network request failed. Check that the API server is available.";
+                } finally {
+                    tryButton.removeAttribute("aria-busy");
+                    tryButton.textContent = "Send GET request";
+                }
+            });
+        })();
+    </script>
+</body>
+</html>

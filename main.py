@@ -81,6 +81,7 @@ from backend.sessions import (
 )
 from backend.storage import supabase_storage_download, verify_supabase_storage_signature
 from backend.weather import get_header_weather
+from backend.api.docs import router as api_docs_router
 from backend.api.public_data import router as public_data_router
 
 
@@ -97,10 +98,12 @@ app = FastAPI(
     title="Re-Life API",
     version="1.0.0",
     description="Read-only public recycling data and authenticated Re-Life application APIs.",
-    docs_url="/docs",
+    docs_url=None,
+    redoc_url=None,
     openapi_url="/openapi.json",
 )
 app.include_router(public_data_router)
+app.include_router(api_docs_router)
 CURRENT_ACCOUNT_UPDATE_BODY_MAX_BYTES = 1_258_292
 CURRENT_ACCOUNT_UPDATE_MAX_TOP_LEVEL_KEYS = 32
 CURRENT_ACCOUNT_UPDATE_MAX_VALIDATION_ERRORS = 20

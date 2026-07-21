@@ -3,8 +3,8 @@ from __future__ import annotations
 
 from typing import Any, Protocol
 
-from reagent_workflow import AgentMemoryState, normalize_agent_language
-from storage import (
+from backend.ai.workflow import AgentMemoryState, normalize_agent_language
+from backend.storage import (
     supabase_delete,
     supabase_enabled,
     supabase_request,

@@ -10,12 +10,12 @@ import ipaddress
 import secrets
 import uuid
 
-import auth
+from backend import auth
 from fastapi import HTTPException, Request
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse, Response
 
-from config import (
+from backend.config import (
     IS_DEVELOPMENT,
     IS_PRODUCTION,
     SESSION_CLOCK_SKEW_SECONDS,
@@ -25,7 +25,7 @@ from config import (
     SESSION_METADATA_HASH_KEY,
     SESSION_TOUCH_INTERVAL_SECONDS,
 )
-from storage import (
+from backend.storage import (
     supabase_enabled,
     supabase_insert,
     supabase_select,

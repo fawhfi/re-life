@@ -8,9 +8,11 @@ from typing import Any, Protocol
 import unicodedata
 
 import httpx
+
+from backend.ai.remote_model_limits import REMOTE_MODEL_LIMITER, RemoteModelConcurrencyLimiter
 from agents import Agent, GuardrailFunctionOutput, RunContextWrapper, input_guardrail
 
-from config import (
+from backend.config import (
     AGENT_GUARD_API_KEY,
     AGENT_GUARD_BASE_URL,
     AGENT_GUARD_MODEL,
@@ -87,43 +89,46 @@ class NvidiaContentSafetyChecker:
         base_url: str,
         timeout_seconds: float,
         transport: httpx.AsyncBaseTransport | None = None,
+        limiter: RemoteModelConcurrencyLimiter = REMOTE_MODEL_LIMITER,
     ):
         self._model = str(model).strip()
         self._api_key = str(api_key).strip()
         self._base_url = str(base_url).strip().rstrip("/")
         self._timeout_seconds = float(timeout_seconds)
         self._transport = transport
+        self._limiter = limiter
 
     async def check(self, message: str) -> PromptSafetyResult:
         if not self._model or not self._api_key or not self._base_url:
             raise AgentSafetyUnavailable("Content safety guard is not configured")
 
         try:
-            async with httpx.AsyncClient(
-                timeout=self._timeout_seconds,
-                transport=self._transport,
-            ) as client:
-                response = await client.post(
-                    f"{self._base_url}/chat/completions",
-                    headers={
-                        "Authorization": f"Bearer {self._api_key}",
-                        "Accept": "application/json",
-                        "Content-Type": "application/json",
-                    },
-                    json={
-                        "model": self._model,
-                        "messages": [
-                            {"role": "system", "content": _CONTENT_SAFETY_SYSTEM_PROMPT},
-                            {"role": "user", "content": str(message)},
-                        ],
-                        "temperature": 0,
-                        "max_tokens": 128,
-                        "stream": False,
-                    },
-                )
-                response.raise_for_status()
-                payload = response.json()
-                content = payload["choices"][0]["message"]["content"]
+            async with self._limiter.slot():
+                async with httpx.AsyncClient(
+                    timeout=self._timeout_seconds,
+                    transport=self._transport,
+                ) as client:
+                    response = await client.post(
+                        f"{self._base_url}/chat/completions",
+                        headers={
+                            "Authorization": f"Bearer {self._api_key}",
+                            "Accept": "application/json",
+                            "Content-Type": "application/json",
+                        },
+                        json={
+                            "model": self._model,
+                            "messages": [
+                                {"role": "system", "content": _CONTENT_SAFETY_SYSTEM_PROMPT},
+                                {"role": "user", "content": str(message)},
+                            ],
+                            "temperature": 0,
+                            "max_tokens": 128,
+                            "stream": False,
+                        },
+                    )
+                    response.raise_for_status()
+                    payload = response.json()
+                    content = payload["choices"][0]["message"]["content"]
         except AgentSafetyUnavailable:
             raise
         except Exception as exc:

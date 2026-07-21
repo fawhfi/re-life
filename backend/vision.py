@@ -3,15 +3,16 @@ import io, base64, random, httpx, json
 from PIL import Image
 from pathlib import Path
 from urllib.parse import urlsplit, urlunsplit
-from config import (
+from backend.config import (
     NVIDIA_API_KEY, NVIDIA_MODEL, OPENAI_API_KEY, OPENAI_MODEL,
     GEMINI_API_KEY, GEMINI_MODEL, DEEPSEEK_API_KEY, CLAUDE_API_KEY, CLAUDE_MODEL,
     DEFAULT_AI_MODEL, AVAILABLE_MODELS, SUPABASE_STORAGE_BUCKET, SUPABASE_URL,
     CUSTOM_API_KEY, CUSTOM_BASE_URL, CUSTOM_METHOD, CUSTOM_MODEL
 )
 from nlp.infer import predict_image
-from scoring import HK_DISPOSAL
-from storage import supabase_enabled, supabase_storage_signed_url, supabase_storage_upload
+from backend.scoring import HK_DISPOSAL
+from backend.storage import supabase_enabled, supabase_storage_signed_url, supabase_storage_upload
+from backend.ai.remote_model_limits import REMOTE_MODEL_LIMITER
 
 # ── Legacy classifier metadata ──────────────────────────────────────────────
 
@@ -317,20 +318,21 @@ def _parse_ai_json(response: httpx.Response, provider: str) -> dict:
 async def _call_openai_compat(api_key: str, base_url: str, model_id: str, prompt: str, b64: str, mime: str) -> str:
     provider = "openai-compatible"
     url = _openai_chat_url(base_url)
-    async with httpx.AsyncClient(timeout=180) as client:
-        r = await client.post(
-            url,
-            headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
-            json={
-                "model": model_id,
-                "messages": [
-                    {"role": "system", "content": "You are an environmental packaging evaluator. Respond with ONLY a single JSON object."},
-                    {"role": "user", "content": [{"type": "text", "text": prompt}, {"type": "image_url", "image_url": {"url": f"data:{mime};base64,{b64}"}}]},
-                ],
-                "max_tokens": 8192, "temperature": 0.6, "stream": False,
-            },
-        )
-        _raise_for_ai_status(r, provider)
+    async with REMOTE_MODEL_LIMITER.slot():
+        async with httpx.AsyncClient(timeout=180) as client:
+            r = await client.post(
+                url,
+                headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+                json={
+                    "model": model_id,
+                    "messages": [
+                        {"role": "system", "content": "You are an environmental packaging evaluator. Respond with ONLY a single JSON object."},
+                        {"role": "user", "content": [{"type": "text", "text": prompt}, {"type": "image_url", "image_url": {"url": f"data:{mime};base64,{b64}"}}]},
+                    ],
+                    "max_tokens": 8192, "temperature": 0.6, "stream": False,
+                },
+            )
+            _raise_for_ai_status(r, provider)
     data = _parse_ai_json(r, provider)
     try:
         return data["choices"][0]["message"]["content"]
@@ -338,40 +340,42 @@ async def _call_openai_compat(api_key: str, base_url: str, model_id: str, prompt
         raise Exception("openai-compatible endpoint returned JSON without choices[0].message.content") from exc
 
 async def _call_gemini(prompt: str, b64: str, mime: str) -> str:
-    async with httpx.AsyncClient(timeout=60) as client:
-        r = await client.post(
-            f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent?key={GEMINI_API_KEY}",
-            headers={"Content-Type": "application/json"},
-            json={"contents": [{"parts": [{"text": "You are an environmental packaging evaluator. Respond with ONLY a single JSON object.\n\n" + prompt}, {"inline_data": {"mime_type": mime, "data": b64}}]}]},
-        )
-        r.raise_for_status()
+    async with REMOTE_MODEL_LIMITER.slot():
+        async with httpx.AsyncClient(timeout=60) as client:
+            r = await client.post(
+                f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent?key={GEMINI_API_KEY}",
+                headers={"Content-Type": "application/json"},
+                json={"contents": [{"parts": [{"text": "You are an environmental packaging evaluator. Respond with ONLY a single JSON object.\n\n" + prompt}, {"inline_data": {"mime_type": mime, "data": b64}}]}]},
+            )
+            r.raise_for_status()
     return r.json()["candidates"][0]["content"]["parts"][0]["text"]
 
 async def _call_anthropic_compat(api_key: str, base_url: str, model_id: str, prompt: str, b64: str, mime: str) -> str:
     provider = "anthropic-compatible"
     url = _anthropic_messages_url(base_url)
-    async with httpx.AsyncClient(timeout=180) as client:
-        r = await client.post(
-            url,
-            headers={
-                "x-api-key": api_key,
-                "anthropic-version": "2023-06-01",
-                "Content-Type": "application/json",
-            },
-            json={
-                "model": model_id,
-                "max_tokens": 8192,
-                "system": "You are an environmental packaging evaluator. Respond with ONLY a single JSON object.",
-                "messages": [{
-                    "role": "user",
-                    "content": [
-                        {"type": "image", "source": {"type": "base64", "media_type": mime, "data": b64}},
-                        {"type": "text", "text": prompt},
-                    ],
-                }],
-            },
-        )
-        _raise_for_ai_status(r, provider)
+    async with REMOTE_MODEL_LIMITER.slot():
+        async with httpx.AsyncClient(timeout=180) as client:
+            r = await client.post(
+                url,
+                headers={
+                    "x-api-key": api_key,
+                    "anthropic-version": "2023-06-01",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "model": model_id,
+                    "max_tokens": 8192,
+                    "system": "You are an environmental packaging evaluator. Respond with ONLY a single JSON object.",
+                    "messages": [{
+                        "role": "user",
+                        "content": [
+                            {"type": "image", "source": {"type": "base64", "media_type": mime, "data": b64}},
+                            {"type": "text", "text": prompt},
+                        ],
+                    }],
+                },
+            )
+            _raise_for_ai_status(r, provider)
     data = _parse_ai_json(r, provider)
     blocks = data.get("content", []) if isinstance(data, dict) else []
     text_blocks = [
@@ -399,32 +403,33 @@ async def _call_nvidia_stream(api_key: str, model_id: str, prompt: str, b64: str
         "stream": True,
         "chat_template_kwargs": {"enable_thinking": True},
     }
-    async with httpx.AsyncClient(timeout=180) as client:
-        async with client.stream(
-            "POST", "https://integrate.api.nvidia.com/v1/chat/completions",
-            headers={
-                "Authorization": f"Bearer {api_key}",
-                "Accept": "text/event-stream",
-                "Content-Type": "application/json",
-            },
-            json=payload,
-        ) as response:
-            response.raise_for_status()
-            full_text = ""
-            async for line in response.aiter_lines():
-                if line and line.startswith("data: "):
-                    data = line[6:]
-                    if data == "[DONE]":
-                        break
-                    try:
-                        chunk = json.loads(data)
-                        delta = chunk.get("choices", [{}])[0].get("delta", {})
-                        content = delta.get("content", "")
-                        if content:
-                            full_text += content
-                    except json.JSONDecodeError:
-                        continue
-            return full_text
+    async with REMOTE_MODEL_LIMITER.slot():
+        async with httpx.AsyncClient(timeout=180) as client:
+            async with client.stream(
+                "POST", "https://integrate.api.nvidia.com/v1/chat/completions",
+                headers={
+                    "Authorization": f"Bearer {api_key}",
+                    "Accept": "text/event-stream",
+                    "Content-Type": "application/json",
+                },
+                json=payload,
+            ) as response:
+                response.raise_for_status()
+                full_text = ""
+                async for line in response.aiter_lines():
+                    if line and line.startswith("data: "):
+                        data = line[6:]
+                        if data == "[DONE]":
+                            break
+                        try:
+                            chunk = json.loads(data)
+                            delta = chunk.get("choices", [{}])[0].get("delta", {})
+                            content = delta.get("content", "")
+                            if content:
+                                full_text += content
+                        except json.JSONDecodeError:
+                            continue
+                return full_text
 
 async def _call_custom_endpoint(prompt: str, b64: str, mime: str) -> str:
     api_key = (CUSTOM_API_KEY or "").strip()

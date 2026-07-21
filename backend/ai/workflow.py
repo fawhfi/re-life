@@ -11,7 +11,7 @@ import unicodedata
 from agents import Agent, RunContextWrapper, function_tool
 from pydantic import BaseModel, ConfigDict, Field
 
-from agent_security import untrusted_tool_result
+from backend.ai.security import untrusted_tool_result
 
 
 RecyclingLookup = Callable[..., Awaitable[dict[str, Any]]]

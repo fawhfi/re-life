@@ -22,7 +22,7 @@ from agents import (
     set_tracing_disabled,
 )
 
-from config import (
+from backend.config import (
     AGENT_API_KEY,
     AGENT_API_MODE,
     AGENT_BASE_URL,
@@ -31,7 +31,7 @@ from config import (
     AGENT_MODEL,
     AGENT_SESSION_TTL_SECONDS,
 )
-from agent_security import (
+from backend.ai.security import (
     AgentSafetyUnavailable,
     AgentSafetyViolation,
     DEFAULT_PROMPT_SAFETY_CHECKER,
@@ -44,7 +44,7 @@ from agent_security import (
     reagent_prompt_injection_guardrail,
     untrusted_tool_result as _untrusted_tool_result,
 )
-from reagent_workflow import (
+from backend.ai.workflow import (
     AgentGoal,
     AgentGoalStep,
     AgentMemoryState,
@@ -67,15 +67,16 @@ from reagent_workflow import (
     is_personal_replacement_decision,
     reagent_instructions,
 )
-from agent_persistence import (
+from backend.ai.persistence import (
     AgentConversationStore,
     AgentMemoryStore,
     SupabaseAgentConversationStore,
     SupabaseAgentMemoryStore,
     normalize_stored_messages as _normalize_stored_messages,
 )
-from agent_failover import FailoverAgentRuntime as _FailoverAgentRuntime
-from local_agent import LocalAgentRuntime
+from backend.ai.failover import FailoverAgentRuntime as _FailoverAgentRuntime
+from backend.ai.local_agent import LocalAgentRuntime
+from backend.ai.remote_model_limits import REMOTE_MODEL_LIMITER, RemoteModelConcurrencyLimiter
 
 
 if AGENT_BASE_URL:
@@ -213,8 +214,14 @@ class AgentRuntime(Protocol):
 class OpenAIAgentsRuntime:
     """Thin adapter around the official OpenAI Agents SDK runner."""
 
-    def __init__(self, agent: Agent[AgentRunContext] = RELIFE_AGENT):
+    def __init__(
+        self,
+        agent: Agent[AgentRunContext] = RELIFE_AGENT,
+        *,
+        limiter: RemoteModelConcurrencyLimiter = REMOTE_MODEL_LIMITER,
+    ):
         self.agent = agent
+        self._limiter = limiter
 
     async def start(
         self,
@@ -225,13 +232,14 @@ class OpenAIAgentsRuntime:
     ) -> AgentRuntimeOutcome:
         self._ensure_configured()
         try:
-            result = await Runner.run(
-                self.agent,
-                message,
-                context=context,
-                session=session,
-                max_turns=8,
-            )
+            async with self._limiter.slot():
+                result = await Runner.run(
+                    self.agent,
+                    message,
+                    context=context,
+                    session=session,
+                    max_turns=8,
+                )
         except InputGuardrailTripwireTriggered as exc:
             raise AgentSafetyViolation("Agent input safety guardrail triggered") from exc
         return self._outcome(result)
@@ -272,7 +280,8 @@ class OpenAIAgentsRuntime:
                     interruption,
                     rejection_message=rejection,
                 )
-        result = await Runner.run(self.agent, run_state, session=session)
+        async with self._limiter.slot():
+            result = await Runner.run(self.agent, run_state, session=session)
         return self._outcome(result)
 
     def _ensure_configured(self) -> None:
@@ -372,8 +381,14 @@ class AgentMemorySummarizer(Protocol):
 class OpenAIAgentMemorySummarizer:
     """Use a separate structured-output Agent to compress memory and update goals."""
 
-    def __init__(self, agent: Agent[None] = REAGENT_MEMORY_AGENT):
+    def __init__(
+        self,
+        agent: Agent[None] = REAGENT_MEMORY_AGENT,
+        *,
+        limiter: RemoteModelConcurrencyLimiter = REMOTE_MODEL_LIMITER,
+    ):
         self._agent = agent
+        self._limiter = limiter
 
     async def update(
         self,
@@ -393,11 +408,12 @@ class OpenAIAgentMemorySummarizer:
             "previous_memory": previous.model_dump(),
             "recent_conversation": _normalize_stored_messages(messages)[-12:],
         }
-        result = await Runner.run(
-            self._agent,
-            json.dumps(payload, ensure_ascii=False),
-            max_turns=2,
-        )
+        async with self._limiter.slot():
+            result = await Runner.run(
+                self._agent,
+                json.dumps(payload, ensure_ascii=False),
+                max_turns=2,
+            )
         output = result.final_output
         if isinstance(output, AgentMemoryState):
             return output

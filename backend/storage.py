@@ -9,7 +9,7 @@ import time
 
 import httpx
 
-from config import SUPABASE_SERVICE_ROLE_KEY, SUPABASE_URL
+from backend.config import SUPABASE_SERVICE_ROLE_KEY, SUPABASE_URL
 
 SUPABASE_REST_TIMEOUT = 15.0
 SUPABASE_STORAGE_TIMEOUT = 30.0
@@ -41,6 +41,16 @@ def _encode_path_arg(value: object) -> str:
     return quote(str(value), safe="")
 
 
+def _postgrest_scalar(value: object) -> str:
+    if value is True:
+        return "true"
+    if value is False:
+        return "false"
+    if value is None:
+        return "null"
+    return str(value)
+
+
 async def supabase_request(
     method: str,
     path: str,
@@ -61,7 +71,9 @@ async def supabase_request(
             headers=_headers(prefer),
         )
     if response.status_code >= 400:
-        raise RuntimeError(f"Supabase HTTP {response.status_code}: {response.text[:300]}")
+        raise RuntimeError(
+            f"Supabase REST request failed with HTTP {response.status_code}"
+        )
     if response.status_code == 204 or not response.text:
         return None
     try:
@@ -81,7 +93,7 @@ async def supabase_select(
     params: dict[str, str] = {"select": columns}
     if filters:
         for key, value in filters.items():
-            params[key] = f"eq.{value}"
+            params[key] = f"eq.{_postgrest_scalar(value)}"
     if order:
         params["order"] = order
     if limit is not None:
@@ -122,7 +134,7 @@ async def supabase_update(
     params: dict[str, str] = {}
     if filters:
         for key, value in filters.items():
-            params[key] = f"eq.{value}"
+            params[key] = f"eq.{_postgrest_scalar(value)}"
     prefer = "return=representation" if returning else None
     data = await supabase_request("PATCH", table, params=params, json=values, prefer=prefer)
     return data if isinstance(data, list) else ([] if data is None else [data])
@@ -137,7 +149,7 @@ async def supabase_delete(
     params: dict[str, str] = {}
     if filters:
         for key, value in filters.items():
-            params[key] = f"eq.{value}"
+            params[key] = f"eq.{_postgrest_scalar(value)}"
     prefer = "return=representation" if returning else None
     data = await supabase_request("DELETE", table, params=params, prefer=prefer)
     return data if isinstance(data, list) else ([] if data is None else [data])
@@ -239,7 +251,9 @@ async def supabase_storage_upload(
         response = await client.post(url, content=contents, headers=headers)
 
     if response.status_code >= 400:
-        raise RuntimeError(f"Supabase storage HTTP {response.status_code}: {response.text[:300]}")
+        raise RuntimeError(
+            f"Supabase storage upload failed with HTTP {response.status_code}"
+        )
     if response.status_code == 204 or not response.text:
         return None
     try:
@@ -268,7 +282,9 @@ async def supabase_storage_download(
         response = await client.get(url, headers=headers)
 
     if response.status_code >= 400:
-        raise RuntimeError(f"Supabase storage HTTP {response.status_code}: {response.text[:300]}")
+        raise RuntimeError(
+            f"Supabase storage download failed with HTTP {response.status_code}"
+        )
     return response.content, response.headers.get("content-type", "application/octet-stream")
 
 

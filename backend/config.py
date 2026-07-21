@@ -1,9 +1,6 @@
 """Re-Life configuration — env vars and runtime constants."""
 import os
 from email.utils import parseaddr
-from pathlib import Path
-
-root_dir = Path(__file__).parent
 
 
 def _env_bool(name: str, default: bool = False) -> bool:
@@ -66,6 +63,18 @@ if AGENT_API_MODE not in {"auto", "responses", "chat_completions"}:
     )
 AGENT_SESSION_TTL_SECONDS = max(300, int(os.getenv("AGENT_SESSION_TTL_SECONDS", "1800")))
 AGENT_LOCAL_FALLBACK_ENABLED = _env_bool("AGENT_LOCAL_FALLBACK_ENABLED", True)
+REMOTE_MODEL_MAX_CONCURRENCY = min(
+    32,
+    max(1, int(os.getenv("REMOTE_MODEL_MAX_CONCURRENCY", "1"))),
+)
+REMOTE_MODEL_MAX_QUEUE = min(
+    256,
+    max(0, int(os.getenv("REMOTE_MODEL_MAX_QUEUE", "8"))),
+)
+REMOTE_MODEL_QUEUE_TIMEOUT_SECONDS = min(
+    300.0,
+    max(0.1, float(os.getenv("REMOTE_MODEL_QUEUE_TIMEOUT_SECONDS", "5"))),
+)
 NVIDIA_INTEGRATE_BASE_URL = "https://integrate.api.nvidia.com/v1"
 AGENT_GUARD_MODEL = os.getenv("AGENT_GUARD_MODEL", "").strip()
 AGENT_GUARD_BASE_URL = (

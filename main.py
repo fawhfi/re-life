@@ -17,7 +17,7 @@ import os, random, re, uuid
 from typing import Literal
 from pydantic import AliasChoices, BaseModel, ConfigDict, Field, StrictStr, ValidationError, field_validator, model_validator
 
-from agent import (
+from backend.ai.agent import (
     AgentConsentRequired,
     AgentConversationNotFound,
     AgentInputError,
@@ -32,7 +32,7 @@ from agent import (
     SupabaseAgentMemoryStore,
 )
 
-from auth import (
+from backend.auth import (
     AuthDependencyUnavailable,
     CurrentAccountUpdate,
     check_rate_limit,
@@ -46,7 +46,7 @@ from auth import (
     update_password,
     verify_reset_code,
 )
-from config import (
+from backend.config import (
     ALLOWED_IMAGE_TYPES,
     ALLOW_DEV_AUTH_CODES,
     IS_DEVELOPMENT,
@@ -55,7 +55,7 @@ from config import (
     SUPABASE_STORAGE_BUCKET,
     get_public_config,
 )
-from data import (
+from backend.data import (
     add_item,
     canonicalize_owner_id,
     clear_all_items,
@@ -64,11 +64,11 @@ from data import (
     get_news_cached,
     persist_record_image,
 )
-from models import ai_analyze, local_scan_response
-from recycling_points import find_nearby_recycling_points
-from scan_service import analyze_scan_image, enrich_scan_result, normalize_scan_payload, parse_bool
-from scoring import CRITERIA_LABELS, HK_DISPOSAL, REWARDS_CATALOG, SCHEMA_WEIGHTS
-from sessions import (
+from backend.vision import ai_analyze, local_scan_response
+from backend.recycling_points import find_nearby_recycling_points
+from backend.scan_service import analyze_scan_image, enrich_scan_result, normalize_scan_payload, parse_bool
+from backend.scoring import CRITERIA_LABELS, HK_DISPOSAL, REWARDS_CATALOG, SCHEMA_WEIGHTS
+from backend.sessions import (
     SecurityStoreUnavailable,
     SessionMiddleware,
     clear_session_cookie,
@@ -79,8 +79,9 @@ from sessions import (
     revoke_session,
     set_session_cookie,
 )
-from storage import supabase_storage_download, verify_supabase_storage_signature
-from weather import get_header_weather
+from backend.storage import supabase_storage_download, verify_supabase_storage_signature
+from backend.weather import get_header_weather
+from backend.api.public_data import router as public_data_router
 
 
 FACTS_CATALOG = (
@@ -92,7 +93,14 @@ FACTS_CATALOG = (
     {"id": "glass-endless-recycling", "fact": "Glass is 100% recyclable endlessly without quality loss."},
 )
 
-app = FastAPI(title="Re-Life API")
+app = FastAPI(
+    title="Re-Life API",
+    version="1.0.0",
+    description="Read-only public recycling data and authenticated Re-Life application APIs.",
+    docs_url="/docs",
+    openapi_url="/openapi.json",
+)
+app.include_router(public_data_router)
 CURRENT_ACCOUNT_UPDATE_BODY_MAX_BYTES = 1_258_292
 CURRENT_ACCOUNT_UPDATE_MAX_TOP_LEVEL_KEYS = 32
 CURRENT_ACCOUNT_UPDATE_MAX_VALIDATION_ERRORS = 20

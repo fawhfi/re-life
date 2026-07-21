@@ -32,7 +32,7 @@ from pydantic import (
     model_validator,
 )
 
-from config import (
+from backend.config import (
     ALLOW_DEV_AUTH_CODES,
     AUTH_CODE_MAX_ATTEMPTS,
     AUTH_CODE_SECRET,
@@ -45,7 +45,7 @@ from config import (
     VERIFICATION_CODE_EXPIRY_SECONDS,
     validate_auth_security_settings,
 )
-from storage import (
+from backend.storage import (
     supabase_delete,
     supabase_enabled,
     supabase_insert,
@@ -729,12 +729,11 @@ def _safe_rate_limit_key(key: str) -> str:
 
 
 def _rate_limit_keys(request, subject: str = "") -> list[str]:
-    ip = request.headers.get("x-forwarded-for", "").split(",")[0].strip()
-    if not ip:
-        ip = request.client.host if request.client else "unknown"
-    ua = (request.headers.get("user-agent", "") or "")[:64]
+    # Proxy headers are attacker-controlled unless the ASGI server has already
+    # validated and applied them. Rate limits therefore use its client identity.
+    ip = request.client.host if request.client else "unknown"
     route = request.url.path
-    keys = [_safe_rate_limit_key(f"rl:{ip}|{ua}:{route}")]
+    keys = [_safe_rate_limit_key(f"rl:{ip}:{route}")]
 
     normalized_subject = subject.strip().lower() if isinstance(subject, str) else ""
     if normalized_subject:

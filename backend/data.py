@@ -10,9 +10,9 @@ import uuid
 
 import httpx
 
-from config import SERPAPI_KEY, SUPABASE_STORAGE_BUCKET, SUPABASE_URL
-from scoring import CRITERIA_LABELS, HK_DISPOSAL, REWARDS_CATALOG, SCHEMA_WEIGHTS, calc_weighted, get_grade
-from storage import (
+from backend.config import SERPAPI_KEY, SUPABASE_STORAGE_BUCKET, SUPABASE_URL
+from backend.scoring import CRITERIA_LABELS, HK_DISPOSAL, REWARDS_CATALOG, SCHEMA_WEIGHTS, calc_weighted, get_grade
+from backend.storage import (
     normalize_supabase_storage_url,
     supabase_delete,
     supabase_enabled,

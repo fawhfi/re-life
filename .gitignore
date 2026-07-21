@@ -14,8 +14,13 @@ Python
 scripts
 .playwright-cli
 docs
+!docs/
+docs/*
+!docs/regional-recycling-data-research.md
 output
 .worktrees/
 tests/*
 !tests/test_agent.py
 !tests/test_supabase_migrations.py
+!tests/test_remote_model_limits.py
+!tests/test_relife_data_api.py

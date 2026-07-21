@@ -6,9 +6,9 @@ import re
 import uuid
 from collections.abc import Awaitable, Callable
 
-from config import DEFAULT_AI_MODEL
-from models import CNN_LABELS, ai_analyze, local_scan_response
-from scoring import CRITERIA_LABELS, HK_DISPOSAL, calc_weighted, get_grade
+from backend.config import DEFAULT_AI_MODEL
+from backend.vision import CNN_LABELS, ai_analyze, local_scan_response
+from backend.scoring import CRITERIA_LABELS, HK_DISPOSAL, calc_weighted, get_grade
 
 
 RemoteAnalyzer = Callable[[bytes, str, str], Awaitable[dict]]

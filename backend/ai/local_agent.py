@@ -13,7 +13,7 @@ import unicodedata
 import numpy as np
 import onnxruntime as ort
 
-from reagent_workflow import (
+from backend.ai.workflow import (
     AgentRunContext,
     is_personal_replacement_decision,
     normalize_agent_language,
@@ -30,7 +30,7 @@ LOCAL_AGENT_INTENTS = {
     "general",
 }
 LOCAL_AGENT_MODEL_PATH = (
-    Path(__file__).resolve().parent / "nlp" / "artifacts" / "reagent_intent.onnx"
+    Path(__file__).resolve().parents[2] / "nlp" / "artifacts" / "reagent_intent.onnx"
 )
 _GENERAL_OPT_OUT_PHRASES = (
     "do not use any tool",
